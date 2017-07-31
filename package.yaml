@@ -1,0 +1,48 @@
+name: nakadi-haskell
+version: '0.1.0.0'
+category: Data
+author: Moritz Schulte
+maintainer: mtesseract@silverratio.net
+copyright: (c) 2017 Moritz Schulte
+license: BSD3
+github: githubuser/nakadi-haskell
+extra-source-files:
+- README.md
+default-extensions:
+- NoImplicitPrelude
+- OverloadedStrings
+ghc-options:
+- -Wall
+- -fno-warn-type-defaults
+dependencies:
+- base >=4.7 && <5
+- conduit
+- conduit-extra
+- conduit-combinators
+- iso8601-time
+- bytestring
+- containers
+- vector
+- hashable
+- aeson
+- monad-logger
+- text
+- lens
+- http-types
+- http-client
+- http-client-tls
+- http-conduit
+- resourcet
+- uuid
+- mtl
+- transformers
+- scientific
+- safe-exceptions
+- unordered-containers
+- time
+- split
+- aeson-casing
+library:
+  source-dirs: src
+  exposed-modules:
+  - Nakadi
