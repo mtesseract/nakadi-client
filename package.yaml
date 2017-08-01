@@ -5,7 +5,7 @@ author: Moritz Schulte
 maintainer: mtesseract@silverratio.net
 copyright: (c) 2017 Moritz Schulte
 license: BSD3
-github: githubuser/nakadi-haskell
+github: mtesseract/nakadi-haskell
 extra-source-files:
 - README.md
 default-extensions:

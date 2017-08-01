@@ -12,7 +12,7 @@ Example using Subscription API:
   runResourceT $ do
     (connection, stream) <- subscriptionSource config Nothing subscriptionId
     runSubscription config connection $
-      stream
-      .| iterM processEvent
-      .| mapM_C subscriptionCommitOne
+      source
+      .| C.iterM processEvent
+      .| subscriptionSink
 ```

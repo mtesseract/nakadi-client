@@ -1,10 +1,12 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
 
 module Nakadi.Subscriptions.Events
   ( subscriptionSource
   , runSubscription
+  , subscriptionSink
   ) where
 
 import           Nakadi.Internal.Prelude
@@ -20,8 +22,10 @@ import           Data.Void
 import           Nakadi.Internal.Config
 import           Nakadi.Internal.Conversions
 import           Nakadi.Internal.Http
+import           Nakadi.Internal.Lenses       (HasSubscriptionCursor)
+import qualified Nakadi.Internal.Lenses       as L
 import           Nakadi.Internal.Types
-import qualified Nakadi.Internal.Lenses      as L
+import           Nakadi.Subscriptions.Cursors
 
 -- | GET to /subscriptions/ID/events
 subscriptionSource :: (MonadNakadi m, FromJSON a, MonadResource m, MonadBaseControl IO m, MonadMask m)
@@ -63,3 +67,10 @@ runSubscription config SubscriptionEventStream { .. } =
                                                                  , _subscriptionId = _subscriptionId
                                                                  , _config         = config }
   in runConduit . runReaderC subscriptionStreamContext
+
+subscriptionSink :: (MonadNakadi m, HasSubscriptionCursor a)
+                 => ConduitM a
+                             Void
+                             (ReaderT SubscriptionEventStreamContext m)
+                             ()
+subscriptionSink = awaitForever (lift . subscriptionCommitOne)
