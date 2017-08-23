@@ -1,4 +1,4 @@
-name: nakadi-haskell
+name: nakadi
 version: '0.1.0.0'
 category: Data
 author: Moritz Schulte
@@ -46,3 +46,4 @@ library:
   source-dirs: src
   exposed-modules:
   - Nakadi
+  - Nakadi.Types
