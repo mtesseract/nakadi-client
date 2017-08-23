@@ -10,6 +10,7 @@ import           Nakadi.Internal.Prelude
 
 import           Control.Lens
 import           Data.Text               (Text)
+import           Data.Time.Clock
 import           Data.UUID               (UUID)
 import           Nakadi.Internal.Types
 import           Nakadi.Types
@@ -64,3 +65,9 @@ instance HasSubscriptionCursor SubscriptionCursor where
 
 instance HasSubscriptionCursor (SubscriptionEventStreamBatch a) where
   subscriptionCursor = cursor
+
+class HasUTCTime s a where
+  utcTime :: Lens' s a
+
+instance HasUTCTime Timestamp UTCTime where
+  utcTime f (Timestamp t) = Timestamp <$> f t
