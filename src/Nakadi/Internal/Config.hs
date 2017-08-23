@@ -10,7 +10,7 @@ import           Nakadi.Types
 
 buildConsumeQueryParameters :: ConsumeParameters -> [(ByteString, ByteString)]
 buildConsumeQueryParameters ConsumeParameters { .. } = catMaybes
-  [ ("bach_limit",) . encodeUtf8 . tshow <$> _batchLimit
+  [ ("batch_limit",) . encodeUtf8 . tshow <$> _batchLimit
   , ("stream_limit",) . encodeUtf8 . tshow <$> _streamLimit
   , ("batch_flush_timeout",) . encodeUtf8 . tshow <$> _batchFlushTimeout
   , ("stream_timeout",) . encodeUtf8 . tshow <$> _streamTimeout
