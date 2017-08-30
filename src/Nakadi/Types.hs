@@ -7,10 +7,12 @@ module Nakadi.Types
   , module Nakadi.Types.Config
   , MonadNakadi
   , SubscriptionEventStreamContext
+  , LogFunc
   ) where
 
 import           Nakadi.Internal.Types
 import           Nakadi.Types.Config
+import           Nakadi.Types.Logger
 import           Nakadi.Types.Service
 
 import           Control.Exception.Safe

@@ -20,7 +20,9 @@ newNakadiConfig' manager consumeParameters request =
                 , _manager                        = manager
                 , _requestTemplate                = request
                 , _requestModifier                = return
-                , _deserializationFailureCallback = Nothing }
+                , _deserializationFailureCallback = Nothing
+                , _streamConnectCallback          = Nothing
+                , _logFunc                        = Nothing }
 
 newNakadiConfig :: (MonadIO m, MonadThrow m)
                 => Maybe ManagerSettings
@@ -35,6 +37,12 @@ setRequestModifier = (L.requestModifier .~)
 
 setDeserializationFailureCallback :: (ByteString -> IO ()) -> Config -> Config
 setDeserializationFailureCallback callback = L.deserializationFailureCallback .~ Just callback
+
+setStreamConnectCallback :: StreamConnectCallback  -> Config -> Config
+setStreamConnectCallback callback = L.streamConnectCallback .~ Just callback
+
+setLogFunc :: LogFunc -> Config -> Config
+setLogFunc logFunc = L.logFunc .~ Just logFunc
 
 -- | ConsumeParameters
 

@@ -115,16 +115,18 @@ httpJsonBodyStream :: (MonadMask m, MonadIO m, FromJSON a, MonadBaseControl IO m
                    -> (Request -> Request)
                    -> m (b, ConduitM () a (ReaderT r m) ())
 httpJsonBodyStream config successStatus f exceptionMap requestDef = do
-  let manager = config^.L.manager
-      request = requestDef (config^.L.requestTemplate)
-                & setRequestManager manager
+  let manager        = config^.L.manager
+      request        = requestDef (config^.L.requestTemplate)
+                       & setRequestManager manager
   (_, response) <- allocate (responseOpen request manager) responseClose
   let response_  = void response
       bodySource = bodyReaderSource (getResponseBody response)
       status     = getResponseStatus response
   if status == successStatus
-    then do let conduit = bodySource
+    then do connectCallback (config^.L.logFunc) response_
+            let conduit = bodySource
                           .| Conduit.lines
+                          -- .| Conduit.iterM (liftIO . Text.putStrLn . Text.decodeUtf8)
                           .| conduitDecode config
             case f response_ of
               Left errMsg -> throwString (Text.unpack errMsg)
@@ -134,6 +136,10 @@ httpJsonBodyStream config successStatus f exceptionMap requestDef = do
            Nothing    -> throwIO (UnexpectedResponse response_)
 
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
+
+        connectCallback = case config^.L.streamConnectCallback of
+          Just cb -> \logFunc response -> liftIO $ cb logFunc response
+          Nothing -> \_ _ -> return ()
 
 setRequestQueryParameters :: [(ByteString, ByteString)] -> Request -> Request
 setRequestQueryParameters parameters = setRequestQueryString parameters'

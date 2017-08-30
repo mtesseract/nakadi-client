@@ -19,7 +19,11 @@ import           Nakadi.Internal.Http
 import qualified Nakadi.Internal.Lenses  as L
 
 -- | GET to /event-types/NAME/evets. Returns Conduit for event batch consumption.
-eventTypeSource :: (MonadNakadi m, MonadResource m, MonadBaseControl IO m, MonadMask m, FromJSON a)
+eventTypeSource :: ( MonadNakadi m
+                   , MonadResource m
+                   , MonadBaseControl IO m
+                   , MonadMask m
+                   , FromJSON a )
                 => Config
                 -> Maybe ConsumeParameters
                 -> EventTypeName
