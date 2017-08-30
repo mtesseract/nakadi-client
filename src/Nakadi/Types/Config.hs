@@ -4,7 +4,11 @@ import           Nakadi.Internal.Prelude
 
 import           Network.HTTP.Client
 
+import           Nakadi.Types.Logger
+
 -- | Config
+
+type StreamConnectCallback = Maybe LogFunc -> Response () -> IO ()
 
 data Config = Config
   { _requestTemplate                :: Request
@@ -12,6 +16,8 @@ data Config = Config
   , _manager                        :: Manager
   , _consumeParameters              :: ConsumeParameters
   , _deserializationFailureCallback :: Maybe (ByteString -> IO ())
+  , _streamConnectCallback          :: Maybe StreamConnectCallback
+  , _logFunc                        :: Maybe LogFunc
   }
 
 -- | ConsumeParameters
