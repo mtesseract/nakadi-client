@@ -10,7 +10,7 @@ Example using Subscription API:
 
 ```haskell
   runResourceT $ do
-    (connection, stream) <- subscriptionSource config Nothing subscriptionId
+    (connection, source) <- subscriptionSource config Nothing subscriptionId
     runSubscription config connection $
       source
       .| C.iterM processEvent
