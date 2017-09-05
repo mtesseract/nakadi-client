@@ -48,5 +48,5 @@ dependencies:
 library:
   source-dirs: src
   exposed-modules:
-  - Nakadi
-  - Nakadi.Types
+  - Network.Nakadi
+  - Network.Nakadi.Types
