@@ -27,6 +27,8 @@ import           Nakadi.Types.Problem
 import           Nakadi.Internal.Json
 import           Nakadi.Types.Util
 
+-- | CursorOffset
+
 newtype CursorOffset = CursorOffset { unCursorOffset :: Text }
   deriving (Show, Eq, Ord, Hashable, Generic)
 
@@ -77,6 +79,8 @@ newtype CursorToken = CursorToken Text deriving (Eq, Show, Ord)
 instance IsString CursorToken where
   fromString = CursorToken . Text.pack
 
+deriveJSON nakadiJsonOptions ''CursorToken
+
 -- | Cursor
 
 data Cursor = Cursor
@@ -84,14 +88,12 @@ data Cursor = Cursor
   , _offset    :: CursorOffset
   } deriving (Eq, Ord, Hashable, Show, Generic)
 
-
+deriveJSON nakadiJsonOptions ''Cursor
 
 -- | OwningApplication
 
 newtype ApplicationName = ApplicationName { unApplicationName :: Text }
   deriving (Show, Eq, Ord, Generic)
-
-deriveJSON nakadiJsonOptions ''ApplicationName
 
 -- | SubscriptionCursor
 
@@ -102,6 +104,8 @@ data SubscriptionCursor = SubscriptionCursor
   , _cursorToken :: Text
   } deriving (Show, Eq, Ord, Generic)
 
+deriveJSON nakadiJsonOptions ''SubscriptionCursor
+
 -- | SubscriptionCursorWithoutToken
 
 data SubscriptionCursorWithoutToken = SubscriptionCursorWithoutToken
@@ -109,27 +113,6 @@ data SubscriptionCursorWithoutToken = SubscriptionCursorWithoutToken
   , _offset    :: CursorOffset
   , _eventType :: EventTypeName
   } deriving (Show, Generic, Eq, Ord, Hashable)
-
--- -- | Partition
-
--- newtype Partition = Partition
---   { unPartition :: Text
---   } deriving (Show, Eq, Ord, Hashable, Generic)
-
--- instance ToJSON Partition where
---   toJSON = String . unPartition
-
--- instance FromJSON Partition where
---   parseJSON (String partition) = return $ Partition partition
---   parseJSON invalid            = typeMismatch "Partition" invalid
-
--- | Offset
-
-deriveJSON nakadiJsonOptions ''CursorToken
-
-deriveJSON nakadiJsonOptions ''Cursor
-
-deriveJSON nakadiJsonOptions ''SubscriptionCursor
 
 deriveJSON nakadiJsonOptions ''SubscriptionCursorWithoutToken
 
@@ -179,31 +162,6 @@ data SubscriptionEventStream = SubscriptionEventStream
   , _subscriptionId :: SubscriptionId
   } deriving (Show)
 
--- | EventStreamBatch
-
-data EventStreamBatch a = EventStreamBatch
-  { _cursor :: Cursor
-  , _events :: Maybe (Vector (Event a))
-  } deriving (Show, Generic)
-
--- | SubscriptionEventStreamBatch
-
-data SubscriptionEventStreamBatch a = SubscriptionEventStreamBatch
-  { _cursor :: SubscriptionCursor
-  , _events :: Maybe (Vector (Event a))
-  } deriving (Show, Generic)
-
--- | EventId
-
-newtype EventId = EventId { unEventId :: UUID }
-  deriving (Show, Eq, Ord, Generic, Hashable)
-
-instance ToJSON EventId where
-  toJSON = String . tshow . unEventId
-
-instance FromJSON EventId where
-  parseJSON = parseUUID "EventId" EventId
-
 -- | Timestamp
 
 newtype Timestamp = Timestamp { unTimestamp :: UTCTime }
@@ -229,6 +187,8 @@ data Metadata = Metadata
   , _eventType  :: Text
   } deriving (Eq, Show, Generic)
 
+deriveJSON nakadiJsonOptions ''Metadata
+
 -- | Event
 
 data Event a = Event
@@ -238,9 +198,36 @@ data Event a = Event
   , _metadata :: Metadata
   } deriving (Eq, Show, Generic)
 
-deriveJSON nakadiJsonOptions ''Metadata
-
 deriveJSON nakadiJsonOptions ''Event
+
+-- | EventStreamBatch
+
+data EventStreamBatch a = EventStreamBatch
+  { _cursor :: Cursor
+  , _events :: Maybe (Vector (Event a))
+  } deriving (Show, Generic)
+
+deriveJSON nakadiJsonOptions ''EventStreamBatch
+
+-- | SubscriptionEventStreamBatch
+
+data SubscriptionEventStreamBatch a = SubscriptionEventStreamBatch
+  { _cursor :: SubscriptionCursor
+  , _events :: Maybe (Vector (Event a))
+  } deriving (Show, Generic)
+
+deriveJSON nakadiJsonOptions ''SubscriptionEventStreamBatch
+
+-- | EventId
+
+newtype EventId = EventId { unEventId :: UUID }
+  deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance ToJSON EventId where
+  toJSON = String . tshow . unEventId
+
+instance FromJSON EventId where
+  parseJSON = parseUUID "EventId" EventId
 
 -- | Partition
 
@@ -263,10 +250,6 @@ data ShiftedCursor = ShiftedCursor
 
 deriveJSON nakadiJsonOptions ''ShiftedCursor
 
-deriveJSON nakadiJsonOptions ''EventStreamBatch
-
-deriveJSON nakadiJsonOptions ''SubscriptionEventStreamBatch
-
 -- | CursorDistanceQuery
 
 data CursorDistanceQuery = CursorDistanceQuery
@@ -274,13 +257,13 @@ data CursorDistanceQuery = CursorDistanceQuery
   , _finalCursor   :: Cursor
   } deriving (Show, Eq, Ord, Hashable, Generic)
 
+deriveJSON nakadiJsonOptions ''CursorDistanceQuery
+
 -- | CursorDistanceResult
 
 newtype CursorDistanceResult = CursorDistanceResult
   { _distance :: Int64
   } deriving (Show, Eq, Ord, Hashable, Generic)
-
-deriveJSON nakadiJsonOptions ''CursorDistanceQuery
 
 deriveJSON nakadiJsonOptions ''CursorDistanceResult
 
@@ -304,8 +287,6 @@ instance FromJSON SubscriptionPosition where
                     "cursors" -> return SubscriptionPositionCursors
                     invalid   -> typeMismatch "SubscriptionPosition" invalid
 
-
-
 -- | Subscription
 
 data Subscription = Subscription
@@ -320,6 +301,7 @@ data Subscription = Subscription
 
 deriveJSON nakadiJsonOptions ''Subscription
 
+-- | PublishingStatus
 data PublishingStatus = PublishingStatusSubmitted
                       | PublishingStatusFailed
                       | PublishingStatusAborted
@@ -338,6 +320,7 @@ instance FromJSON PublishingStatus where
                        "aborted"   -> return PublishingStatusAborted
                        invalid     -> typeMismatch "PublishingStatus" invalid
 
+-- | Step
 data Step = StepNone
           | StepValidating
           | StepPartitioning
@@ -417,29 +400,7 @@ data CursorCommitResult = CursorCommitResult
 
 deriveJSON nakadiJsonOptions ''CursorCommitResult
 
-data LibException = BatchPartiallySubmitted [BatchItemResponse]
-                  | BatchValidationFailure [BatchItemResponse]
-                  | ClientNotAuthenticated Problem
-                  | AccessForbidden Problem
-                  | UnprocessableEntity Problem
-                  | Conflict Problem
-                  | DeserializationFailure ByteString.Lazy.ByteString
-                  | UnexpectedResponse (Response ())
-                  | NotFound Problem
-                  | TooManyRequests Problem
-                  | BadRequest Problem
-                  | SubscriptionNotFound Problem
-                  | CursorAlreadyCommitted [CursorCommitResult]
-                  | CursorResetInProgress Problem
-                  | EventTypeNotFound Problem
-                  | SubscriptionExistsAlready Subscription
-                  | RequestModificationException SomeException
-                  | CursorDistanceNoResult
-                  deriving (Show, Typeable)
-
-instance Exception LibException
-
--- | Schemas
+-- | SchemaType
 
 data SchemaType = SchemaTypeJson
   deriving (Eq, Show, Ord, Generic, Hashable)
@@ -453,6 +414,7 @@ instance FromJSON SchemaType where
                     String "json_schema" -> return SchemaTypeJson
                     invalid              -> typeMismatch "SchemaType" invalid
 
+-- | EventTypeSchema
 data EventTypeSchema = EventTypeSchema
   { _version    :: Maybe Text
   , _createdAt  :: Maybe Timestamp
@@ -467,11 +429,14 @@ deriveJSON nakadiJsonOptions {
                                         , ("_schema",     "schema") ]
   }  ''EventTypeSchema
 
+-- | PaginationLink
 newtype PaginationLink = PaginationLink
   { _href :: Text
   } deriving (Show, Eq, Ord, Generic, Hashable)
 
 deriveJSON nakadiJsonOptions ''PaginationLink
+
+-- | PaginationLinks
 
 data PaginationLinks = PaginationLinks
   { _prev :: Maybe PaginationLink
@@ -480,6 +445,8 @@ data PaginationLinks = PaginationLinks
 
 deriveJSON nakadiJsonOptions ''PaginationLinks
 
+-- | EventTypeSchemasResponse
+
 data EventTypeSchemasResponse = EventTypeSchemasResponse
   { __links :: PaginationLinks
   , _items  :: [EventTypeSchema]
@@ -487,6 +454,7 @@ data EventTypeSchemasResponse = EventTypeSchemasResponse
 
 deriveJSON nakadiJsonOptions ''EventTypeSchemasResponse
 
+-- | SchemaVersion
 newtype SchemaVersion = SchemaVersion { unSchemaVersion :: Text }
   deriving (Show, Eq, Ord, Generic)
 
@@ -495,11 +463,17 @@ instance IsString SchemaVersion where
 
 deriveJSON nakadiJsonOptions ''SchemaVersion
 
+-- | Offset
+
 newtype Offset = Offset { unOffset :: Int64 }
   deriving (Show, Eq, Ord, Generic, Hashable)
 
+-- | Limit
+
 newtype Limit = Limit { unLimit :: Int64 }
   deriving (Show, Eq, Ord, Generic, Hashable)
+
+-- | PartitionState
 
 data PartitionState = PartitionStateUnassigned
                     | PartitionStateReassigning
@@ -519,6 +493,8 @@ instance FromJSON PartitionState where
     String "reassigning" -> return PartitionStateReassigning
     invalid              -> typeMismatch "PartitionState" invalid
 
+-- | PartitionStat
+
 data PartitionStat = PartitionStat
   { _partition        :: PartitionName
   , _state            :: PartitionState
@@ -528,12 +504,16 @@ data PartitionStat = PartitionStat
 
 deriveJSON nakadiJsonOptions ''PartitionStat
 
+-- | SubscriptionEventTypeStats
+
 data SubscriptionEventTypeStats = SubscriptionEventTypeStats
   { _eventType  :: EventTypeName
   , _partitions :: [PartitionStat]
   } deriving (Show, Eq, Ord, Generic)
 
 deriveJSON nakadiJsonOptions ''SubscriptionEventTypeStats
+
+-- | SubscriptionEventTypeStatsResult
 
 newtype SubscriptionEventTypeStatsResult = SubscriptionEventTypeStatsResult
   { _items :: [SubscriptionEventTypeStats]
@@ -555,3 +535,25 @@ data EventType = EventType
   } deriving (Show, Generic, Eq, Ord, Hashable)
 
 deriveJSON nakadiJsonOptions ''EventType
+
+data LibException = BatchPartiallySubmitted [BatchItemResponse]
+                  | BatchValidationFailure [BatchItemResponse]
+                  | ClientNotAuthenticated Problem
+                  | AccessForbidden Problem
+                  | UnprocessableEntity Problem
+                  | Conflict Problem
+                  | DeserializationFailure ByteString.Lazy.ByteString
+                  | UnexpectedResponse (Response ())
+                  | NotFound Problem
+                  | TooManyRequests Problem
+                  | BadRequest Problem
+                  | SubscriptionNotFound Problem
+                  | CursorAlreadyCommitted [CursorCommitResult]
+                  | CursorResetInProgress Problem
+                  | EventTypeNotFound Problem
+                  | SubscriptionExistsAlready Subscription
+                  | RequestModificationException SomeException
+                  | CursorDistanceNoResult
+                  deriving (Show, Typeable)
+
+instance Exception LibException
