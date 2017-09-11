@@ -1,4 +1,4 @@
-name: nakadi
+name: nakadi-client
 version: '0.2.0.0'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
