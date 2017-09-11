@@ -9,7 +9,7 @@
 module Network.Nakadi.Internal.Http
   ( module Network.HTTP.Simple
   , module Network.HTTP.Types.Status
-  , module Network.Nakadi.Types
+  , module Network.Nakadi.Internal.Types
   , httpJsonBody
   , httpJsonNoBody
   , httpJsonBodyStream
@@ -44,8 +44,8 @@ import           Network.HTTP.Simple
 import           Network.HTTP.Types
 import           Network.HTTP.Types.Status
 import qualified Network.Nakadi.Internal.Lenses  as L
+import           Network.Nakadi.Internal.Types
 import           Network.Nakadi.Internal.Util
-import           Network.Nakadi.Types
 
 conduitDecode :: (MonadIO m, FromJSON a) => Config -> ConduitM ByteString a m ()
 conduitDecode Config { .. } = awaitForever $ \a ->

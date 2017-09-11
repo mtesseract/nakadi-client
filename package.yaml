@@ -1,4 +1,4 @@
-name: nakadi
+name: nakadi-client
 version: '0.2.0.0'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
@@ -49,4 +49,24 @@ library:
   source-dirs: src
   exposed-modules:
   - Network.Nakadi
+  - Network.Nakadi.Config
+  - Network.Nakadi.EventTypes
+  - Network.Nakadi.EventTypes.CursorDistances
+  - Network.Nakadi.EventTypes.CursorsLag
+  - Network.Nakadi.EventTypes.Events
+  - Network.Nakadi.EventTypes.EventType
+  - Network.Nakadi.EventTypes.Partitions
+  - Network.Nakadi.EventTypes.Schemas
+  - Network.Nakadi.EventTypes.ShiftedCursors
+  - Network.Nakadi.Subscriptions
+  - Network.Nakadi.Subscriptions.Cursors
+  - Network.Nakadi.Subscriptions.Events
+  - Network.Nakadi.Subscriptions.Stats
+  - Network.Nakadi.Subscriptions.Subscription
   - Network.Nakadi.Types
+  - Network.Nakadi.Types.Config
+  - Network.Nakadi.Types.Exceptions
+  - Network.Nakadi.Types.Logger
+  - Network.Nakadi.Types.Problem
+  - Network.Nakadi.Types.Service
+  - Network.Nakadi.Types.Subscription

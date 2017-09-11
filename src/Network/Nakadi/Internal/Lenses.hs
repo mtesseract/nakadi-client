@@ -9,12 +9,15 @@ module Network.Nakadi.Internal.Lenses where
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
-import           Data.Text                       (Text)
+import           Data.Text                                  (Text)
 import           Data.Time.Clock
-import           Data.UUID                       (UUID)
-import qualified Network.HTTP.Client             as HTTP
-import           Network.Nakadi.Internal.Types
-import           Network.Nakadi.Types
+import           Data.UUID                                  (UUID)
+import qualified Network.HTTP.Client                        as HTTP
+
+import           Network.Nakadi.Internal.Types.Config
+import           Network.Nakadi.Internal.Types.Service
+import           Network.Nakadi.Internal.Types.Subscription
+
 
 makeFieldsNoPrefix ''Config
 
@@ -37,6 +40,9 @@ makeFieldsNoPrefix ''SubscriptionEventTypeStatsResult
 makeFieldsNoPrefix ''ConsumeParameters
 makeFieldsNoPrefix ''SubscriptionCursorCommit
 makeFieldsNoPrefix ''CursorCommit
+
+class HasNakadiConfig s a where
+  nakadiConfig :: Lens' s a
 
 class HasId s a | s -> a where
   id :: Lens' s a

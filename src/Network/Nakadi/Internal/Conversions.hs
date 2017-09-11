@@ -1,5 +1,3 @@
--- |
-
 module Network.Nakadi.Internal.Conversions where
 
 import           Network.Nakadi.Internal.Prelude

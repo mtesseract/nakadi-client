@@ -1,33 +1,19 @@
-module Network.Nakadi.Types.Config where
+{-|
+Module      : Network.Nakadi.Types.Config
+Description : Nakadi Config Types
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
 
-import           Network.Nakadi.Internal.Prelude
+This module provides the Nakadi Config Types.
+-}
 
-import           Network.HTTP.Client
+module Network.Nakadi.Types.Config
+  ( Config
+  , ConsumeParameters
+  , StreamConnectCallback
+  ) where
 
-import           Network.Nakadi.Types.Logger
-
--- | Config
-
-type StreamConnectCallback = Maybe LogFunc -> Response () -> IO ()
-
-data Config = Config
-  { _requestTemplate                :: Request
-  , _requestModifier                :: Request -> IO Request
-  , _manager                        :: Manager
-  , _consumeParameters              :: ConsumeParameters
-  , _deserializationFailureCallback :: Maybe (ByteString -> IO ())
-  , _streamConnectCallback          :: Maybe StreamConnectCallback
-  , _logFunc                        :: Maybe LogFunc
-  }
-
--- | ConsumeParameters
-
-data ConsumeParameters = ConsumeParameters
-  { _maxUncommittedEvents :: Maybe Int32
-  , _batchLimit           :: Maybe Int32
-  , _streamLimit          :: Maybe Int32
-  , _batchFlushTimeout    :: Maybe Int32
-  , _streamTimeout        :: Maybe Int32
-  , _streamKeepAliveLimit :: Maybe Int32
-  , _flowId               :: Maybe Text
-  } deriving (Show, Eq, Ord)
+import           Network.Nakadi.Internal.Types.Config

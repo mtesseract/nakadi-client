@@ -14,7 +14,7 @@ The API is not considered stable yet.
 Example using the Subscription API:
 
 ```haskell
-import qualified Nakadi
+import qualified Network.Nakadi as Nakadi
 
 processSubscription :: Nakadi.SubscriptionId -> IO ()
 processSubscription subscriptionId = do
