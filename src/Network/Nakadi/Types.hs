@@ -1,21 +1,34 @@
--- | Library Types
+{-|
+Module      : Network.Nakadi.Types
+Description : Nakadi API Types
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
 
-{-# LANGUAGE ConstraintKinds #-}
+This module provides the Nakadi API Types.
+-}
 
 module Network.Nakadi.Types
-  ( module Network.Nakadi.Types.Service
-  , module Network.Nakadi.Types.Config
+  ( module Network.Nakadi.Types.Config
+  , module Network.Nakadi.Types.Exceptions
+  , module Network.Nakadi.Types.Logger
+  , module Network.Nakadi.Types.Problem
+  , module Network.Nakadi.Types.Service
   , MonadNakadi
+  , MonadNakadiEnv
   , SubscriptionEventStreamContext
-  , LogFunc
+  , HasNakadiConfig(..)
   ) where
 
-import           Network.Nakadi.Internal.Types
+import           Network.Nakadi.Internal.Types     (MonadNakadi, MonadNakadiEnv)
+
 import           Network.Nakadi.Types.Config
+import           Network.Nakadi.Types.Exceptions
 import           Network.Nakadi.Types.Logger
+import           Network.Nakadi.Types.Problem
 import           Network.Nakadi.Types.Service
+import           Network.Nakadi.Types.Subscription
 
-import           Control.Exception.Safe
-import           Control.Monad.IO.Class
-
-type MonadNakadi m = (MonadIO m, MonadCatch m, MonadThrow m)
+import           Network.Nakadi.Internal.Lenses

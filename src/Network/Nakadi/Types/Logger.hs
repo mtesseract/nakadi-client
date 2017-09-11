@@ -1,8 +1,17 @@
--- | Defines the LogFunc type.
+{-|
+Module      : Network.Nakadi.Types.Logger
+Description : Nakadi Exception Types
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
 
-module Network.Nakadi.Types.Logger where
+This module provides the Nakadi Logger Types.
+-}
 
-import           Control.Monad.Logger
-import           Prelude
+module Network.Nakadi.Types.Logger
+  ( LogFunc
+  ) where
 
-type LogFunc = Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+import           Network.Nakadi.Internal.Types.Logger

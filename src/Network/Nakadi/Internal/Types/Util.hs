@@ -1,4 +1,4 @@
-module Network.Nakadi.Types.Util where
+module Network.Nakadi.Internal.Types.Util where
 
 import           Data.Aeson
 import           Data.Aeson.Types

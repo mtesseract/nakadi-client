@@ -1,14 +1,31 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-|
+Module      : Network.Nakadi.Subscriptions.Cursors
+Description : Implementation of Nakadi Subscription Cursors API
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+This module implements the @\/subscriptions\/SUBSCRIPTIONS\/cursors@
+API.
+-}
+
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 
 module Network.Nakadi.Subscriptions.Cursors
   ( subscriptionCursorCommit'
+  , subscriptionCursorCommitR'
   , subscriptionCommit
-  , subscriptionCommitOne
   , subscriptionCursors
+  , subscriptionCursorsR
   , subscriptionCursorsReset
+  , subscriptionCursorsResetR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -26,15 +43,20 @@ import qualified Network.Nakadi.Internal.Lenses      as L
 import           Network.Nakadi.Internal.Types
 
 path :: SubscriptionId -> ByteString
-path subscriptionId = "/subscriptions/" <> subscriptionIdToByteString subscriptionId <> "/cursors"
+path subscriptionId =
+  "/subscriptions/"
+  <> subscriptionIdToByteString subscriptionId
+  <> "/cursors"
 
--- | POST to /subscriptions/ID/cursors.
-subscriptionCursorCommit' :: MonadNakadi m
-                          => Config
-                          -> SubscriptionId
-                          -> StreamId
-                          -> SubscriptionCursorCommit
-                          -> m ()
+-- | @POST@ to @\/subscriptions\/SUBSCRIPTION-ID\/cursors@. Commits
+-- cursors using low level interface.
+subscriptionCursorCommit' ::
+  MonadNakadi m
+  => Config                   -- ^ Configuration
+  -> SubscriptionId           -- ^ Subsciption ID
+  -> StreamId                 -- ^ Stream ID
+  -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
+  -> m ()
 subscriptionCursorCommit' config subscriptionId streamId cursors =
   httpJsonNoBody config status204 [(ok200, errorCursorAlreadyCommitted)]
   (setRequestMethod "POST"
@@ -42,9 +64,25 @@ subscriptionCursorCommit' config subscriptionId streamId cursors =
    . setRequestBodyJSON cursors
    . setRequestPath (path subscriptionId))
 
-subscriptionCommit :: (MonadNakadi m, MonadCatch m, HasSubscriptionCursor a)
-                   => [a]
-                   -> ReaderT SubscriptionEventStreamContext m ()
+-- | @POST@ to @\/subscriptions\/SUBSCRIPTION-ID\/cursors@. Commits
+-- cursors using low level interface. Uses the configuration contained
+-- in the environment.
+subscriptionCursorCommitR' ::
+  MonadNakadiEnv r m
+  => SubscriptionId           -- ^ Subsciption ID
+  -> StreamId                 -- ^ Stream ID
+  -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
+  -> m ()
+subscriptionCursorCommitR' subscriptionId streamId cursors = do
+  config <- asks (view L.nakadiConfig)
+  subscriptionCursorCommit' config subscriptionId streamId cursors
+
+-- | @POST@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Commits
+-- cursors using high level interface.
+subscriptionCommit ::
+  (MonadNakadi m, MonadCatch m, HasSubscriptionCursor a)
+  => [a] -- ^ Values containing Subscription Cursors to commit
+  -> ReaderT SubscriptionEventStreamContext m ()
 subscriptionCommit as = do
   SubscriptionEventStreamContext { .. } <- ask
   Safe.catchJust
@@ -59,27 +97,51 @@ subscriptionCommit as = do
         cursors = map (^. L.subscriptionCursor) as
         cursorsCommit = SubscriptionCursorCommit cursors
 
-subscriptionCommitOne :: (MonadNakadi m, MonadCatch m, HasSubscriptionCursor a)
-                      => a
-                      -> ReaderT SubscriptionEventStreamContext m ()
-subscriptionCommitOne a = subscriptionCommit [a]
-
-subscriptionCursors :: MonadNakadi m
-                    => Config
-                    -> SubscriptionId
-                    -> m [SubscriptionCursor]
+-- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Retrieves
+-- subscriptions cursors.
+subscriptionCursors ::
+  MonadNakadi m
+  => Config                 -- ^ Configuration
+  -> SubscriptionId         -- ^ Subscription ID
+  -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
 subscriptionCursors config subscriptionId =
   httpJsonBody config ok200 []
   (setRequestMethod "GET" . setRequestPath (path subscriptionId))
 
-subscriptionCursorsReset :: MonadNakadi m
-                         => Config
-                         -> SubscriptionId
-                         -> [SubscriptionCursorWithoutToken]
-                         -> m ()
+-- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Retrieves
+-- subscriptions cursors, using the configuration from the
+-- environment.
+subscriptionCursorsR ::
+  MonadNakadiEnv r m
+  => SubscriptionId         -- ^ Subscription ID
+  -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
+subscriptionCursorsR subscriptionId = do
+  config <- asks (view L.nakadiConfig)
+  subscriptionCursors config subscriptionId
+
+-- | @PATCH@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Resets
+-- subscriptions cursors.
+subscriptionCursorsReset ::
+  MonadNakadi m
+  => Config                           -- ^ Configuration
+  -> SubscriptionId                   -- ^ Subscription ID
+  -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
+  -> m ()
 subscriptionCursorsReset config subscriptionId cursors =
   httpJsonNoBody config status204 [ (status404, errorSubscriptionNotFound)
                                  , (status409, errorCursorResetInProgress) ]
   (setRequestMethod "PATCH"
    . setRequestPath (path subscriptionId)
    . setRequestBodyJSON (Object (HashMap.fromList [("items", toJSON cursors)])))
+
+-- | @PATCH@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Resets
+-- subscriptions cursors, using the configuration from the
+-- environment.
+subscriptionCursorsResetR ::
+  MonadNakadiEnv r m
+  => SubscriptionId                   -- ^ Subscription ID
+  -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
+  -> m ()
+subscriptionCursorsResetR subscriptionId cursors = do
+  config <- asks (view L.nakadiConfig)
+  subscriptionCursorsReset config subscriptionId cursors

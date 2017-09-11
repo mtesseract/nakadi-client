@@ -1,11 +1,14 @@
-module Network.Nakadi.Internal.Json (nakadiJsonOptions) where
+module Network.Nakadi.Internal.Json
+  ( nakadiJsonOptions
+  ) where
+
+import           Prelude
 
 import           Data.Aeson.Casing
 import           Data.Aeson.Types
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
 import           Data.Maybe
-import           Prelude
 
 nakadiJsonOptions :: Options
 nakadiJsonOptions =

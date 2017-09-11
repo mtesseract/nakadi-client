@@ -5,8 +5,8 @@
 module Network.Nakadi.Internal.Config where
 
 import           Network.Nakadi.Internal.Prelude
-import           Network.Nakadi.Types
 
+import           Network.Nakadi.Internal.Types
 
 buildConsumeQueryParameters :: ConsumeParameters -> [(ByteString, ByteString)]
 buildConsumeQueryParameters ConsumeParameters { .. } = catMaybes
