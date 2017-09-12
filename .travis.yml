@@ -37,5 +37,10 @@ install:
 - stack --no-terminal --install-ghc test --only-dependencies
 
 script:
+- df -h
+- uname -a
+- pwd
+- ls ~
+- cat ~/foo
 # Build the package, its tests, and its docs and run the tests
 - stack --no-terminal test --haddock --no-haddock-deps
