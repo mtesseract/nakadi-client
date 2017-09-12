@@ -26,7 +26,6 @@ addons:
       - libgmp-dev
 
 before_install:
-- echo foobar > ~/foo
 # Download and unpack the stack executable
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
