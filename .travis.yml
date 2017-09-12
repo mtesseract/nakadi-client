@@ -39,7 +39,8 @@ install:
 
 before_script:
 - cd $HOME/nakadi-server
-- ./gradlew startNakadi
+- TERM=dumb ./gradlew build
+- TERM=dumb ./gradlew startNakadi
 
 after_script:
 - cd $HOME/nakadi-server
