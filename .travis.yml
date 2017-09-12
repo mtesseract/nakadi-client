@@ -38,6 +38,14 @@ install:
 # Build dependencies
 - stack --no-terminal --install-ghc test --only-dependencies
 
+before_script:
+- cd $HOME/nakadi-server
+- ./gradlew startNakadi
+
+after_script:
+- cd $HOME/nakadi-server
+- ./gradlew stopNakadi
+
 script:
 - df -h
 - uname -a
