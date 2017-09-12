@@ -27,7 +27,7 @@ addons:
       - libgmp-dev
 
 before_install:
-- if test -e $HOME/nakadi-server; then (cd $HOME/nakadi-server && git pull); else git clone $HOME/nakadi-server
+- if test -e $HOME/nakadi-server; then (cd $HOME/nakadi-server && git pull); else git clone $HOME/nakadi-server; fi
 # Download and unpack the stack executable
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
