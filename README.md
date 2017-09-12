@@ -16,10 +16,9 @@ Example using the Subscription API:
 ```haskell
 import qualified Network.Nakadi as Nakadi
 
-processSubscription :: Nakadi.SubscriptionId -> IO ()
 processSubscription subscriptionId = do
   runResourceT $ do
-    (connection, source) <- Nakadi.subscriptionSource config Nothing subscriptionId
-    Nakadi.runSubscription config connection $
+    (connection, source) <- Nakadi.subscriptionSourceR Nothing subscriptionId
+    Nakadi.runSubscriptionR connection $
       source .| iterMC processEvent .| Nakadi.subscriptionSink
 ```
