@@ -11,8 +11,6 @@ This module implements the
 @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@ API.
 -}
 
--- FIXME, needs documentation improvements.
-
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -38,14 +36,16 @@ path eventTypeName maybeSchemaVersion =
        Just schemaVersion -> "/" <> encodeUtf8 (unSchemaVersion schemaVersion)
        Nothing            -> ""
 
--- | @GET@ to @\/event-types\/NAME\/schemas@.
+-- | @GET@ to @\/event-types\/NAME\/schemas@. Retrieves list of
+-- schemas for the specified event type, ordered from most recent to
+-- oldest.
 eventTypeSchemas' ::
   MonadNakadi m
-  => Config        -- ^ Configuration
-  -> EventTypeName -- ^ Name of Event Type
-  -> Maybe Offset
-  -> Maybe Limit
-  -> m EventTypeSchemasResponse
+  => Config                     -- ^ Configuration
+  -> EventTypeName              -- ^ Name of Event Type
+  -> Maybe Offset               -- ^ Optional page offset
+  -> Maybe Limit                -- ^ Optional maximum number of schemas returned in one page
+  -> m EventTypeSchemasResponse -- ^ Returns Event Type Schema along with pagination links
 eventTypeSchemas' config eventTypeName offset limit =
   httpJsonBody config ok200 []
   (setRequestMethod "GET"
@@ -57,8 +57,9 @@ eventTypeSchemas' config eventTypeName offset limit =
         defaultOffset =  0
         defaultLimit  = 20
 
--- | @GET@ to @\/event-types\/NAME\/schemas@. Uses the configuration
--- contained in the environment.
+-- | @GET@ to @\/event-types\/NAME\/schemas@. Retrieves list of
+-- schemas for the specified event type, ordered from most recent to
+-- oldest. Uses the configuration contained in the environment.
 eventTypeSchemasR' ::
   MonadNakadiEnv r m
   => EventTypeName -- ^ Name of Event Type
@@ -69,7 +70,9 @@ eventTypeSchemasR' eventTypeName offset limit = do
   config <- asks (view L.nakadiConfig)
   eventTypeSchemas' config eventTypeName offset limit
 
--- | @GET@ to @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
+-- | @GET@ to @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@. Retrieves
+-- the specified schema version (the special schema version
+-- @SchemaVersion "latest"@ is supported).
 eventTypeSchema ::
   MonadNakadi m
   => Config
@@ -80,6 +83,10 @@ eventTypeSchema config eventTypeName schemaVersion =
   httpJsonBody config ok200 []
   (setRequestMethod "GET" . setRequestPath (path eventTypeName (Just schemaVersion)))
 
+-- | @GET@ to @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@. Retrieves
+-- the specified schema version (the special schema version
+-- @SchemaVersion "latest"@ is supported). Uses the configuration
+-- stored in the environment.
 eventTypeSchemaR ::
   MonadNakadiEnv r m
   => EventTypeName
