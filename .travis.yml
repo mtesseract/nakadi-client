@@ -48,7 +48,6 @@ before_script:
 - TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
 - sleep 10
-- psql
 - POSTGRES_USER=nakadi docker-compose up --build
 - ps ax
 - netstat -ntl
