@@ -54,6 +54,7 @@ after_script:
 
 script:
 - env
+- printenv
 - pwd
 - cd $HOME/mtesseract/nakadi-client
 - df -h
