@@ -18,7 +18,7 @@ language: generic
 cache:
   directories:
   - $HOME/.stack
-  - $HOME/nakadi-server
+  - $HOME/nakadi
 
 # Ensure necessary system libraries are present
 addons:
@@ -28,8 +28,9 @@ addons:
 
 before_install:
 - docker-compose --version
+- docker --version
 - pwd
-- if test -e $HOME/nakadi-server; then (cd $HOME/nakadi-server && git pull); else git clone $HOME/nakadi-server; fi
+- if test -e $HOME/nakadi; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
 # Download and unpack the stack executable
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
@@ -40,20 +41,18 @@ install:
 - stack --no-terminal --install-ghc test --only-dependencies
 
 before_script:
-- env
 - printenv
-- cd $HOME/nakadi-server
+- cd $HOME/nakadi
 - TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
-- docker-compose up --build
+- POSTGRES_USER=nakadi docker-compose up --build
 - ps ax
 - netstat -ntl
 - sleep 1m
 - netstat -ntl
 
 after_script:
-- cd $HOME/nakadi-server
-- ./gradlew stopNakadi
+- (cd $HOME/nakadi; ./gradlew stopNakadi)
 
 script:
 - pwd
