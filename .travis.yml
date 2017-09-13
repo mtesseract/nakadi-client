@@ -46,7 +46,8 @@ before_script:
 - TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
 - sleep 10
-- POSTGRES_USER=nakadi docker-compose up --build
+- false
+#- POSTGRES_USER=nakadi docker-compose up --build
 - ps ax
 - netstat -ntl
 - sleep 1m
