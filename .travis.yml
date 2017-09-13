@@ -18,7 +18,6 @@ language: generic
 cache:
   directories:
   - $HOME/.stack
-  - $HOME/nakadi
 
 # Ensure necessary system libraries are present
 addons:
@@ -34,7 +33,7 @@ before_install:
 # Download and unpack the stack executable
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+#- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 install:
 # Build dependencies
@@ -44,8 +43,8 @@ before_script:
 - printenv
 - cd $HOME/nakadi
 - TERM=dumb ./gradlew build
-#- TERM=dumb ./gradlew startNakadi
-- POSTGRES_USER=nakadi docker-compose up --build
+- TERM=dumb ./gradlew startNakadi
+#- POSTGRES_USER=nakadi docker-compose up --build
 - ps ax
 - netstat -ntl
 - sleep 1m
