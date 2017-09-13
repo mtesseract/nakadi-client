@@ -27,9 +27,7 @@ addons:
       - libgmp-dev
 
 before_install:
-- docker-compose --version
-- docker --version
-- pwd
+- cat /etc/hosts
 - if test -e $HOME/nakadi/.git; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
 # Download and unpack the stack executable
 - mkdir -p ~/.local/bin
