@@ -27,6 +27,7 @@ addons:
       - libgmp-dev
 
 before_install:
+- pwd
 - if test -e $HOME/nakadi-server; then (cd $HOME/nakadi-server && git pull); else git clone $HOME/nakadi-server; fi
 # Download and unpack the stack executable
 - mkdir -p ~/.local/bin
@@ -41,7 +42,7 @@ before_script:
 - cd $HOME/nakadi-server
 - TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
-- docker-compose up -d --build
+- docker-compose up --build
 - ps ax
 - netstat -ntl
 - sleep 1m
