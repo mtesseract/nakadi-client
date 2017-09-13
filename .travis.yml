@@ -27,6 +27,7 @@ addons:
       - libgmp-dev
 
 before_install:
+- docker-compose --version
 - pwd
 - if test -e $HOME/nakadi-server; then (cd $HOME/nakadi-server && git pull); else git clone $HOME/nakadi-server; fi
 # Download and unpack the stack executable
