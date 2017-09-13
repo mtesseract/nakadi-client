@@ -18,6 +18,7 @@ language: generic
 cache:
   directories:
   - $HOME/.stack
+  - $HOME/nakadi
 
 # Ensure necessary system libraries are present
 addons:
@@ -42,7 +43,7 @@ install:
 before_script:
 - printenv
 - cd $HOME/nakadi
-#- TERM=dumb ./gradlew build
+- TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
 - POSTGRES_USER=nakadi docker-compose up --build
 - ps ax
