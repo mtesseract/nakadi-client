@@ -28,6 +28,7 @@ addons:
 
 before_install:
 - cat /etc/hosts
+- sudo 
 - if test -e $HOME/nakadi/.git; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
 # Download and unpack the stack executable
 - mkdir -p ~/.local/bin
@@ -39,6 +40,8 @@ install:
 - stack --no-terminal --install-ghc test --only-dependencies
 
 before_script:
+- ps ax
+- netstat -ntl
 - printenv
 - cd $HOME/nakadi
 - TERM=dumb ./gradlew build
