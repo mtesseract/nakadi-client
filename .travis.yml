@@ -53,6 +53,7 @@ after_script:
 - ./gradlew stopNakadi
 
 script:
+- env
 - pwd
 - cd $HOME/mtesseract/nakadi-client
 - df -h
