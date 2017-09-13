@@ -40,7 +40,9 @@ install:
 before_script:
 - cd $HOME/nakadi-server
 - TERM=dumb ./gradlew build
-- TERM=dumb ./gradlew startNakadi
+#- TERM=dumb ./gradlew startNakadi
+- docker-compose up -d --build
+- ps aux
 
 after_script:
 - cd $HOME/nakadi-server
