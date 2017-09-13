@@ -30,7 +30,7 @@ before_install:
 - docker-compose --version
 - docker --version
 - pwd
-- if test -e $HOME/nakadi; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
+- if test -e $HOME/nakadi/.git; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
 # Download and unpack the stack executable
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
