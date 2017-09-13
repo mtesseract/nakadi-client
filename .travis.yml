@@ -30,6 +30,7 @@ before_install:
 - docker-compose --version
 - docker --version
 - pwd
+- rmdir $HOME/nakadi
 - if test -e $HOME/nakadi; then ls -a $HOME/nakadi; fi
 - if test -e $HOME/nakadi; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
 # Download and unpack the stack executable
@@ -46,6 +47,8 @@ before_script:
 - cd $HOME/nakadi
 - TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
+- sleep 10
+- psql
 - POSTGRES_USER=nakadi docker-compose up --build
 - ps ax
 - netstat -ntl
