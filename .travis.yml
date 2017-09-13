@@ -42,17 +42,20 @@ before_script:
 - TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
 - docker-compose up -d --build
-- ps aux
+- ps ax
+- netstat -ntl
+- sleep 1m
+- netstat -ntl
 
 after_script:
 - cd $HOME/nakadi-server
 - ./gradlew stopNakadi
 
 script:
+- pwd
+- cd $HOME/mtesseract/nakadi-client
 - df -h
 - uname -a
-- pwd
 - ls ~
-- cat ~/foo
 # Build the package, its tests, and its docs and run the tests
 - stack --no-terminal test --haddock --no-haddock-deps
