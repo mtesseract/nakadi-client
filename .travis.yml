@@ -42,9 +42,9 @@ install:
 before_script:
 - printenv
 - cd $HOME/nakadi
-- TERM=dumb ./gradlew build
-- TERM=dumb ./gradlew startNakadi
-#- POSTGRES_USER=nakadi docker-compose up --build
+#- TERM=dumb ./gradlew build
+#- TERM=dumb ./gradlew startNakadi
+- POSTGRES_USER=nakadi docker-compose up --build
 - ps ax
 - netstat -ntl
 - sleep 1m
