@@ -39,6 +39,8 @@ install:
 - stack --no-terminal --install-ghc test --only-dependencies
 
 before_script:
+- env
+- printenv
 - cd $HOME/nakadi-server
 - TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
@@ -53,8 +55,6 @@ after_script:
 - ./gradlew stopNakadi
 
 script:
-- env
-- printenv
 - pwd
 - cd $HOME/mtesseract/nakadi-client
 - df -h
