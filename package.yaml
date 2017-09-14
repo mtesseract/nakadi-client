@@ -14,6 +14,7 @@ extra-source-files:
 default-extensions:
 - NoImplicitPrelude
 - OverloadedStrings
+- DuplicateRecordFields
 ghc-options:
 - -Wall
 - -fno-warn-type-defaults
@@ -45,6 +46,7 @@ dependencies:
 - time
 - split
 - aeson-casing
+- tasty
 library:
   source-dirs: src
   exposed-modules:
@@ -70,3 +72,20 @@ library:
   - Network.Nakadi.Types.Problem
   - Network.Nakadi.Types.Service
   - Network.Nakadi.Types.Subscription
+tests:
+  nakadi-client-test-suite:
+    main: Tests.hs
+    source-dirs: tests
+    ghc-options:
+    - -Wall
+    dependencies:
+    - base
+    - nakadi-client
+    - tasty
+    - tasty-hunit
+    - http-client
+    - http-conduit
+    - aeson
+    - lens-aeson
+    - text
+    - say
