@@ -2,10 +2,11 @@
 
 ### About
 
-`nakadi-client` is a Haskell client library for interacting with the
-[Nakadi event broker](https://zalando.github.io/nakadi/) system
-developed by [Zalando](https://github.com/zalando). The streaming is
-built on top of [Conduit](https://haskell-lang.org/library/conduit).
+`nakadi-client` is a BSD3 licensed Haskell client library for
+interacting with the [Nakadi event
+broker](https://zalando.github.io/nakadi/) system developed by
+[Zalando](https://github.com/zalando). The streaming is built on top
+of [Conduit](https://haskell-lang.org/library/conduit).
 
 Please note that the **API is not considered stable yet**.
 
@@ -38,7 +39,8 @@ Please note that the **API is not considered stable yet**.
 - Mechanism for registering callbacks for logging and token injection.
 
 - Docker based test suite testing against the official Nakadi [docker
-  image](https://github.com/zalando/nakadi#running-a-server).
+  image](https://github.com/zalando/nakadi#running-a-server) (in
+  progress).
 
 ### Example
 
