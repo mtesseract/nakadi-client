@@ -19,6 +19,7 @@ cache:
   directories:
   - $HOME/.stack
   - $HOME/nakadi
+  - $HOME/.gradle
 
 # Ensure necessary system libraries are present
 addons:
