@@ -91,7 +91,17 @@ deriveJSON nakadiJsonOptions ''Cursor
 -- | ApplicationName
 
 newtype ApplicationName = ApplicationName { unApplicationName :: Text }
-  deriving (Show, Eq, Ord, Generic)
+  deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance IsString ApplicationName where
+  fromString = ApplicationName . Text.pack
+
+instance ToJSON ApplicationName where
+  toJSON = String . unApplicationName
+
+instance FromJSON ApplicationName where
+  parseJSON (String name) = return $ ApplicationName name
+  parseJSON invalid       = typeMismatch "ApplicationName" invalid
 
 -- | SubscriptionCursor
 
@@ -412,9 +422,23 @@ instance FromJSON SchemaType where
                     String "json_schema" -> return SchemaTypeJson
                     invalid              -> typeMismatch "SchemaType" invalid
 
--- | EventTypeSchema
+-- | Type for the version of a schema.
+newtype SchemaVersion = SchemaVersion { unSchemaVersion :: Text }
+  deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance IsString SchemaVersion where
+  fromString = SchemaVersion . Text.pack
+
+instance ToJSON SchemaVersion where
+  toJSON = String . unSchemaVersion
+
+instance FromJSON SchemaVersion where
+  parseJSON (String version) = return $ SchemaVersion version
+  parseJSON invalid          = typeMismatch "SchemaVersion" invalid
+
+-- | Type for the schema of an event type.
 data EventTypeSchema = EventTypeSchema
-  { _version    :: Maybe Text
+  { _version    :: Maybe SchemaVersion
   , _createdAt  :: Maybe Timestamp
   , _schemaType :: SchemaType
   , _schema     :: Text
@@ -451,15 +475,6 @@ data EventTypeSchemasResponse = EventTypeSchemasResponse
   } deriving (Show, Eq, Ord, Generic, Hashable)
 
 deriveJSON nakadiJsonOptions ''EventTypeSchemasResponse
-
--- | SchemaVersion
-newtype SchemaVersion = SchemaVersion { unSchemaVersion :: Text }
-  deriving (Show, Eq, Ord, Generic)
-
-instance IsString SchemaVersion where
-  fromString = SchemaVersion . Text.pack
-
-deriveJSON nakadiJsonOptions ''SchemaVersion
 
 -- | Offset
 
@@ -519,16 +534,100 @@ newtype SubscriptionEventTypeStatsResult = SubscriptionEventTypeStatsResult
 
 deriveJSON nakadiJsonOptions ''SubscriptionEventTypeStatsResult
 
+-- | Type for the category of an 'EventType'.
+
+data EventTypeCategory = EventTypeCategoryUndefined
+                       | EventTypeCategoryData
+                       | EventTypeCategoryBusiness
+                       deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance ToJSON EventTypeCategory where
+  toJSON resultType = String $ case resultType of
+    EventTypeCategoryUndefined -> "undefined"
+    EventTypeCategoryData      -> "data"
+    EventTypeCategoryBusiness  -> "business"
+
+instance FromJSON EventTypeCategory where
+  parseJSON category = case category of
+    "undefined" -> return EventTypeCategoryUndefined
+    "data"      -> return EventTypeCategoryData
+    "business"  -> return EventTypeCategoryBusiness
+    invalid     -> typeMismatch "EventTypeCategory" invalid
+
+-- | Type for a partitioning strategy.
+
+newtype PartitionStrategy = PartitionStrategy { unPartitionStrategy :: Text }
+  deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance IsString PartitionStrategy where
+  fromString = PartitionStrategy . Text.pack
+
+instance ToJSON PartitionStrategy where
+  toJSON = String . unPartitionStrategy
+
+instance FromJSON PartitionStrategy where
+  parseJSON (String strategy) = return $ PartitionStrategy strategy
+  parseJSON invalid           = typeMismatch "PartitionStrategy" invalid
+
+-- | Type for an enrichment stragey.
+
+data EnrichmentStrategy = EnrichmentStrategyMetadata
+                       deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance ToJSON EnrichmentStrategy where
+  toJSON resultType = String $ case resultType of
+    EnrichmentStrategyMetadata -> "metadata_enrichment"
+
+instance FromJSON EnrichmentStrategy where
+  parseJSON strategy = case strategy of
+    "metadata_enrichment" -> return EnrichmentStrategyMetadata
+    invalid               -> typeMismatch "EnrichmentStrategy" invalid
+
+-- | Type for an event type compatibility mode.
+
+data CompatibilityMode = CompatibilityModeCompatible
+                       | CompatibilityModeForward
+                       | CompatibilityModeNone
+                       deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance ToJSON CompatibilityMode where
+  toJSON mode = String $ case mode of
+    CompatibilityModeCompatible -> "compatible"
+    CompatibilityModeForward    -> "forward"
+    CompatibilityModeNone       -> "none"
+
+instance FromJSON CompatibilityMode where
+  parseJSON strategy = case strategy of
+    "compatible" -> return CompatibilityModeCompatible
+    "forward"    -> return CompatibilityModeForward
+    "none"       -> return CompatibilityModeNone
+    invalid      -> typeMismatch "CompatibilityMode" invalid
+
+-- | Type for a partitioning key field.
+
+newtype PartitionKeyField = PartitionKeyField { unPartitionKeyField :: Text }
+  deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance IsString PartitionKeyField where
+  fromString = PartitionKeyField . Text.pack
+
+instance ToJSON PartitionKeyField where
+  toJSON = String . unPartitionKeyField
+
+instance FromJSON PartitionKeyField where
+  parseJSON (String strategy) = return $ PartitionKeyField strategy
+  parseJSON invalid           = typeMismatch "PartitionKeyField" invalid
+
 -- | EventType
 
 data EventType = EventType
-  { _name                 :: Text
-  , _owningApplication    :: Maybe Text
-  , _category             :: Maybe Text
-  , _enrichmentStrategies :: Maybe [Text]
-  , _partitionStrategy    :: Maybe Text
-  , _compatibilityMode    :: Maybe Text
-  , _partitionKeyFields   :: Maybe [Text]
+  { _name                 :: EventTypeName
+  , _owningApplication    :: Maybe ApplicationName
+  , _category             :: Maybe EventTypeCategory
+  , _enrichmentStrategies :: Maybe [EnrichmentStrategy]
+  , _partitionStrategy    :: Maybe PartitionStrategy
+  , _compatibilityMode    :: Maybe CompatibilityMode
+  , _partitionKeyFields   :: Maybe [PartitionKeyField]
   , _schema               :: EventTypeSchema
   } deriving (Show, Generic, Eq, Ord, Hashable)
 

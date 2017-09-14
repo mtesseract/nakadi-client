@@ -44,7 +44,7 @@ eventTypePartitions ::
   -> EventTypeName -- ^ Name of Event Type
   -> m [Partition] -- ^ Partition Information
 eventTypePartitions config eventTypeName =
-  httpJsonBody config ok200 []
+  httpJsonBody config ok200 [(status404, errorEventTypeNotFound)]
   (setRequestPath (path eventTypeName Nothing))
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions@. Retrieves
