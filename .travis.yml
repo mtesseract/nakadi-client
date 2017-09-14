@@ -40,16 +40,8 @@ install:
 - stack --no-terminal --install-ghc test --only-dependencies
 
 before_script:
-- ps ax
-- netstat -ntl
-- printenv
-- cd $HOME/nakadi
-- TERM=dumb ./gradlew build
-#- TERM=dumb ./gradlew startNakadi
-#- sleep 10
-- docker-compose --verbose up --build
-- ps ax
-- netstat -ntl
+- (cd $HOME/nakadi; TERM=dumb ./gradlew build)
+- (cd $HOME/nakadi; TERM=dumb ./gradlew startNakadi)
 
 after_script:
 - (cd $HOME/nakadi; ./gradlew stopNakadi)
