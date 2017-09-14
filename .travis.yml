@@ -27,12 +27,12 @@ addons:
       - libgmp-dev
 
 before_install:
-- cat /etc/hosts
 - if test -e $HOME/nakadi/.git; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
-# Download and unpack the stack executable
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
+# Download and unpack the stack executable
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+# Stop Postgres, since we will spin up our own dockerized Postgres
 - sudo /etc/init.d/postgresql stop
 
 install:
@@ -40,17 +40,11 @@ install:
 - stack --no-terminal --install-ghc test --only-dependencies
 
 before_script:
-- (cd $HOME/nakadi; TERM=dumb ./gradlew build)
 - (cd $HOME/nakadi; TERM=dumb ./gradlew startNakadi)
 
 after_script:
-- (cd $HOME/nakadi; ./gradlew stopNakadi)
+- (cd $HOME/nakadi; TERM=dumb ./gradlew stopNakadi)
 
 script:
-- pwd
-- cd $HOME/mtesseract/nakadi-client
-- df -h
-- uname -a
-- ls ~
 # Build the package, its tests, and its docs and run the tests
 - stack --no-terminal test --haddock --no-haddock-deps
