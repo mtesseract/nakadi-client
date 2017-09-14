@@ -1,3 +1,6 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards       #-}
+
 module Network.Nakadi.EventTypes.Test where
 
 import           Prelude
@@ -13,6 +16,7 @@ testEventTypes conf = testGroup "EventTypes"
   [ testCase "EventTypesGet" (testEventTypesGet conf)
   , testCase "EventTypesDeleteCreateAndGet" (testEventTypesDeleteCreateGet conf)
   , testCase "EventTypePartitionsGet" (testEventTypePartitionsGet conf)
+  , testCase "EventTypeCursorDistances" (testEventTypeCursorDistances conf)
   ]
 
 testEventTypesGet :: Config -> Assertion
@@ -56,10 +60,24 @@ testEventTypesDeleteCreateGet conf = do
   myEventTypes' <- filterMyEvent <$> eventTypesGet conf
   length myEventTypes' @=? 0
 
-  where filterMyEvent = filter ((myEventTypeName ==) . _name)
+  where filterMyEvent = filter ((myEventTypeName ==) . (_name :: EventType -> EventTypeName))
 
 testEventTypePartitionsGet :: Config -> Assertion
 testEventTypePartitionsGet conf = do
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   void $ eventTypePartitions conf myEventTypeName
+
+testEventTypeCursorDistances :: Config -> Assertion
+testEventTypeCursorDistances conf = do
+  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreate conf myEventType
+  partitions <- eventTypePartitions conf myEventTypeName
+  let cursors = map extractCursors partitions
+  forM_ cursors $ \cursor -> do
+    distance <- eventTypeCursorDistance conf myEventTypeName cursor cursor
+    distance @=? 0
+
+  where extractCursors Partition { ..} =
+          Cursor { _partition = _partition
+                 , _offset    = _newestAvailableOffset }
