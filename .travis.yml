@@ -9,7 +9,7 @@
 # named .travis.yml
 
 # Use new container infrastructure to enable caching
-sudo: false
+sudo: true
 
 # Do not choose a language; we provide our own build tools.
 language: generic
@@ -18,6 +18,7 @@ language: generic
 cache:
   directories:
   - $HOME/.stack
+  - $HOME/nakadi
 
 # Ensure necessary system libraries are present
 addons:
@@ -26,15 +27,24 @@ addons:
       - libgmp-dev
 
 before_install:
-# Download and unpack the stack executable
+- if test -e $HOME/nakadi/.git; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
+# Download and unpack the stack executable
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+# Stop Postgres, since we will spin up our own dockerized Postgres
+- sudo /etc/init.d/postgresql stop
 
 install:
 # Build dependencies
 - stack --no-terminal --install-ghc test --only-dependencies
 
+before_script:
+- (cd $HOME/nakadi; TERM=dumb ./gradlew startNakadi)
+
+after_script:
+- (cd $HOME/nakadi; TERM=dumb ./gradlew stopNakadi)
+
 script:
 # Build the package, its tests, and its docs and run the tests
-- stack --no-terminal test --haddock --no-haddock-deps
+- NAKADI_ENDPOINT=http://localhost:8080/ stack --no-terminal test --haddock --no-haddock-deps

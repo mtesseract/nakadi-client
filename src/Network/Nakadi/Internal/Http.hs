@@ -79,7 +79,7 @@ httpExecRequestWithStatus config requestDef =
 httpJsonBody :: (MonadThrow m, MonadCatch m, MonadIO m, FromJSON a)
              => Config
              -> Status
-             -> [(Status, ByteString.Lazy.ByteString -> m LibException)]
+             -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
              -> (Request -> Request)
              -> m a
 httpJsonBody config successStatus exceptionMap requestDef = do
@@ -95,7 +95,7 @@ httpJsonBody config successStatus exceptionMap requestDef = do
 httpJsonNoBody :: (MonadThrow m, MonadCatch m, MonadIO m)
              => Config
              -> Status
-             -> [(Status, ByteString.Lazy.ByteString -> m LibException)]
+             -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
              -> (Request -> Request)
              -> m ()
 httpJsonNoBody config successStatus exceptionMap requestDef = do
@@ -111,7 +111,7 @@ httpJsonBodyStream :: (MonadMask m, MonadIO m, FromJSON a, MonadBaseControl IO m
                    => Config
                    -> Status
                    -> (Response () -> Either Text b)
-                   -> [(Status, ByteString.Lazy.ByteString -> m LibException)]
+                   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
                    -> (Request -> Request)
                    -> m (b, ConduitM () a (ReaderT r m) ())
 httpJsonBodyStream config successStatus f exceptionMap requestDef = do
@@ -146,7 +146,7 @@ setRequestQueryParameters parameters = setRequestQueryString parameters'
   where parameters' = map (fmap Just) parameters
 
 defaultExceptionMap :: MonadThrow m
-                    => [(Status, ByteString.Lazy.ByteString -> m LibException)]
+                    => [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
 defaultExceptionMap =
   [ (status401, errorClientNotAuthenticated)
   , (status403, errorAccessForbidden)
@@ -154,35 +154,35 @@ defaultExceptionMap =
   , (status422, errorUnprocessableEntity)
   , (status409, errorConflict) ]
 
-errorClientNotAuthenticated :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorClientNotAuthenticated :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorClientNotAuthenticated s = ClientNotAuthenticated <$> decodeThrow s
 
-errorConflict :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorConflict :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorConflict s = Conflict <$> decodeThrow s
 
-errorUnprocessableEntity :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorUnprocessableEntity :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorUnprocessableEntity s = UnprocessableEntity <$> decodeThrow s
 
-errorAccessForbidden :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorAccessForbidden :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorAccessForbidden s = AccessForbidden <$> decodeThrow s
 
-errorTooManyRequests :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorTooManyRequests :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorTooManyRequests s = TooManyRequests <$> decodeThrow s
 
-errorBadRequest :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorBadRequest :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorBadRequest s = BadRequest <$> decodeThrow s
 
-errorSubscriptionNotFound :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorSubscriptionNotFound :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorSubscriptionNotFound s = SubscriptionNotFound <$> decodeThrow s
 
-errorCursorAlreadyCommitted :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorCursorAlreadyCommitted :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorCursorAlreadyCommitted s = CursorAlreadyCommitted <$> decodeThrow s
 
-errorCursorResetInProgress :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorCursorResetInProgress :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorCursorResetInProgress s = CursorResetInProgress <$> decodeThrow s
 
-errorEventTypeNotFound :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorEventTypeNotFound :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorEventTypeNotFound s = EventTypeNotFound <$> decodeThrow s
 
-errorSubscriptionExistsAlready :: MonadThrow m => ByteString.Lazy.ByteString -> m LibException
+errorSubscriptionExistsAlready :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorSubscriptionExistsAlready s = SubscriptionExistsAlready <$> decodeThrow s

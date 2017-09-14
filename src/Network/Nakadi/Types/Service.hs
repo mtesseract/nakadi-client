@@ -55,6 +55,11 @@ module Network.Nakadi.Types.Service
   , PartitionStat(..)
   , SubscriptionEventTypeStats(..)
   , SubscriptionEventTypeStatsResult(..)
+  , EventTypeCategory(..)
+  , PartitionStrategy(..)
+  , EnrichmentStrategy(..)
+  , CompatibilityMode(..)
+  , PartitionKeyField(..)
   , EventType(..)
   ) where
 
