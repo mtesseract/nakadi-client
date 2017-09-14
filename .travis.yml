@@ -33,6 +33,7 @@ before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+- sudo /etc/init.d/postgresql stop
 
 install:
 # Build dependencies
@@ -45,12 +46,9 @@ before_script:
 - cd $HOME/nakadi
 - TERM=dumb ./gradlew build
 #- TERM=dumb ./gradlew startNakadi
-- sleep 10
-- false
-#- POSTGRES_USER=nakadi docker-compose up --build
+#- sleep 10
+- docker-compose --verbose up --build
 - ps ax
-- netstat -ntl
-- sleep 1m
 - netstat -ntl
 
 after_script:
