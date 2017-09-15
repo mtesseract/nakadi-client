@@ -371,6 +371,7 @@ data BatchItemResponse = BatchItemResponse
   { _eid              :: Maybe EventId
   , _publishingStatus :: PublishingStatus
   , _step             :: Maybe Step
+  , _detail           :: Maybe Text
   } deriving (Show, Eq, Ord, Generic, Hashable)
 
 deriveJSON nakadiJsonOptions ''BatchItemResponse

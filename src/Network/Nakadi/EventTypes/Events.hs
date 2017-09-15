@@ -92,7 +92,8 @@ eventTypePublish ::
   -> m ()
 eventTypePublish config eventTypeName maybeFlowId eventBatch =
   httpJsonNoBody config status200
-  [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted) ]
+  [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
+  , (status422, errorBatchNotSubmitted) ]
   (setRequestMethod "POST"
    . setRequestPath (path eventTypeName)
    . maybe identity (addRequestHeader "X-Flow-Id" . encodeUtf8 . unFlowId) maybeFlowId

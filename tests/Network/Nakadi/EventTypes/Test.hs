@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
@@ -9,10 +10,14 @@ module Network.Nakadi.EventTypes.Test where
 
 import           ClassyPrelude
 
+import           Conduit
+import           Control.Concurrent.Async     (link)
 import           Control.Exception.Safe
+import           Control.Monad.Trans.Resource
 import           Data.Aeson
-import           Data.UUID              (UUID)
-import qualified Data.UUID              as UUID
+import           Data.Function                ((&))
+import           Data.UUID                    (UUID)
+import qualified Data.UUID                    as UUID
 import           Network.Nakadi
 import           System.Random
 import           Test.Tasty
@@ -24,7 +29,7 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypesDeleteCreateAndGet" (testEventTypesDeleteCreateGet conf)
   , testCase "EventTypePartitionsGet" (testEventTypePartitionsGet conf)
   , testCase "EventTypeCursorDistances" (testEventTypeCursorDistances conf)
-  , testCase "EventTypePublish" (testEventTypePublish conf)
+  , testCase "EventTypePublishData" (testEventTypePublishData conf)
   ]
 
 testEventTypesGet :: Config -> Assertion
@@ -98,8 +103,13 @@ testEventTypeCursorDistances conf = do
 genRandomUUID :: IO UUID
 genRandomUUID = randomIO
 
-testEventTypePublish :: Config -> Assertion
-testEventTypePublish conf = do
+consumeParametersSingle :: ConsumeParameters
+consumeParametersSingle = defaultConsumeParameters
+                          & setBatchLimit 1
+                          & setBatchFlushTimeout 1
+
+testEventTypePublishData :: Config -> Assertion
+testEventTypePublishData conf = do
   now <- getCurrentTime
   eid <- tshow <$> genRandomUUID
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
@@ -109,4 +119,13 @@ testEventTypePublish conf = do
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }
-  eventTypePublish conf myEventTypeName Nothing [event]
+  withAsync (delayedPublish [event]) $ \asyncHandle -> do
+    link asyncHandle
+    eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
+      source <- eventTypeSource conf (Just consumeParametersSingle) myEventTypeName Nothing
+      runConduit $ source .| headC
+    isJust eventConsumed @=? True
+
+  where delayedPublish events = do
+          threadDelay (10^6)
+          eventTypePublish conf myEventTypeName Nothing events
