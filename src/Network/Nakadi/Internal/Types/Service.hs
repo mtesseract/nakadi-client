@@ -143,7 +143,7 @@ deriveJSON nakadiJsonOptions ''CursorCommit
 -- | SubscriptionId
 
 newtype SubscriptionId = SubscriptionId { unSubscriptionId :: UUID }
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Show, Ord, Generic, Hashable)
 
 instance ToJSON SubscriptionId where
   toJSON = String . tshow . unSubscriptionId
@@ -293,7 +293,7 @@ deriveJSON nakadiJsonOptions ''CursorDistanceResult
 data SubscriptionPosition = SubscriptionPositionBegin
                           | SubscriptionPositionEnd
                           | SubscriptionPositionCursors
-                          deriving (Show, Eq, Ord)
+                          deriving (Show, Eq, Ord, Generic, Hashable)
 
 instance ToJSON SubscriptionPosition where
   toJSON pos = case pos of
@@ -311,14 +311,14 @@ instance FromJSON SubscriptionPosition where
 -- | Subscription
 
 data Subscription = Subscription
-  { _id                :: Maybe Text
+  { _id                :: Maybe SubscriptionId
   , _owningApplication :: Text
   , _eventTypes        :: [EventTypeName]
   , _consumerGroup     :: Maybe Text
   , _createdAt         :: Maybe Timestamp
   , _readFrom          :: Maybe SubscriptionPosition
   , _initialCursors    :: Maybe [SubscriptionCursorWithoutToken]
-  } deriving (Show, Eq, Ord)
+  } deriving (Show, Eq, Ord, Generic, Hashable)
 
 deriveJSON nakadiJsonOptions ''Subscription
 
@@ -491,6 +491,15 @@ data EventTypeSchemasResponse = EventTypeSchemasResponse
   } deriving (Show, Eq, Ord, Generic, Hashable)
 
 deriveJSON nakadiJsonOptions ''EventTypeSchemasResponse
+
+-- | SubscriptionsListResponse
+
+data SubscriptionsListResponse = SubscriptionsListResponse
+  { __links :: PaginationLinks
+  , _items  :: [Subscription]
+  } deriving (Show, Eq, Ord, Generic, Hashable)
+
+deriveJSON nakadiJsonOptions ''SubscriptionsListResponse
 
 -- | Offset
 

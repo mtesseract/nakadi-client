@@ -29,7 +29,7 @@ import qualified Network.Nakadi.Internal.Lenses      as L
 
 path :: SubscriptionId -> ByteString
 path subscriptionId =
-  "/subscriptions"
+  "/subscriptions/"
   <> subscriptionIdToByteString subscriptionId
 
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION@. Looks up subscription
