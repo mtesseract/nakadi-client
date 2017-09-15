@@ -11,14 +11,15 @@ This module implements the
 @\/event-types\/EVENT-TYPE\/cursors-lag@ API.
 -}
 
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
 
 module Network.Nakadi.EventTypes.CursorsLag
-  ( eventTypeCursorsLag'
-  , eventTypeCursorsLagR'
-  , eventTypeCursorsLag
-  , eventTypeCursorsLagR
+  ( cursorsLag'
+  , cursorsLagR'
+  , cursorsLag
+  , cursorsLagR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -37,14 +38,14 @@ path eventTypeName =
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. Low level
 -- interface.
-eventTypeCursorsLag' ::
+cursorsLag' ::
   MonadNakadi m
   => Config        -- ^ Configuration
   -> EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors for which to compute the lag for
   -> m [Partition] -- ^ Resulting partition information containing
                    -- information about unconsumed events.
-eventTypeCursorsLag' config eventTypeName cursors =
+cursorsLag' config eventTypeName cursors =
   httpJsonBody config ok200 []
   (setRequestMethod "POST"
    . setRequestPath (path eventTypeName)
@@ -52,27 +53,27 @@ eventTypeCursorsLag' config eventTypeName cursors =
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. Low level
 -- interface, retrieving configuration from environment.
-eventTypeCursorsLagR' ::
+cursorsLagR' ::
   MonadNakadiEnv r m
   => EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors for which to compute the lag for
   -> m [Partition] -- ^ Resulting partition information containing
                    -- information about unconsumed events.
-eventTypeCursorsLagR' eventTypeName cursors = do
+cursorsLagR' eventTypeName cursors = do
   config <- asks (view L.nakadiConfig)
-  eventTypeCursorsLag' config eventTypeName cursors
+  cursorsLag' config eventTypeName cursors
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. High level
 -- interface.
-eventTypeCursorsLag ::
+cursorsLag ::
   MonadNakadi m
   => Config                         -- ^ Configuration
   -> EventTypeName                  -- ^ Event Type
   -> Map PartitionName CursorOffset -- ^ Cursor offsets associated to
                                     -- partitions.
   -> m (Map PartitionName Int64)    -- ^ Cursor lags associated to partitions.
-eventTypeCursorsLag config eventTypeName cursorsMap = do
-  partitionStats <- eventTypeCursorsLag' config eventTypeName cursors
+cursorsLag config eventTypeName cursorsMap = do
+  partitionStats <- cursorsLag' config eventTypeName cursors
   return $ partitionStats & map ((view L.partition &&& view L.unconsumedEvents) >>> sequenceSnd)
                           & catMaybes
                           & Map.fromList
@@ -80,15 +81,15 @@ eventTypeCursorsLag config eventTypeName cursorsMap = do
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. High level
 -- interface, retrieving configuration from environment.
-eventTypeCursorsLagR ::
+cursorsLagR ::
   MonadNakadiEnv r m
   => EventTypeName                  -- ^ Event Type
   -> Map PartitionName CursorOffset -- ^ Cursor offsets associated to
                                     -- partitions.
   -> m (Map PartitionName Int64)    -- ^ Cursor lags associated to partitions.
-eventTypeCursorsLagR eventTypeName cursorsMap = do
+cursorsLagR eventTypeName cursorsMap = do
   config <- asks (view L.nakadiConfig)
-  eventTypeCursorsLag config eventTypeName cursorsMap
+  cursorsLag config eventTypeName cursorsMap
 
 sequenceSnd :: Functor f => (a, f b) -> f (a, b)
 sequenceSnd (a, fb) = (a,) <$> fb

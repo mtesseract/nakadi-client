@@ -29,7 +29,7 @@ testShiftedCursorsZero conf = do
   recreateEvent conf myEventTypeName myEventType
   partitions <- eventTypePartitions conf myEventTypeName
   let cursors = map extractCursor partitions
-  cursors' <- eventTypeCursorsShift conf myEventTypeName cursors 0
+  cursors' <- cursorsShift conf myEventTypeName cursors 0
   cursors @=? cursors'
 
 testShiftedCursorsN :: Config -> Int64 -> Assertion
@@ -41,9 +41,9 @@ testShiftedCursorsN conf n = do
   let cursors = map extractCursor partitions
   length cursors > 0 @=? True
   forM_ [1..n] $ \_ -> do
-    eventTypePublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
-  cursors' <- eventTypeCursorsShift conf myEventTypeName cursors n
+    eventPublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
+  cursors' <- cursorsShift conf myEventTypeName cursors n
   length cursors' @=? length cursors
   forM_ (zip cursors cursors') $ \(c, c') -> do
-    distance <- eventTypeCursorDistance conf myEventTypeName c c'
+    distance <- cursorDistance conf myEventTypeName c c'
     distance @=? n
