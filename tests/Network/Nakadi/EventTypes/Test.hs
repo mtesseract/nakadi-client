@@ -28,7 +28,8 @@ testEventTypes conf = testGroup "EventTypes"
   [ testCase "EventTypesGet" (testEventTypesGet conf)
   , testCase "EventTypesDeleteCreateAndGet" (testEventTypesDeleteCreateGet conf)
   , testCase "EventTypePartitionsGet" (testEventTypePartitionsGet conf)
-  , testCase "EventTypeCursorDistances" (testEventTypeCursorDistances conf)
+  , testCase "EventTypeCursorDistances0" (testEventTypeCursorDistances0 conf)
+  , testCase "EventTypeCursorDistances10" (testEventTypeCursorDistances10 conf)
   , testCase "EventTypePublishData" (testEventTypePublishData conf)
   ]
 
@@ -62,6 +63,8 @@ myEventType = EventType
   , _compatibilityMode = Just CompatibilityModeForward
   , _partitionKeyFields = Just ["fortune"]
   , _schema = myEventTypeSchema
+  , _defaultStatistic = Nothing
+  , _options = Nothing
   }
 
 ignoreExnNotFound :: MonadThrow m => a -> NakadiException -> m a
@@ -86,22 +89,54 @@ testEventTypePartitionsGet conf = do
   eventTypeCreate conf myEventType
   void $ eventTypePartitions conf myEventTypeName
 
-testEventTypeCursorDistances :: Config -> Assertion
-testEventTypeCursorDistances conf = do
+testEventTypeCursorDistances0 :: Config -> Assertion
+testEventTypeCursorDistances0 conf = do
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   partitions <- eventTypePartitions conf myEventTypeName
-  let cursors = map extractCursors partitions
+  let cursors = map extractCursor partitions
   forM_ cursors $ \cursor -> do
     distance <- eventTypeCursorDistance conf myEventTypeName cursor cursor
     distance @=? 0
 
-  where extractCursors Partition { ..} =
-          Cursor { _partition = _partition
-                 , _offset    = _newestAvailableOffset }
+testEventTypeCursorDistances10 :: Config -> Assertion
+testEventTypeCursorDistances10 conf = do
+  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreate conf myEventType
+  partitions <- eventTypePartitions conf myEventTypeName
+  let cursors = map extractCursor partitions
+
+  forM_ [1..10] $ \_ -> do
+    now <- getCurrentTime
+    eid <- tshow <$> genRandomUUID
+    eventTypePublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
+
+  cursorPairs <- forM cursors $ \cursor@Cursor { .. } -> do
+    part <- eventTypePartition conf myEventTypeName _partition
+    let cursor' = extractCursor part
+    return (cursor, cursor')
+
+  distances <- forM cursorPairs $ \(c, c') -> do
+    eventTypeCursorDistance conf myEventTypeName c c'
+
+  let totalDistances = sum distances
+  totalDistances @=? 10
+
+extractCursor :: Partition -> Cursor
+extractCursor Partition { ..} =
+  Cursor { _partition = _partition
+         , _offset    = _newestAvailableOffset }
 
 genRandomUUID :: IO UUID
 genRandomUUID = randomIO
+
+myDataChangeEvent :: Text -> UTCTime -> DataChangeEvent Foo
+myDataChangeEvent eid now =  DataChangeEvent
+  { _payload = Foo "Hello!"
+  , _metadata = Metadata eid (Timestamp now) [] Nothing
+  , _dataType = "test.FOO"
+  , _dataOp = DataOpUpdate
+  }
 
 consumeParametersSingle :: ConsumeParameters
 consumeParametersSingle = defaultConsumeParameters

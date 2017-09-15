@@ -634,6 +634,25 @@ instance FromJSON PartitionKeyField where
   parseJSON (String strategy) = return $ PartitionKeyField strategy
   parseJSON invalid           = typeMismatch "PartitionKeyField" invalid
 
+-- | Type for event type statistics.
+
+data EventTypeStatistics = EventTypeStatistics
+  { _messagesPerMinute :: Int64
+  , _messageSize       :: Int64
+  , _readParallelism   :: Int64
+  , _writeParallelism  :: Int64
+  } deriving (Show, Generic, Eq, Ord, Hashable)
+
+deriveJSON nakadiJsonOptions ''EventTypeStatistics
+
+-- | Type for event type options.
+
+data EventTypeOptions = EventTypeOptions
+  { _retentionTime :: Int64
+  } deriving (Show, Generic, Eq, Ord, Hashable)
+
+deriveJSON nakadiJsonOptions ''EventTypeOptions
+
 -- | EventType
 
 data EventType = EventType
@@ -643,8 +662,10 @@ data EventType = EventType
   , _enrichmentStrategies :: Maybe [EnrichmentStrategy]
   , _partitionStrategy    :: Maybe PartitionStrategy
   , _compatibilityMode    :: Maybe CompatibilityMode
-  , _partitionKeyFields   :: Maybe [PartitionKeyField]
   , _schema               :: EventTypeSchema
+  , _partitionKeyFields   :: Maybe [PartitionKeyField]
+  , _defaultStatistic     :: Maybe EventTypeStatistics
+  , _options              :: Maybe EventTypeOptions
   } deriving (Show, Generic, Eq, Ord, Hashable)
 
 deriveJSON nakadiJsonOptions ''EventType

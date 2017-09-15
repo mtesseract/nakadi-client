@@ -65,6 +65,8 @@ module Network.Nakadi.Types.Service
   , DataOp(..)
   , EventEnriched(..)
   , MetadataEnriched(..)
+  , EventTypeStatistics(..)
+  , EventTypeOptions(..)
   ) where
 
 import           Network.Nakadi.Internal.Types.Service
