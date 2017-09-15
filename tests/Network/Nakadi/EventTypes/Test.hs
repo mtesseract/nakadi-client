@@ -1,13 +1,25 @@
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 
 module Network.Nakadi.EventTypes.Test where
 
-import           Prelude
+import           ClassyPrelude
 
+import           Conduit
+import           Control.Concurrent.Async     (link)
 import           Control.Exception.Safe
-import           Control.Monad
+import           Control.Monad.Trans.Resource
+import           Data.Aeson
+import           Data.Function                ((&))
+import           Data.UUID                    (UUID)
+import qualified Data.UUID                    as UUID
 import           Network.Nakadi
+import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -17,11 +29,17 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypesDeleteCreateAndGet" (testEventTypesDeleteCreateGet conf)
   , testCase "EventTypePartitionsGet" (testEventTypePartitionsGet conf)
   , testCase "EventTypeCursorDistances" (testEventTypeCursorDistances conf)
+  , testCase "EventTypePublishData" (testEventTypePublishData conf)
   ]
 
 testEventTypesGet :: Config -> Assertion
 testEventTypesGet conf =
   void $ eventTypesGet conf
+
+data Foo = Foo { fortune :: Text } deriving (Show, Eq, Generic)
+
+deriving instance FromJSON Foo
+deriving instance ToJSON Foo
 
 myEventTypeName :: EventTypeName
 myEventTypeName = "test.FOO"
@@ -81,3 +99,33 @@ testEventTypeCursorDistances conf = do
   where extractCursors Partition { ..} =
           Cursor { _partition = _partition
                  , _offset    = _newestAvailableOffset }
+
+genRandomUUID :: IO UUID
+genRandomUUID = randomIO
+
+consumeParametersSingle :: ConsumeParameters
+consumeParametersSingle = defaultConsumeParameters
+                          & setBatchLimit 1
+                          & setBatchFlushTimeout 1
+
+testEventTypePublishData :: Config -> Assertion
+testEventTypePublishData conf = do
+  now <- getCurrentTime
+  eid <- tshow <$> genRandomUUID
+  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreate conf myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = Metadata eid (Timestamp now) [] Nothing
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+  withAsync (delayedPublish [event]) $ \asyncHandle -> do
+    link asyncHandle
+    eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
+      source <- eventTypeSource conf (Just consumeParametersSingle) myEventTypeName Nothing
+      runConduit $ source .| headC
+    isJust eventConsumed @=? True
+
+  where delayedPublish events = do
+          threadDelay (10^6)
+          eventTypePublish conf myEventTypeName Nothing events

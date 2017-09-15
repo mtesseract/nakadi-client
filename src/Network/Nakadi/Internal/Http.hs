@@ -23,6 +23,8 @@ module Network.Nakadi.Internal.Http
   , errorCursorResetInProgress
   , errorEventTypeNotFound
   , errorSubscriptionExistsAlready
+  , errorBatchPartiallySubmitted
+  , errorBatchNotSubmitted
   , setRequestQueryParameters
   ) where
 
@@ -186,3 +188,9 @@ errorEventTypeNotFound s = EventTypeNotFound <$> decodeThrow s
 
 errorSubscriptionExistsAlready :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorSubscriptionExistsAlready s = SubscriptionExistsAlready <$> decodeThrow s
+
+errorBatchPartiallySubmitted :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorBatchPartiallySubmitted s = BatchPartiallySubmitted <$> decodeThrow s
+
+errorBatchNotSubmitted :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorBatchNotSubmitted s = BatchNotSubmitted <$> decodeThrow s

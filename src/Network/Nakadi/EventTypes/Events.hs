@@ -20,6 +20,8 @@ This module implements the
 module Network.Nakadi.EventTypes.Events
   ( eventTypeSource
   , eventTypeSourceR
+  , eventTypePublish
+  , eventTypePublishR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -31,6 +33,12 @@ import qualified Data.ByteString.Lazy            as ByteString.Lazy
 import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.Http
 import qualified Network.Nakadi.Internal.Lenses  as L
+
+path :: EventTypeName -> ByteString
+path eventTypeName =
+  "/event-types/"
+  <> encodeUtf8 (unEventTypeName eventTypeName)
+  <> "/events"
 
 -- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
 -- for event batch consumption.
@@ -44,13 +52,13 @@ eventTypeSource ::
                              -- recent event
   -> m (ConduitM () (EventStreamBatch a)
         m ())                -- ^ Returns a Conduit source.
-eventTypeSource config maybeParams eventType maybeCursors = do
+eventTypeSource config maybeParams eventTypeName maybeCursors = do
   let consumeParams = fromMaybe (config^.L.consumeParameters) maybeParams
       queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
   runReaderC () . snd <$>
     httpJsonBodyStream config ok200 (const (Right ())) [ (status429, errorTooManyRequests)
                                                        , (status429, errorEventTypeNotFound) ]
-    (setRequestPath ("/event-types/" <> encodeUtf8 (unEventTypeName eventType) <> "/events")
+    (setRequestPath (path eventTypeName)
      . setRequestQueryParameters queryParams
      . case maybeCursors of
          Just cursors -> let cursors' = ByteString.Lazy.toStrict (encode cursors)
@@ -72,3 +80,34 @@ eventTypeSourceR ::
 eventTypeSourceR maybeParams eventType maybeCursors = do
   config <- asks (view L.nakadiConfig)
   eventTypeSource config maybeParams eventType maybeCursors
+
+-- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
+-- events for the specified event type.
+eventTypePublish ::
+  (MonadNakadi m, ToJSON a)
+  => Config
+  -> EventTypeName
+  -> Maybe FlowId
+  -> [a]
+  -> m ()
+eventTypePublish config eventTypeName maybeFlowId eventBatch =
+  httpJsonNoBody config status200
+  [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
+  , (status422, errorBatchNotSubmitted) ]
+  (setRequestMethod "POST"
+   . setRequestPath (path eventTypeName)
+   . maybe identity (addRequestHeader "X-Flow-Id" . encodeUtf8 . unFlowId) maybeFlowId
+   . setRequestBodyJSON eventBatch)
+
+-- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
+-- events for the specified event type. Uses the configuration from
+-- the environment.
+eventTypePublishR ::
+  (MonadNakadiEnv r m, ToJSON a)
+  => EventTypeName
+  -> Maybe FlowId
+  -> [a]
+  -> m ()
+eventTypePublishR eventTypeName maybeFlowId eventBatch = do
+  config <- asks (view L.nakadiConfig)
+  eventTypePublish config eventTypeName maybeFlowId eventBatch

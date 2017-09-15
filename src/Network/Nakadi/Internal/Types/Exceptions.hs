@@ -7,6 +7,7 @@ import           Network.Nakadi.Types.Problem
 import           Network.Nakadi.Types.Service
 
 data NakadiException = BatchPartiallySubmitted [BatchItemResponse]
+                     | BatchNotSubmitted [BatchItemResponse]
                      | BatchValidationFailure [BatchItemResponse]
                      | ClientNotAuthenticated Problem
                      | AccessForbidden Problem

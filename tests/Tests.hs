@@ -1,6 +1,6 @@
-import           Prelude
+import           ClassyPrelude
 
-import           Data.Maybe
+import           Control.Lens
 import           Network.HTTP.Client
 import           Network.Nakadi
 import           Network.Nakadi.EventTypes.Test
@@ -14,9 +14,14 @@ createConfig = do
   request <- parseRequest nakadiEndpoint
   newConfig Nothing request
 
+deserializationFailureCB :: ByteString -> IO ()
+deserializationFailureCB event = do
+  error $ "Failed to deserialize: " <> show event
+
 main :: IO ()
 main = do
   conf <- createConfig
+          <&> setDeserializationFailureCallback deserializationFailureCB
   defaultMain (tests conf)
 
 tests :: Config -> TestTree
