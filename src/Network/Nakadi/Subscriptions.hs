@@ -90,7 +90,7 @@ subscriptionsList :: MonadNakadi m
                   => Config
                   -> Maybe ApplicationName
                   -> Maybe [EventTypeName]
-                  -> m [Subscription]
+                  -> m SubscriptionsListResponse
 subscriptionsList config owningApp eventTypeNames =
   httpJsonBody config ok200 []
   (setRequestMethod "GET" . setRequestPath path . setRequestQueryParameters queryParameters)
@@ -109,7 +109,7 @@ subscriptionsListR ::
   MonadNakadiEnv r m
   => Maybe ApplicationName
   -> Maybe [EventTypeName]
-  -> m [Subscription]
+  -> m SubscriptionsListResponse
 subscriptionsListR owningApp eventTypeNames = do
   config <- asks (view L.nakadiConfig)
   subscriptionsList config owningApp eventTypeNames
