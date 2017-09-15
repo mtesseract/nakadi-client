@@ -4,6 +4,7 @@ import           Control.Lens
 import           Network.HTTP.Client
 import           Network.Nakadi
 import           Network.Nakadi.EventTypes.Test
+import           Network.Nakadi.Registry.Test
 import           System.Environment
 import           Test.Tasty
 
@@ -27,4 +28,5 @@ main = do
 tests :: Config -> TestTree
 tests conf = testGroup "Test Suite"
   [ testEventTypes conf
+  , testRegistry conf
   ]

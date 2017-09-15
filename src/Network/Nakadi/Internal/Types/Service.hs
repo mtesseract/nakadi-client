@@ -558,7 +558,7 @@ data EventTypeCategory = EventTypeCategoryUndefined
                        deriving (Show, Eq, Ord, Generic, Hashable)
 
 instance ToJSON EventTypeCategory where
-  toJSON resultType = String $ case resultType of
+  toJSON category = String $ case category of
     EventTypeCategoryUndefined -> "undefined"
     EventTypeCategoryData      -> "data"
     EventTypeCategoryBusiness  -> "business"
@@ -572,18 +572,33 @@ instance FromJSON EventTypeCategory where
 
 -- | Type for a partitioning strategy.
 
-newtype PartitionStrategy = PartitionStrategy { unPartitionStrategy :: Text }
-  deriving (Show, Eq, Ord, Generic, Hashable)
-
-instance IsString PartitionStrategy where
-  fromString = PartitionStrategy . Text.pack
+data PartitionStrategy = PartitionStrategyRandom
+                       | PartitionStrategyUser
+                       | PartitionStrategyHash
+                       | PartitionStrategyCustom Text
+                       deriving (Show, Eq, Ord, Generic, Hashable)
 
 instance ToJSON PartitionStrategy where
-  toJSON = String . unPartitionStrategy
+  toJSON strategy = String $ case strategy of
+    PartitionStrategyRandom      -> "random"
+    PartitionStrategyUser        -> "user_defined"
+    PartitionStrategyHash        -> "hash"
+    PartitionStrategyCustom name -> name
 
 instance FromJSON PartitionStrategy where
-  parseJSON (String strategy) = return $ PartitionStrategy strategy
-  parseJSON invalid           = typeMismatch "PartitionStrategy" invalid
+  parseJSON category = case category of
+    "random"       -> return PartitionStrategyRandom
+    "user_defined" -> return PartitionStrategyUser
+    "hash"         -> return PartitionStrategyHash
+    String other   -> return $ PartitionStrategyCustom other
+    invalid        -> typeMismatch "PartitionStrategy" invalid
+
+instance IsString PartitionStrategy where
+  fromString = \case
+    "random"       -> PartitionStrategyRandom
+    "user_defined" -> PartitionStrategyUser
+    "hash"         -> PartitionStrategyHash
+    other          -> PartitionStrategyCustom (Text.pack other)
 
 -- | Type for an enrichment stragey.
 
