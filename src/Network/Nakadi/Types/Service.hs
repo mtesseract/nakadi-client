@@ -61,6 +61,10 @@ module Network.Nakadi.Types.Service
   , CompatibilityMode(..)
   , PartitionKeyField(..)
   , EventType(..)
+  , DataChangeEvent(..)
+  , DataOp(..)
+  , EventEnriched(..)
+  , MetadataEnriched(..)
   ) where
 
 import           Network.Nakadi.Internal.Types.Service

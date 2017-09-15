@@ -179,7 +179,7 @@ instance Hashable Timestamp where
   hashWithSalt salt = hashWithSalt salt . tshow . unTimestamp
 
 instance ToJSON Timestamp where
-  toJSON = String . tshow . unTimestamp
+  toJSON = String . Text.pack . formatISO8601Millis . unTimestamp
 
 instance FromJSON Timestamp where
   parseJSON s@(String timestamp) = case parseISO8601 (Text.unpack timestamp) of
@@ -187,12 +187,25 @@ instance FromJSON Timestamp where
                            Nothing -> typeMismatch "Timestamp" s
   parseJSON invalid     = typeMismatch "TimestampId" invalid
 
+-- | A Flow ID.
+
+newtype FlowId = FlowId { unFlowId :: Text }
+  deriving (Show, Eq, Ord, Generic)
+
+instance ToJSON FlowId where
+  toJSON = String . unFlowId
+
+instance FromJSON FlowId where
+  parseJSON (String s) = return $ FlowId s
+  parseJSON invalid    = typeMismatch "FlowId" invalid
+
 -- | Metadata
 
 data Metadata = Metadata
-  { _occurredAt :: Timestamp
-  , _eid        :: Text
-  , _eventType  :: Text
+  { _eid        :: Text
+  , _occurredAt :: Timestamp
+  , _parentEids :: [Text]
+  , _partition  :: Maybe Text
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''Metadata
@@ -359,6 +372,8 @@ data BatchItemResponse = BatchItemResponse
   , _publishingStatus :: PublishingStatus
   , _step             :: Maybe Step
   } deriving (Show, Eq, Ord, Generic, Hashable)
+
+deriveJSON nakadiJsonOptions ''BatchItemResponse
 
 -- | StreamKeepAliveLimit
 
@@ -632,3 +647,67 @@ data EventType = EventType
   } deriving (Show, Generic, Eq, Ord, Hashable)
 
 deriveJSON nakadiJsonOptions ''EventType
+
+-- | Type of enriched metadata values.
+
+data MetadataEnriched = MetadataEnriched
+  { _eid        :: Text
+  , _eventType  :: EventTypeName
+  , _occurredAt :: Timestamp
+  , _receivedAt :: Timestamp
+  , _version    :: SchemaVersion
+  , _parentEids :: [Text]
+  } deriving (Eq, Show, Generic)
+
+deriveJSON nakadiJsonOptions ''MetadataEnriched
+
+-- | Type of enriched event.
+
+data EventEnriched a = EventEnriched
+  { _payload  :: a -- Cannot be named '_data', as this this would
+                   -- cause the lense 'data' to be created, which is a
+                   -- reserved keyword.
+  , _metadata :: MetadataEnriched
+  } deriving (Eq, Show, Generic)
+
+deriveJSON nakadiJsonOptions {
+  fieldLabelModifier = makeFieldRenamer [ ("_payload",  "data")
+                                        , ("_metadata", "metadata") ]
+  }  ''EventEnriched
+
+
+-- | Type for "data_op" as contained in the DataChangeEvent.
+
+data DataOp = DataOpCreation
+            | DataOpUpdate
+            | DataOpDeletion
+            | DataOpSnapshot
+            deriving (Show, Eq, Ord)
+
+instance ToJSON DataOp where
+  toJSON op = case op of
+                DataOpCreation -> "C"
+                DataOpUpdate   -> "U"
+                DataOpDeletion -> "D"
+                DataOpSnapshot -> "S"
+
+instance FromJSON DataOp where
+  parseJSON op = case op of
+                   "C"     -> return DataOpCreation
+                   "U"     -> return DataOpUpdate
+                   "D"     -> return DataOpDeletion
+                   "S"     -> return DataOpSnapshot
+                   invalid -> typeMismatch "DataOp" invalid
+
+-- | DataChangeEvent
+
+data DataChangeEvent a = DataChangeEvent
+  { _payload  :: a -- Cannot be named '_data', as this this would
+                   -- cause the lense 'data' to be created, which is a
+                   -- reserved keyword.
+  , _metadata :: Metadata
+  , _dataType :: Text
+  , _dataOp   :: DataOp
+  } deriving (Eq, Show, Generic)
+
+deriveJSON nakadiJsonOptions ''DataChangeEvent

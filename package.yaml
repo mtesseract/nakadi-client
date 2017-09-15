@@ -80,6 +80,7 @@ tests:
     - -Wall
     dependencies:
     - base
+    - classy-prelude
     - nakadi-client
     - tasty
     - tasty-hunit
@@ -89,3 +90,4 @@ tests:
     - lens-aeson
     - text
     - say
+    - random

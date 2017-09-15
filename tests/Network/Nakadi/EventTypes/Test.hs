@@ -1,13 +1,20 @@
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 
 module Network.Nakadi.EventTypes.Test where
 
-import           Prelude
+import           ClassyPrelude
 
 import           Control.Exception.Safe
-import           Control.Monad
+import           Data.Aeson
+import           Data.UUID              (UUID)
+import qualified Data.UUID              as UUID
 import           Network.Nakadi
+import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -17,11 +24,17 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypesDeleteCreateAndGet" (testEventTypesDeleteCreateGet conf)
   , testCase "EventTypePartitionsGet" (testEventTypePartitionsGet conf)
   , testCase "EventTypeCursorDistances" (testEventTypeCursorDistances conf)
+  , testCase "EventTypePublish" (testEventTypePublish conf)
   ]
 
 testEventTypesGet :: Config -> Assertion
 testEventTypesGet conf =
   void $ eventTypesGet conf
+
+data Foo = Foo { fortune :: Text } deriving (Show, Eq, Generic)
+
+deriving instance FromJSON Foo
+deriving instance ToJSON Foo
 
 myEventTypeName :: EventTypeName
 myEventTypeName = "test.FOO"
@@ -81,3 +94,19 @@ testEventTypeCursorDistances conf = do
   where extractCursors Partition { ..} =
           Cursor { _partition = _partition
                  , _offset    = _newestAvailableOffset }
+
+genRandomUUID :: IO UUID
+genRandomUUID = randomIO
+
+testEventTypePublish :: Config -> Assertion
+testEventTypePublish conf = do
+  now <- getCurrentTime
+  eid <- tshow <$> genRandomUUID
+  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreate conf myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = Metadata eid (Timestamp now) [] Nothing
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+  eventTypePublish conf myEventTypeName Nothing [event]
