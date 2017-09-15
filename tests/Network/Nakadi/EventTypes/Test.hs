@@ -34,16 +34,16 @@ testEventTypes conf = testGroup "EventTypes"
 
 testEventTypesGet :: Config -> Assertion
 testEventTypesGet conf =
-  void $ eventTypesGet conf
+  void $ eventTypesList conf
 
 testEventTypesDeleteCreateGet :: Config -> Assertion
 testEventTypesDeleteCreateGet conf = do
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
-  myEventTypes <- filterMyEvent <$> eventTypesGet conf
+  myEventTypes <- filterMyEvent <$> eventTypesList conf
   length myEventTypes @=? 1
   eventTypeDelete conf myEventTypeName
-  myEventTypes' <- filterMyEvent <$> eventTypesGet conf
+  myEventTypes' <- filterMyEvent <$> eventTypesList conf
   length myEventTypes' @=? 0
 
   where filterMyEvent = filter ((myEventTypeName ==) . (_name :: EventType -> EventTypeName))
@@ -61,7 +61,7 @@ testEventTypeCursorDistances0 conf = do
   partitions <- eventTypePartitions conf myEventTypeName
   let cursors = map extractCursor partitions
   forM_ cursors $ \cursor -> do
-    distance <- eventTypeCursorDistance conf myEventTypeName cursor cursor
+    distance <- cursorDistance conf myEventTypeName cursor cursor
     distance @=? 0
 
 testEventTypeCursorDistances10 :: Config -> Assertion
@@ -74,7 +74,7 @@ testEventTypeCursorDistances10 conf = do
   forM_ [1..10] $ \_ -> do
     now <- getCurrentTime
     eid <- tshow <$> genRandomUUID
-    eventTypePublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
+    eventPublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
 
   cursorPairs <- forM cursors $ \cursor@Cursor { .. } -> do
     part <- eventTypePartition conf myEventTypeName _partition
@@ -82,7 +82,7 @@ testEventTypeCursorDistances10 conf = do
     return (cursor, cursor')
 
   distances <- forM cursorPairs $ \(c, c') -> do
-    eventTypeCursorDistance conf myEventTypeName c c'
+    cursorDistance conf myEventTypeName c c'
 
   let totalDistances = sum distances
   totalDistances @=? 10
@@ -106,10 +106,10 @@ testEventTypePublishData conf = do
   withAsync (delayedPublish [event]) $ \asyncHandle -> do
     link asyncHandle
     eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
-      source <- eventTypeSource conf (Just consumeParametersSingle) myEventTypeName Nothing
+      source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
       runConduit $ source .| headC
     isJust eventConsumed @=? True
 
   where delayedPublish events = do
           threadDelay (10^6)
-          eventTypePublish conf myEventTypeName Nothing events
+          eventPublish conf myEventTypeName Nothing events

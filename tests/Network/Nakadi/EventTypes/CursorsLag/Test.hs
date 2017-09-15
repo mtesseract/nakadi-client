@@ -28,7 +28,7 @@ testCursorsLagZero conf = do
   partitions <- eventTypePartitions conf myEventTypeName
   let cursorsMap = Map.fromList $
         map (\Partition { .. } -> (_partition, _newestAvailableOffset)) partitions
-  lagMap <- eventTypeCursorsLag conf myEventTypeName cursorsMap
+  lagMap <- cursorsLag conf myEventTypeName cursorsMap
   Map.size cursorsMap @=? Map.size lagMap
   forM_ (Map.toList lagMap) $ \(_, lag) ->
     lag @=? 0
@@ -42,8 +42,8 @@ testCursorsLagN conf n = do
   let cursorsMap = Map.fromList $
         map (\Partition { .. } -> (_partition, _newestAvailableOffset)) partitions
   forM_ [1..n] $ \_ ->
-    eventTypePublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
-  lagMap <- eventTypeCursorsLag conf myEventTypeName cursorsMap
+    eventPublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
+  lagMap <- cursorsLag conf myEventTypeName cursorsMap
   Map.size cursorsMap @=? Map.size lagMap
   let lag = sum $ map snd (Map.toList lagMap)
   n @=? lag

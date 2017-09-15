@@ -16,10 +16,10 @@ This module implements the
 {-# LANGUAGE RecordWildCards       #-}
 
 module Network.Nakadi.EventTypes.ShiftedCursors
-  ( eventTypeCursorsShift'
-  , eventTypeCursorsShiftR'
-  , eventTypeCursorsShift
-  , eventTypeCursorsShiftR
+  ( cursorsShift'
+  , cursorsShiftR'
+  , cursorsShift
+  , cursorsShiftR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -36,13 +36,13 @@ path eventTypeName =
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. Low level
 -- interface.
-eventTypeCursorsShift' ::
+cursorsShift' ::
   MonadNakadi m
   => Config          -- ^ Configuration
   -> EventTypeName   -- ^ Event Type
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
-eventTypeCursorsShift' config eventTypeName cursors =
+cursorsShift' config eventTypeName cursors =
   httpJsonBody config ok200 []
   (setRequestMethod "POST"
    . setRequestPath (path eventTypeName)
@@ -50,26 +50,26 @@ eventTypeCursorsShift' config eventTypeName cursors =
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. Low level
 -- interface. Retrieves the configuration from the environment.
-eventTypeCursorsShiftR' ::
+cursorsShiftR' ::
   MonadNakadiEnv r m
   => EventTypeName   -- ^ Event Type
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
-eventTypeCursorsShiftR' eventTypeName cursors = do
+cursorsShiftR' eventTypeName cursors = do
   config <- asks (view L.nakadiConfig)
-  eventTypeCursorsShift' config eventTypeName cursors
+  cursorsShift' config eventTypeName cursors
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface.
-eventTypeCursorsShift ::
+cursorsShift ::
   MonadNakadi m
   => Config        -- ^ Configuration
   -> EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors to shift
   -> Int64         -- ^ Shift Distance
   -> m [Cursor]    -- ^ Resulting Cursors
-eventTypeCursorsShift config eventTypeName cursors n =
-  eventTypeCursorsShift' config eventTypeName (map makeShiftCursor cursors)
+cursorsShift config eventTypeName cursors n =
+  cursorsShift' config eventTypeName (map makeShiftCursor cursors)
 
   where makeShiftCursor Cursor { .. } =
           ShiftedCursor { _partition = _partition
@@ -78,12 +78,12 @@ eventTypeCursorsShift config eventTypeName cursors n =
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface. Retrieves the configuration from the environment.
-eventTypeCursorsShiftR ::
+cursorsShiftR ::
   MonadNakadiEnv r m
   => EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors to shift
   -> Int64         -- ^ Shift Distance
   -> m [Cursor]    -- ^ Resulting Cursors
-eventTypeCursorsShiftR eventTypeName cursors n = do
+cursorsShiftR eventTypeName cursors n = do
   config <- asks (view L.nakadiConfig)
-  eventTypeCursorsShift config eventTypeName cursors n
+  cursorsShift config eventTypeName cursors n
