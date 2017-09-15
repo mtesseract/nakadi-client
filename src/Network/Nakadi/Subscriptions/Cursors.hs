@@ -40,7 +40,6 @@ import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
 import           Network.Nakadi.Internal.Lenses      (HasSubscriptionCursor)
 import qualified Network.Nakadi.Internal.Lenses      as L
-import           Network.Nakadi.Internal.Types
 
 path :: SubscriptionId -> ByteString
 path subscriptionId =
