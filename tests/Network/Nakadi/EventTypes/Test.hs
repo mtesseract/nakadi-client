@@ -14,6 +14,7 @@ import           Conduit
 import           Control.Concurrent.Async                      (link)
 import           Data.Function                                 ((&))
 import           Network.Nakadi
+import           Network.Nakadi.EventTypes.CursorsLag.Test
 import           Network.Nakadi.EventTypes.ShiftedCursors.Test
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
@@ -28,6 +29,7 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypeCursorDistances10" (testEventTypeCursorDistances10 conf)
   , testCase "EventTypePublishData" (testEventTypePublishData conf)
   , testEventTypesShiftedCursors conf
+  , testEventTypesCursorsLag conf
   ]
 
 testEventTypesGet :: Config -> Assertion
