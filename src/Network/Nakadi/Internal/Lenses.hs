@@ -40,6 +40,7 @@ makeFieldsNoPrefix ''SubscriptionEventTypeStatsResult
 makeFieldsNoPrefix ''ConsumeParameters
 makeFieldsNoPrefix ''SubscriptionCursorCommit
 makeFieldsNoPrefix ''CursorCommit
+makeFieldsNoPrefix ''SubscriptionsListResponse
 
 class HasNakadiConfig s a where
   nakadiConfig :: Lens' s a

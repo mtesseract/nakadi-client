@@ -13,7 +13,6 @@ This module implements the
 
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections         #-}
 
 module Network.Nakadi.EventTypes.CursorsLag
   ( cursorsLag'
@@ -29,6 +28,7 @@ import           Control.Lens
 import qualified Data.Map.Strict                 as Map
 import           Network.Nakadi.Internal.Http
 import qualified Network.Nakadi.Internal.Lenses  as L
+import           Network.Nakadi.Internal.Util
 
 path :: EventTypeName -> ByteString
 path eventTypeName =
@@ -90,6 +90,3 @@ cursorsLagR ::
 cursorsLagR eventTypeName cursorsMap = do
   config <- asks (view L.nakadiConfig)
   cursorsLag config eventTypeName cursorsMap
-
-sequenceSnd :: Functor f => (a, f b) -> f (a, b)
-sequenceSnd (a, fb) = (a,) <$> fb
