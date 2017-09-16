@@ -11,8 +11,8 @@ import           Test.Tasty
 
 createConfig :: IO Config
 createConfig = do
-  nakadiEndpoint <- fromMaybe (error "NAKADI_ENDPOINT not set") <$>
-                    lookupEnv "NAKADI_ENDPOINT"
+  nakadiEndpoint <- fromMaybe (error "TEST_NAKADI_ENDPOINT not set") <$>
+                    lookupEnv "TEST_NAKADI_ENDPOINT"
   request <- parseRequest nakadiEndpoint
   newConfig Nothing request
 

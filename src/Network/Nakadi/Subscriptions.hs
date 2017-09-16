@@ -113,7 +113,8 @@ subscriptionsList' :: MonadNakadi m
                    -> m SubscriptionsListResponse
 subscriptionsList' config maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset =
   subscriptionsGet config queryParameters
-  where queryParameters = buildQueryParameters maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset
+  where queryParameters =
+          buildQueryParameters maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset
 
 buildQueryParameters :: Maybe ApplicationName
                      -> Maybe [EventTypeName]
@@ -149,13 +150,13 @@ subscriptionsSource :: (MonadNakadi m, MonadMask m)
                     => Config
                     -> Maybe ApplicationName
                     -> Maybe [EventTypeName]
-                    -> Source m Subscription
+                    -> Source m [Subscription]
 subscriptionsSource config maybeOwningApp maybeEventTypeNames =
   nextPage initialQueryParameters
 
   where nextPage queryParameters = do
           resp <- lift $ subscriptionsGet config queryParameters
-          forM_ (resp^.L.items) yield
+          yield (resp^.L.items)
           let maybeNextPath = Text.unpack . (view L.href) <$> (resp^.L.links.L.next)
           case maybeNextPath >>= extractQueryParametersFromPath  of
             Just nextQueryParameters -> do
@@ -172,7 +173,7 @@ subscriptionsSource config maybeOwningApp maybeEventTypeNames =
 subscriptionsSourceR :: (MonadNakadiEnv r m, MonadMask m)
                      => Maybe ApplicationName
                      -> Maybe [EventTypeName]
-                     -> Source m Subscription
+                     -> Source m [Subscription]
 subscriptionsSourceR maybeOwningApp maybeEventTypeNames = do
   config <- asks (view L.nakadiConfig)
   subscriptionsSource config maybeOwningApp maybeEventTypeNames
@@ -185,7 +186,7 @@ subscriptionsList :: (MonadNakadi m, MonadMask m)
                   -> Maybe [EventTypeName]
                   -> m [Subscription]
 subscriptionsList config maybeOwningApp maybeEventTypeNames = runConduit $
-  subscriptionsSource config maybeOwningApp maybeEventTypeNames .| sinkList
+  subscriptionsSource config maybeOwningApp maybeEventTypeNames .| concatC .| sinkList
 
 -- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
 -- the provided filter criteria. High-level Conduit interface,
