@@ -22,7 +22,8 @@ import           Test.Tasty.HUnit
 
 testEventTypes :: Config -> TestTree
 testEventTypes conf = testGroup "EventTypes"
-  [ testCase "EventTypesGet" (testEventTypesGet conf)
+  [ testCase "EventTypesPrepare" (testEventTypesPrepare conf)
+  , testCase "EventTypesGet" (testEventTypesGet conf)
   , testCase "EventTypesDeleteCreateAndGet" (testEventTypesDeleteCreateGet conf)
   , testCase "EventTypePartitionsGet" (testEventTypePartitionsGet conf)
   , testCase "EventTypeCursorDistances0" (testEventTypeCursorDistances0 conf)
@@ -31,6 +32,12 @@ testEventTypes conf = testGroup "EventTypes"
   , testEventTypesShiftedCursors conf
   , testEventTypesCursorsLag conf
   ]
+
+testEventTypesPrepare :: Config -> Assertion
+testEventTypesPrepare conf = do
+  subscriptions <- subscriptionsList conf Nothing Nothing
+  let subscriptionIds = catMaybes . map _id $ subscriptions
+  forM_ subscriptionIds (subscriptionDelete conf)
 
 testEventTypesGet :: Config -> Assertion
 testEventTypesGet conf =

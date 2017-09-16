@@ -42,6 +42,9 @@ Please note that the **API is not considered stable yet**.
   image](https://github.com/zalando/nakadi#running-a-server) (in
   progress).
 
+- Correct types for values like `CursorOffset` (which must be treated
+  as opaque strings).
+
 ### Example
 
 Example using the Subscription API:

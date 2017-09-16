@@ -312,7 +312,7 @@ instance FromJSON SubscriptionPosition where
 
 data Subscription = Subscription
   { _id                :: Maybe SubscriptionId
-  , _owningApplication :: Text
+  , _owningApplication :: ApplicationName
   , _eventTypes        :: [EventTypeName]
   , _consumerGroup     :: Maybe Text
   , _createdAt         :: Maybe Timestamp
@@ -486,20 +486,27 @@ deriveJSON nakadiJsonOptions ''PaginationLinks
 -- | EventTypeSchemasResponse
 
 data EventTypeSchemasResponse = EventTypeSchemasResponse
-  { __links :: PaginationLinks
-  , _items  :: [EventTypeSchema]
+  { _links :: PaginationLinks
+  , _items :: [EventTypeSchema]
   } deriving (Show, Eq, Ord, Generic, Hashable)
 
-deriveJSON nakadiJsonOptions ''EventTypeSchemasResponse
+deriveJSON nakadiJsonOptions {
+  fieldLabelModifier = makeFieldRenamer [ ("_links", "_links")
+                                        , ("_items", "items") ]
+  }  ''EventTypeSchemasResponse
+
 
 -- | SubscriptionsListResponse
 
 data SubscriptionsListResponse = SubscriptionsListResponse
-  { __links :: PaginationLinks
-  , _items  :: [Subscription]
+  { _links :: PaginationLinks
+  , _items :: [Subscription]
   } deriving (Show, Eq, Ord, Generic, Hashable)
 
-deriveJSON nakadiJsonOptions ''SubscriptionsListResponse
+deriveJSON nakadiJsonOptions {
+  fieldLabelModifier = makeFieldRenamer [ ("_links", "_links")
+                                        , ("_items", "items") ]
+  }  ''SubscriptionsListResponse
 
 -- | Offset
 
@@ -542,7 +549,7 @@ data PartitionStat = PartitionStat
 
 deriveJSON nakadiJsonOptions ''PartitionStat
 
--- | SubscriptionEventTypeStats
+-- | Nakadi type @SubscriptionEventTypeStats@.
 
 data SubscriptionEventTypeStats = SubscriptionEventTypeStats
   { _eventType  :: EventTypeName

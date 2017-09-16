@@ -1,6 +1,10 @@
+{-# LANGUAGE TupleSections #-}
+
 module Network.Nakadi.Internal.Util
   ( conduitDrainToLazyByteString
   , decodeThrow
+  , sequenceSnd
+  , extractQueryParametersFromPath
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -9,7 +13,8 @@ import           Data.Aeson
 import           Data.ByteString.Builder
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
 import           Data.Conduit
-import           Data.Conduit.Combinators        hiding (decodeUtf8)
+import           Data.Conduit.Combinators        hiding (decodeUtf8, map)
+import           Network.HTTP.Simple
 
 import           Network.Nakadi.Types
 
@@ -23,3 +28,12 @@ decodeThrow :: (FromJSON a, MonadThrow m) => ByteString.Lazy.ByteString -> m a
 decodeThrow s = case decode s of
   Just a  -> return a
   Nothing -> throwIO (DeserializationFailure s)
+
+sequenceSnd :: Functor f => (a, f b) -> f (a, b)
+sequenceSnd (a, fb) = (a,) <$> fb
+
+extractQueryParametersFromPath :: String -> Maybe [(ByteString, ByteString)]
+extractQueryParametersFromPath path =
+  case parseRequest ("http://localhost" <> path) of
+    Just req -> Just . catMaybes . map sequenceSnd . getRequestQueryString $ req
+    Nothing -> Nothing
