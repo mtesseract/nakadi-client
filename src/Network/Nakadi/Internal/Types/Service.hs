@@ -25,7 +25,7 @@ import           GHC.Generics
 import           Network.Nakadi.Internal.Json
 import           Network.Nakadi.Internal.Types.Util
 
--- | CursorOffset
+-- | Type for cursor offsets.
 
 newtype CursorOffset = CursorOffset { unCursorOffset :: Text }
   deriving (Show, Eq, Ord, Hashable, Generic)
@@ -40,7 +40,7 @@ instance FromJSON CursorOffset where
   parseJSON (String offset) = return $ CursorOffset offset
   parseJSON invalid         = typeMismatch "CursorOffset" invalid
 
--- | EventTypeName
+-- | Type for event type names.
 newtype EventTypeName = EventTypeName
   { unEventTypeName :: Text
   } deriving (Eq, Show, Generic, Ord, Hashable)
@@ -55,7 +55,7 @@ instance FromJSON EventTypeName where
   parseJSON (String name) = return $ EventTypeName name
   parseJSON invalid       = typeMismatch "EventTypeName" invalid
 
--- | PartitionName
+-- | Type for partition names.
 newtype PartitionName = PartitionName
   { unPartitionName :: Text
   } deriving (Eq, Show, Generic, Ord, Hashable)
@@ -70,7 +70,7 @@ instance FromJSON PartitionName where
   parseJSON (String name) = return $ PartitionName name
   parseJSON invalid       = typeMismatch "PartitionName" invalid
 
--- | CursorToken
+-- | Type for cursor tokens.
 
 newtype CursorToken = CursorToken Text deriving (Eq, Show, Ord)
 
@@ -79,7 +79,7 @@ instance IsString CursorToken where
 
 deriveJSON nakadiJsonOptions ''CursorToken
 
--- | Cursor
+-- | Type for cursors.
 
 data Cursor = Cursor
   { _partition :: PartitionName
@@ -88,7 +88,7 @@ data Cursor = Cursor
 
 deriveJSON nakadiJsonOptions ''Cursor
 
--- | ApplicationName
+-- | Type for  application names.
 
 newtype ApplicationName = ApplicationName { unApplicationName :: Text }
   deriving (Show, Eq, Ord, Generic, Hashable)
@@ -103,7 +103,7 @@ instance FromJSON ApplicationName where
   parseJSON (String name) = return $ ApplicationName name
   parseJSON invalid       = typeMismatch "ApplicationName" invalid
 
--- | SubscriptionCursor
+-- | Type fo rsubscription cursors.
 
 data SubscriptionCursor = SubscriptionCursor
   { _partition   :: PartitionName
@@ -114,7 +114,7 @@ data SubscriptionCursor = SubscriptionCursor
 
 deriveJSON nakadiJsonOptions ''SubscriptionCursor
 
--- | SubscriptionCursorWithoutToken
+-- | Type for subscription cursors without token.
 
 data SubscriptionCursorWithoutToken = SubscriptionCursorWithoutToken
   { _partition :: PartitionName
@@ -124,25 +124,27 @@ data SubscriptionCursorWithoutToken = SubscriptionCursorWithoutToken
 
 deriveJSON nakadiJsonOptions ''SubscriptionCursorWithoutToken
 
--- | SubscriptionCursorCommit
+-- | Type for commit object for subscription cursor committing.
 
 newtype SubscriptionCursorCommit = SubscriptionCursorCommit
-  { _items :: [SubscriptionCursor]
+  { _items :: [SubscriptionCursor] -- ^ List of cursors to commit.
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''SubscriptionCursorCommit
 
--- | CursorCommit
+-- | Type for commit objects for cursor committing.
 
 newtype CursorCommit = CursorCommit
-  { _items :: [Cursor]
+  { _items :: [Cursor] -- ^ List of cursors to commit.
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''CursorCommit
 
--- | SubscriptionId
+-- | Type for subscription IDs.
 
-newtype SubscriptionId = SubscriptionId { unSubscriptionId :: UUID }
+newtype SubscriptionId = SubscriptionId
+  { unSubscriptionId :: UUID -- ^ Wrapped UUID.
+  }
   deriving (Eq, Show, Ord, Generic, Hashable)
 
 instance ToJSON SubscriptionId where
@@ -151,7 +153,7 @@ instance ToJSON SubscriptionId where
 instance FromJSON SubscriptionId where
   parseJSON = parseUUID "SubscriptionId" SubscriptionId
 
--- | StreamId
+-- | Type for stream IDs.
 
 newtype StreamId = StreamId { unStreamId :: Text }
   deriving (Show, Eq, Ord, Generic)
