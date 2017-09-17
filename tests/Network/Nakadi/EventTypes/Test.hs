@@ -12,10 +12,12 @@ import           ClassyPrelude
 
 import           Conduit
 import           Control.Concurrent.Async                      (link)
+import           Control.Lens
 import           Data.Function                                 ((&))
 import           Network.Nakadi
 import           Network.Nakadi.EventTypes.CursorsLag.Test
 import           Network.Nakadi.EventTypes.ShiftedCursors.Test
+import qualified Network.Nakadi.Lenses                         as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -36,7 +38,7 @@ testEventTypes conf = testGroup "EventTypes"
 testEventTypesPrepare :: Config -> Assertion
 testEventTypesPrepare conf = do
   subscriptions <- subscriptionsList conf Nothing Nothing
-  let subscriptionIds = catMaybes . map _id $ subscriptions
+  let subscriptionIds = catMaybes . map (view L.id) $ subscriptions
   forM_ subscriptionIds (subscriptionDelete conf)
 
 testEventTypesGet :: Config -> Assertion
@@ -53,7 +55,7 @@ testEventTypesDeleteCreateGet conf = do
   myEventTypes' <- filterMyEvent <$> eventTypesList conf
   length myEventTypes' @=? 0
 
-  where filterMyEvent = filter ((myEventTypeName ==) . (_name :: EventType -> EventTypeName))
+  where filterMyEvent = filter ((myEventTypeName ==) . (view L.name))
 
 testEventTypePartitionsGet :: Config -> Assertion
 testEventTypePartitionsGet conf = do

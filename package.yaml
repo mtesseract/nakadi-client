@@ -47,6 +47,7 @@ dependencies:
 - split
 - aeson-casing
 - tasty
+- template-haskell
 library:
   source-dirs: src
   exposed-modules:
@@ -72,6 +73,8 @@ library:
   - Network.Nakadi.Types.Problem
   - Network.Nakadi.Types.Service
   - Network.Nakadi.Types.Subscription
+  - Network.Nakadi.Registry
+  - Network.Nakadi.Lenses
 tests:
   nakadi-client-test-suite:
     main: Tests.hs

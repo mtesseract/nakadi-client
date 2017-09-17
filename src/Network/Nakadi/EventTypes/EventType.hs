@@ -1,5 +1,5 @@
 {-|
-Module      : Network.Nakadi.EventTypes.Events
+Module      : Network.Nakadi.EventTypes.EventType
 Description : Implementation of Nakadi EventTypes API
 Copyright   : (c) Moritz Schulte 2017
 License     : BSD3

@@ -1,3 +1,15 @@
+{-|
+Module      : Network.Nakadi.Internal.Types.Exceptions
+Description : Nakadi Client Exceptions (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Nakadi client exceptions.
+-}
+
 module Network.Nakadi.Internal.Types.Exceptions where
 
 import           Network.Nakadi.Internal.Prelude

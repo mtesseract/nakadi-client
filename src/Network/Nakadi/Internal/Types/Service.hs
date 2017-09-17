@@ -1,4 +1,14 @@
--- | Types modelling the Nakadi Service API.
+{-|
+Module      : Network.Nakadi.Internal.Types.Service
+Description : Nakadi Client Service Types (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Types modelling the Nakadi Service API.
+-}
 
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
@@ -25,9 +35,11 @@ import           GHC.Generics
 import           Network.Nakadi.Internal.Json
 import           Network.Nakadi.Internal.Types.Util
 
--- | CursorOffset
-
-newtype CursorOffset = CursorOffset { unCursorOffset :: Text }
+-- | Type for cursor offsets.
+newtype CursorOffset = CursorOffset
+  { unCursorOffset :: Text -- ^ Opaque Cursor Offset, do not parse
+                           -- this
+  }
   deriving (Show, Eq, Ord, Hashable, Generic)
 
 instance IsString CursorOffset where
@@ -40,9 +52,9 @@ instance FromJSON CursorOffset where
   parseJSON (String offset) = return $ CursorOffset offset
   parseJSON invalid         = typeMismatch "CursorOffset" invalid
 
--- | EventTypeName
+-- | Type for event type names.
 newtype EventTypeName = EventTypeName
-  { unEventTypeName :: Text
+  { unEventTypeName :: Text -- ^ Wrapped Event Type Name
   } deriving (Eq, Show, Generic, Ord, Hashable)
 
 instance IsString EventTypeName where
@@ -55,9 +67,9 @@ instance FromJSON EventTypeName where
   parseJSON (String name) = return $ EventTypeName name
   parseJSON invalid       = typeMismatch "EventTypeName" invalid
 
--- | PartitionName
+-- | Type for partition names.
 newtype PartitionName = PartitionName
-  { unPartitionName :: Text
+  { unPartitionName :: Text -- ^ Wrapped Partition Name
   } deriving (Eq, Show, Generic, Ord, Hashable)
 
 instance IsString PartitionName where
@@ -70,7 +82,7 @@ instance FromJSON PartitionName where
   parseJSON (String name) = return $ PartitionName name
   parseJSON invalid       = typeMismatch "PartitionName" invalid
 
--- | CursorToken
+-- | Type for cursor tokens.
 
 newtype CursorToken = CursorToken Text deriving (Eq, Show, Ord)
 
@@ -79,7 +91,7 @@ instance IsString CursorToken where
 
 deriveJSON nakadiJsonOptions ''CursorToken
 
--- | Cursor
+-- | Type for cursors.
 
 data Cursor = Cursor
   { _partition :: PartitionName
@@ -88,7 +100,7 @@ data Cursor = Cursor
 
 deriveJSON nakadiJsonOptions ''Cursor
 
--- | ApplicationName
+-- | Type for  application names.
 
 newtype ApplicationName = ApplicationName { unApplicationName :: Text }
   deriving (Show, Eq, Ord, Generic, Hashable)
@@ -103,46 +115,48 @@ instance FromJSON ApplicationName where
   parseJSON (String name) = return $ ApplicationName name
   parseJSON invalid       = typeMismatch "ApplicationName" invalid
 
--- | SubscriptionCursor
+-- | Type fo rsubscription cursors.
 
 data SubscriptionCursor = SubscriptionCursor
-  { _partition   :: PartitionName
-  , _offset      :: CursorOffset
-  , _eventType   :: EventTypeName
-  , _cursorToken :: Text
+  { _partition   :: PartitionName -- ^ Partition Name of this cursor
+  , _offset      :: CursorOffset -- ^ Offset of this cursor
+  , _eventType   :: EventTypeName -- ^ Event Type Name of this cursor
+  , _cursorToken :: Text -- ^ Token of this cursor
   } deriving (Show, Eq, Ord, Generic)
 
 deriveJSON nakadiJsonOptions ''SubscriptionCursor
 
--- | SubscriptionCursorWithoutToken
+-- | Type for subscription cursors without token.
 
 data SubscriptionCursorWithoutToken = SubscriptionCursorWithoutToken
-  { _partition :: PartitionName
-  , _offset    :: CursorOffset
-  , _eventType :: EventTypeName
+  { _partition :: PartitionName -- ^ Partition Name of this cursor
+  , _offset    :: CursorOffset -- ^ Offset of this cursor
+  , _eventType :: EventTypeName -- ^ Event Type Name of this cursor
   } deriving (Show, Generic, Eq, Ord, Hashable)
 
 deriveJSON nakadiJsonOptions ''SubscriptionCursorWithoutToken
 
--- | SubscriptionCursorCommit
+-- | Type for commit object for subscription cursor committing.
 
 newtype SubscriptionCursorCommit = SubscriptionCursorCommit
-  { _items :: [SubscriptionCursor]
+  { _items :: [SubscriptionCursor] -- ^ List of cursors to commit
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''SubscriptionCursorCommit
 
--- | CursorCommit
+-- | Type for commit objects for cursor committing.
 
 newtype CursorCommit = CursorCommit
-  { _items :: [Cursor]
+  { _items :: [Cursor] -- ^ List of cursors to commit
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''CursorCommit
 
--- | SubscriptionId
+-- | Type for subscription IDs.
 
-newtype SubscriptionId = SubscriptionId { unSubscriptionId :: UUID }
+newtype SubscriptionId = SubscriptionId
+  { unSubscriptionId :: UUID -- ^ Wrapped UUID
+  }
   deriving (Eq, Show, Ord, Generic, Hashable)
 
 instance ToJSON SubscriptionId where
@@ -151,9 +165,11 @@ instance ToJSON SubscriptionId where
 instance FromJSON SubscriptionId where
   parseJSON = parseUUID "SubscriptionId" SubscriptionId
 
--- | StreamId
+-- | Type for stream IDs.
 
-newtype StreamId = StreamId { unStreamId :: Text }
+newtype StreamId = StreamId
+  { unStreamId :: Text -- ^ Wrapped Stream ID
+  }
   deriving (Show, Eq, Ord, Generic)
 
 instance ToJSON StreamId where
@@ -170,9 +186,11 @@ data SubscriptionEventStream = SubscriptionEventStream
   , _subscriptionId :: SubscriptionId
   } deriving (Show)
 
--- | Timestamp
+-- | Type for timestamps.
 
-newtype Timestamp = Timestamp { unTimestamp :: UTCTime }
+newtype Timestamp = Timestamp
+  { unTimestamp :: UTCTime -- ^ Wrapped UTC Timestamp
+  }
   deriving (Show, Eq, Ord, Generic)
 
 instance Hashable Timestamp where
@@ -189,7 +207,9 @@ instance FromJSON Timestamp where
 
 -- | A Flow ID.
 
-newtype FlowId = FlowId { unFlowId :: Text }
+newtype FlowId = FlowId
+  { unFlowId :: Text -- ^ Wrapped Flow ID
+  }
   deriving (Show, Eq, Ord, Generic)
 
 instance ToJSON FlowId where
@@ -202,10 +222,10 @@ instance FromJSON FlowId where
 -- | Metadata
 
 data Metadata = Metadata
-  { _eid        :: Text
-  , _occurredAt :: Timestamp
-  , _parentEids :: [Text]
-  , _partition  :: Maybe Text
+  { _eid        :: Text -- ^ Event ID
+  , _occurredAt :: Timestamp -- ^ Occurred-At timestamp
+  , _parentEids :: [Text] -- ^ Event IDs of the Events which triggered this event
+  , _partition  :: Maybe Text -- ^ Partition on which this Event is stored
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''Metadata
@@ -213,10 +233,11 @@ deriveJSON nakadiJsonOptions ''Metadata
 -- | Event
 
 data Event a = Event
-  { _payload  :: a -- Cannot be named '_data', as this this would
-                   -- cause the lense 'data' to be created, which is a
-                   -- reserved keyword.
-  , _metadata :: Metadata
+  { _payload  :: a -- ^ Payload of this Event. In the Nakadi API it is
+                   -- called @data@, but it cannot be named '_data',
+                   -- as this this would cause the lense 'data' to be
+                   -- created, which is a reserved keyword
+  , _metadata :: Metadata -- ^ Meta data for this Event
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''Event
@@ -224,8 +245,8 @@ deriveJSON nakadiJsonOptions ''Event
 -- | EventStreamBatch
 
 data EventStreamBatch a = EventStreamBatch
-  { _cursor :: Cursor
-  , _events :: Maybe (Vector (Event a))
+  { _cursor :: Cursor -- ^ Cursor for this batch
+  , _events :: Maybe (Vector (Event a)) -- ^ Events in this batch
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''EventStreamBatch
@@ -233,16 +254,17 @@ deriveJSON nakadiJsonOptions ''EventStreamBatch
 -- | SubscriptionEventStreamBatch
 
 data SubscriptionEventStreamBatch a = SubscriptionEventStreamBatch
-  { _cursor :: SubscriptionCursor
-  , _events :: Maybe (Vector (Event a))
+  { _cursor :: SubscriptionCursor -- ^ cursor for this subscription batch
+  , _events :: Maybe (Vector (Event a)) -- ^ Events for this subscription batch
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''SubscriptionEventStreamBatch
 
--- | EventId
+-- | ID of an Event
 
-newtype EventId = EventId { unEventId :: UUID }
-  deriving (Show, Eq, Ord, Generic, Hashable)
+newtype EventId = EventId
+  { unEventId :: UUID -- ^ Wrapped UUID
+  } deriving (Show, Eq, Ord, Generic, Hashable)
 
 instance ToJSON EventId where
   toJSON = String . tshow . unEventId
@@ -250,37 +272,43 @@ instance ToJSON EventId where
 instance FromJSON EventId where
   parseJSON = parseUUID "EventId" EventId
 
--- | Partition
+-- | Partition Data
 
 data Partition = Partition
-  { _oldestAvailableOffset :: CursorOffset
-  , _newestAvailableOffset :: CursorOffset
-  , _partition             :: PartitionName
-  , _unconsumedEvents      :: Maybe Int64
+  { _oldestAvailableOffset :: CursorOffset -- ^ Oldest available
+                                           -- cursor offset for this
+                                           -- partition
+  , _newestAvailableOffset :: CursorOffset -- ^ Newest available
+                                           -- cursor offset for this
+                                           -- partition
+  , _partition             :: PartitionName -- ^ Name of the partition
+  , _unconsumedEvents      :: Maybe Int64 -- ^ Number of unconsumed
+                                          -- Events
   } deriving (Show)
 
 deriveJSON nakadiJsonOptions ''Partition
 
--- | ShiftedCursor
+-- | Type for shift-cursor queries.
 
 data ShiftedCursor = ShiftedCursor
-  { _partition :: PartitionName
-  , _offset    :: CursorOffset
-  , _shift     :: Int64
+  { _partition :: PartitionName -- ^ Partition of the cursor to shift
+  , _offset    :: CursorOffset -- ^ Offset of the cursor to shift
+  , _shift     :: Int64 -- ^ Shift by this number.
   } deriving (Eq, Ord, Show)
 
 deriveJSON nakadiJsonOptions ''ShiftedCursor
 
--- | CursorDistanceQuery
+-- | Type for cursor-distance queries. Represents the request to
+-- compute the distance between initial cursor and final cursor.
 
 data CursorDistanceQuery = CursorDistanceQuery
-  { _initialCursor :: Cursor
-  , _finalCursor   :: Cursor
+  { _initialCursor :: Cursor -- ^ Initial Cursor
+  , _finalCursor   :: Cursor -- ^ Final cursor.
   } deriving (Show, Eq, Ord, Hashable, Generic)
 
 deriveJSON nakadiJsonOptions ''CursorDistanceQuery
 
--- | CursorDistanceResult
+-- | Type for results of cursor-distance-queries.
 
 newtype CursorDistanceResult = CursorDistanceResult
   { _distance :: Int64
@@ -288,7 +316,7 @@ newtype CursorDistanceResult = CursorDistanceResult
 
 deriveJSON nakadiJsonOptions ''CursorDistanceResult
 
--- | SubscriptionPosition
+-- | Type for subscription positions.
 
 data SubscriptionPosition = SubscriptionPositionBegin
                           | SubscriptionPositionEnd
@@ -308,7 +336,7 @@ instance FromJSON SubscriptionPosition where
                     "cursors" -> return SubscriptionPositionCursors
                     invalid   -> typeMismatch "SubscriptionPosition" invalid
 
--- | Subscription
+-- | Type for a Subscription.
 
 data Subscription = Subscription
   { _id                :: Maybe SubscriptionId
@@ -322,7 +350,7 @@ data Subscription = Subscription
 
 deriveJSON nakadiJsonOptions ''Subscription
 
--- | PublishingStatus
+-- | Type for publishing status.
 data PublishingStatus = PublishingStatusSubmitted
                       | PublishingStatusFailed
                       | PublishingStatusAborted
@@ -365,8 +393,9 @@ instance FromJSON Step where
                      "publishing" -> return StepPublishing
                      invalid      -> typeMismatch "Step" invalid
 
--- | BatchItemResponse
-
+-- | In case of failures during batch publishing, Nakadi returns
+-- detailed information about which events failed to be published.
+-- This per-event information is a batch item response.
 data BatchItemResponse = BatchItemResponse
   { _eid              :: Maybe EventId
   , _publishingStatus :: PublishingStatus
@@ -508,17 +537,19 @@ deriveJSON nakadiJsonOptions {
                                         , ("_items", "items") ]
   }  ''SubscriptionsListResponse
 
--- | Offset
+-- | Type for offset values.
 
-newtype Offset = Offset { unOffset :: Int64 }
-  deriving (Show, Eq, Ord, Generic, Hashable)
+newtype Offset = Offset
+  { unOffset :: Int64 -- ^ Wrapped offset value
+  } deriving (Show, Eq, Ord, Generic, Hashable)
 
--- | Limit
+-- | Type for limit values.
 
-newtype Limit = Limit { unLimit :: Int64 }
-  deriving (Show, Eq, Ord, Generic, Hashable)
+newtype Limit = Limit
+  { unLimit :: Int64 -- ^ Wrapped limit value.
+  } deriving (Show, Eq, Ord, Generic, Hashable)
 
--- | PartitionState
+-- | Type for partition states.
 
 data PartitionState = PartitionStateUnassigned
                     | PartitionStateReassigning
@@ -538,7 +569,7 @@ instance FromJSON PartitionState where
     String "reassigning" -> return PartitionStateReassigning
     invalid              -> typeMismatch "PartitionState" invalid
 
--- | PartitionStat
+-- | Type for per-partition statistics.
 
 data PartitionStat = PartitionStat
   { _partition        :: PartitionName

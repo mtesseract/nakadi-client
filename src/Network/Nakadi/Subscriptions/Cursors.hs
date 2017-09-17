@@ -38,7 +38,7 @@ import           Control.Monad.Reader
 import qualified Data.HashMap.Lazy                   as HashMap
 import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
-import           Network.Nakadi.Internal.Lenses      (HasSubscriptionCursor)
+import           Network.Nakadi.Internal.Lenses      (HasNakadiSubscriptionCursor)
 import qualified Network.Nakadi.Internal.Lenses      as L
 
 path :: SubscriptionId -> ByteString
@@ -79,14 +79,14 @@ subscriptionCursorCommitR' subscriptionId streamId cursors = do
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Commits
 -- cursors using high level interface.
 subscriptionCommit ::
-  (MonadNakadi m, MonadCatch m, HasSubscriptionCursor a)
+  (MonadNakadi m, MonadCatch m, HasNakadiSubscriptionCursor a)
   => [a] -- ^ Values containing Subscription Cursors to commit
   -> ReaderT SubscriptionEventStreamContext m ()
 subscriptionCommit as = do
   SubscriptionEventStreamContext { .. } <- ask
   Safe.catchJust
     exceptionPredicate
-    (subscriptionCursorCommit' _config _subscriptionId _streamId cursorsCommit)
+    (subscriptionCursorCommit' _ctxConfig _subscriptionId _streamId cursorsCommit)
     (const (return ()))
 
   where exceptionPredicate = \case

@@ -1,3 +1,16 @@
+{-|
+Module      : Network.Nakadi.Internal.Types.Subscription
+Description : Nakadi Client Subscription Types (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Internal Subscription specific types, which are not part of the Nakadi
+Service API but custom to this package.
+-}
+
 module Network.Nakadi.Internal.Types.Subscription where
 
 import           Network.Nakadi.Internal.Types.Config
@@ -9,5 +22,5 @@ import           Network.Nakadi.Internal.Types.Service
 data SubscriptionEventStreamContext = SubscriptionEventStreamContext
   { _streamId       :: StreamId
   , _subscriptionId :: SubscriptionId
-  , _config         :: Config
+  , _ctxConfig      :: Config
   }

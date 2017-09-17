@@ -1,3 +1,15 @@
+{-|
+Module      : Network.Nakadi.Internal.Conversions
+Description : Nakadi Client Conversions (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Internal module containing conversions code.
+-}
+
 module Network.Nakadi.Internal.Conversions where
 
 import           Network.Nakadi.Internal.Prelude
