@@ -72,6 +72,7 @@ library:
   - Network.Nakadi.Types.Problem
   - Network.Nakadi.Types.Service
   - Network.Nakadi.Types.Subscription
+  - Network.Nakadi.Registry
 tests:
   nakadi-client-test-suite:
     main: Tests.hs
