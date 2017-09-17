@@ -17,8 +17,8 @@ This module implements the
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Network.Nakadi.EventTypes.Schemas
-  ( eventTypeSchemas'
-  , eventTypeSchemasR'
+  ( eventTypeSchemasGet
+  , eventTypeSchemasGetR
   , eventTypeSchema
   , eventTypeSchemaR
   ) where
@@ -38,15 +38,16 @@ path eventTypeName maybeSchemaVersion =
        Just schemaVersion -> "/" <> encodeUtf8 (unSchemaVersion schemaVersion)
        Nothing            -> ""
 
--- | @GET@ to @\/event-types\/NAME\/schemas@.
-eventTypeSchemas' ::
+-- | Retrieves schemas for the given 'EventTypeName' using low-level
+-- paging interface. @GET@ to @\/event-types\/NAME\/schemas@.
+eventTypeSchemasGet ::
   MonadNakadi m
   => Config        -- ^ Configuration
   -> EventTypeName -- ^ Name of Event Type
   -> Maybe Offset
   -> Maybe Limit
   -> m EventTypeSchemasResponse
-eventTypeSchemas' config eventTypeName offset limit =
+eventTypeSchemasGet config eventTypeName offset limit =
   httpJsonBody config ok200 []
   (setRequestMethod "GET"
    . setRequestPath (path eventTypeName Nothing)
@@ -59,17 +60,19 @@ eventTypeSchemas' config eventTypeName offset limit =
 
 -- | @GET@ to @\/event-types\/NAME\/schemas@. Uses the configuration
 -- contained in the environment.
-eventTypeSchemasR' ::
+eventTypeSchemasGetR ::
   MonadNakadiEnv r m
   => EventTypeName -- ^ Name of Event Type
   -> Maybe Offset
   -> Maybe Limit
   -> m EventTypeSchemasResponse
-eventTypeSchemasR' eventTypeName offset limit = do
+eventTypeSchemasGetR eventTypeName offset limit = do
   config <- asks (view L.nakadiConfig)
-  eventTypeSchemas' config eventTypeName offset limit
+  eventTypeSchemasGet config eventTypeName offset limit
 
--- | @GET@ to @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
+-- | Look up the schema of an event type given its 'EventTypeName' and
+-- 'SchemaVersion'. @GET@ to
+-- @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
 eventTypeSchema ::
   MonadNakadi m
   => Config
@@ -80,6 +83,9 @@ eventTypeSchema config eventTypeName schemaVersion =
   httpJsonBody config ok200 []
   (setRequestMethod "GET" . setRequestPath (path eventTypeName (Just schemaVersion)))
 
+-- | Look up the schema of an event type given its 'EventTypeName' and
+-- 'SchemaVersion', using the configuration found in the environment.
+-- @GET@ to @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
 eventTypeSchemaR ::
   MonadNakadiEnv r m
   => EventTypeName

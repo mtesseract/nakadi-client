@@ -31,7 +31,8 @@ import qualified Network.Nakadi.Internal.Lenses  as L
 path :: EventTypeName -> ByteString
 path eventTypeName = "/event-types/" <> encodeUtf8 (unEventTypeName eventTypeName)
 
--- | @GET@ to @\/event-types\/EVENT-TYPE@.
+-- | Retrieves an 'EventType' by its 'EventTypeName'. @GET@ to
+-- @\/event-types\/EVENT-TYPE@.
 eventTypeGet ::
   MonadNakadi m
   => Config        -- ^ Configuration
@@ -39,8 +40,12 @@ eventTypeGet ::
   -> m EventType   -- ^ Event Type information
 eventTypeGet config eventTypeName =
   httpJsonBody config ok200 [(status404, errorEventTypeNotFound)]
-  (setRequestMethod "GET" . setRequestPath (path eventTypeName))
+  (setRequestMethod "GET"
+   . setRequestPath (path eventTypeName))
 
+-- | Retrieves an 'EventType' by its 'EventTypeName', using the
+-- configuration found in the environment. @GET@ to
+-- @\/event-types\/EVENT-TYPE@.
 eventTypeGetR ::
   MonadNakadiEnv r m
   => EventTypeName -- ^ Name of Event Type
@@ -49,7 +54,8 @@ eventTypeGetR eventTypeName = do
   config <- asks (view L.nakadiConfig)
   eventTypeGet config eventTypeName
 
--- | @PUT@ to @\/event-types\/EVENT-TYPE@.
+-- | Updates an event type given its 'EventTypeName' and its new
+-- 'EventType' description. @PUT@ to @\/event-types\/EVENT-TYPE@.
 eventTypeUpdate ::
   MonadNakadi m
   => Config        -- ^ Configuration
@@ -58,8 +64,13 @@ eventTypeUpdate ::
   -> m ()
 eventTypeUpdate config eventTypeName eventType =
   httpJsonNoBody config ok200 []
-  (setRequestMethod "PUT" . setRequestPath (path eventTypeName) . setRequestBodyJSON eventType)
+  (setRequestMethod "PUT"
+   . setRequestPath (path eventTypeName)
+   . setRequestBodyJSON eventType)
 
+-- | Updates an event type given its 'EventTypeName' and its new
+-- 'EventType' description, using the configuration found in the
+-- environment. @PUT@ to @\/event-types\/EVENT-TYPE@.
 eventTypeUpdateR ::
   MonadNakadiEnv r m
   => EventTypeName -- ^ Name of Event Type
@@ -69,7 +80,8 @@ eventTypeUpdateR eventTypeName eventType = do
   config <- asks (view L.nakadiConfig)
   eventTypeUpdate config eventTypeName eventType
 
--- | @DELETE@ to @\/event-types\/EVENT-TYPE@.
+-- | Deletes an event type given its 'EventTypeName'. @DELETE@ to
+-- @\/event-types\/EVENT-TYPE@.
 eventTypeDelete ::
   MonadNakadi m
   => Config        -- ^ Configuration
@@ -79,6 +91,9 @@ eventTypeDelete config eventTypeName =
   httpJsonNoBody config ok200 [(status404, errorEventTypeNotFound)]
   (setRequestMethod "DELETE" . setRequestPath (path eventTypeName))
 
+-- | Deletes an event type given its 'EventTypeName', using the
+-- configuration found in the environment. @DELETE@ to
+-- @\/event-types\/EVENT-TYPE@.
 eventTypeDeleteR ::
   MonadNakadiEnv r m
   => EventTypeName -- ^ Name of Event Type
