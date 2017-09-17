@@ -37,7 +37,7 @@ import           Data.Void
 import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
-import           Network.Nakadi.Internal.Lenses       (HasSubscriptionCursor)
+import           Network.Nakadi.Internal.Lenses       (HasNakadiSubscriptionCursor)
 import qualified Network.Nakadi.Internal.Lenses       as L
 import           Network.Nakadi.Subscriptions.Cursors
 
@@ -111,7 +111,7 @@ runSubscription config SubscriptionEventStream { .. } =
   let subscriptionStreamContext = SubscriptionEventStreamContext
                                   { _streamId       = _streamId
                                   , _subscriptionId = _subscriptionId
-                                  , _config         = config }
+                                  , _ctxConfig      = config }
   in runConduit . runReaderC subscriptionStreamContext
 
 -- | Run a Subscription processing Conduit. Uses the configuration
@@ -132,6 +132,6 @@ runSubscriptionR subscriptionEventStream conduit = do
 -- subscriptions events. This sink takes care of committing events. It
 -- can consume any values which contain Subscription Cursors.
 subscriptionSink ::
-  (MonadNakadi m, HasSubscriptionCursor a )
+  (MonadNakadi m, HasNakadiSubscriptionCursor a )
   => ConduitM a Void (ReaderT SubscriptionEventStreamContext m) ()
 subscriptionSink = awaitForever $ lift . subscriptionCommit . (: [])

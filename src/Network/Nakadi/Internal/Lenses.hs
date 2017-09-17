@@ -13,68 +13,59 @@ import           Data.Text                                  (Text)
 import           Data.Time.Clock
 import           Data.UUID                                  (UUID)
 import qualified Network.HTTP.Client                        as HTTP
+import           Network.Nakadi.Internal.TH
 
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Service
 import           Network.Nakadi.Internal.Types.Subscription
 
-
-makeFieldsNoPrefix ''Config
-
-makeFieldsNoPrefix ''Cursor
-makeFieldsNoPrefix ''EventStreamBatch
-makeFieldsNoPrefix ''SubscriptionEventStreamBatch
-makeFieldsNoPrefix ''Event
-makeFieldsNoPrefix ''Metadata
-makeFieldsNoPrefix ''Partition
-makeFieldsNoPrefix ''CursorDistanceQuery
-makeFieldsNoPrefix ''CursorDistanceResult
-makeFieldsNoPrefix ''Timestamp
-makeFieldsNoPrefix ''SubscriptionEventStream
-makeFieldsNoPrefix ''SubscriptionEventStreamContext
-makeFieldsNoPrefix ''EventTypeSchema
-makeFieldsNoPrefix ''EventTypeSchemasResponse
-makeFieldsNoPrefix ''PaginationLink
-makeFieldsNoPrefix ''PaginationLinks
-makeFieldsNoPrefix ''SubscriptionEventTypeStatsResult
-makeFieldsNoPrefix ''ConsumeParameters
-makeFieldsNoPrefix ''SubscriptionCursorCommit
-makeFieldsNoPrefix ''CursorCommit
-makeFieldsNoPrefix ''SubscriptionsListResponse
-
 class HasNakadiConfig s a where
   nakadiConfig :: Lens' s a
 
-class HasId s a | s -> a where
-  id :: Lens' s a
+makeNakadiLenses ''Config
+makeNakadiLenses ''Cursor
+makeNakadiLenses ''EventStreamBatch
+makeNakadiLenses ''SubscriptionEventStreamBatch
+makeNakadiLenses ''Event
+makeNakadiLenses ''Metadata
+makeNakadiLenses ''Partition
+makeNakadiLenses ''CursorDistanceQuery
+makeNakadiLenses ''CursorDistanceResult
+makeNakadiLenses ''Timestamp
+makeNakadiLenses ''SubscriptionEventStream
+makeNakadiLenses ''SubscriptionEventStreamContext
+makeNakadiLenses ''EventTypeSchema
+makeNakadiLenses ''EventType
+makeNakadiLenses ''EventTypeSchemasResponse
+makeNakadiLenses ''PaginationLink
+makeNakadiLenses ''PaginationLinks
+makeNakadiLenses ''SubscriptionEventTypeStatsResult
+makeNakadiLenses ''ConsumeParameters
+makeNakadiLenses ''SubscriptionCursorCommit
+makeNakadiLenses ''CursorCommit
+makeNakadiLenses ''SubscriptionsListResponse
+makeNakadiLenses ''Subscription
 
-instance HasId StreamId Text where
+instance HasNakadiId StreamId Text where
   id f (StreamId a) = StreamId <$> f a
 
-instance HasId SubscriptionId UUID where
+instance HasNakadiId SubscriptionId UUID where
   id f (SubscriptionId a) = SubscriptionId <$> f a
 
-instance HasId EventId UUID where
+instance HasNakadiId EventId UUID where
   id f (EventId a) = EventId <$> f a
 
-class HasCheckResponse s a | s -> a where
-  checkResponse :: Lens' s a
-
-instance HasCheckResponse Request (Request -> Response HTTP.BodyReader -> IO ()) where
-  checkResponse f request =
-    (\a -> request { HTTP.checkResponse = a }) <$> f (HTTP.checkResponse request)
-
-class HasSubscriptionCursor s where
-  subscriptionCursor :: Getter s SubscriptionCursor
-
-instance HasSubscriptionCursor SubscriptionCursor where
-  subscriptionCursor = identity
-
-instance HasSubscriptionCursor (SubscriptionEventStreamBatch a) where
-  subscriptionCursor = cursor
-
-class HasUTCTime s a where
+class HasNakadiUTCTime s a where
   utcTime :: Lens' s a
 
-instance HasUTCTime Timestamp UTCTime where
+instance HasNakadiUTCTime Timestamp UTCTime where
   utcTime f (Timestamp t) = Timestamp <$> f t
+
+class HasNakadiSubscriptionCursor s where
+  subscriptionCursor :: Getter s SubscriptionCursor
+
+instance HasNakadiSubscriptionCursor SubscriptionCursor where
+  subscriptionCursor = identity
+
+instance HasNakadiSubscriptionCursor (SubscriptionEventStreamBatch a) where
+  subscriptionCursor = cursor

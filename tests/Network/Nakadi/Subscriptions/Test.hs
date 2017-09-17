@@ -10,7 +10,9 @@ module Network.Nakadi.Subscriptions.Test where
 
 import           ClassyPrelude
 
+import           Control.Lens
 import           Network.Nakadi
+import qualified Network.Nakadi.Lenses       as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -30,14 +32,14 @@ testSubscriptionsList conf = do
   maybeSubscriptionIds <- forM [1..n] $ \i -> do
     let owningApp = ApplicationName (prefix <> tshow i)
     subscription <- subscriptionCreate conf (mySubscription (Just owningApp))
-    return $ _id subscription
+    return (subscription^.L.id)
   let subscriptionIds = catMaybes maybeSubscriptionIds
   n @=? length subscriptionIds
   -- Retrieve list of all Subscriptions
   subscriptions' <- subscriptionsList conf Nothing Nothing
   -- Filter for the subscriptions we have created above
   let subscriptionsFiltered = filter (subscriptionAppHasPrefix prefix) subscriptions'
-      subscriptionIdsFiltered = catMaybes . map _id $ subscriptionsFiltered
+      subscriptionIdsFiltered = catMaybes . map (view L.id) $ subscriptionsFiltered
   n @=? length subscriptionIdsFiltered
   sort subscriptionIds @=? sort subscriptionIdsFiltered
 
@@ -48,12 +50,12 @@ deleteSubscriptionsByAppPrefix :: Config -> Text -> IO ()
 deleteSubscriptionsByAppPrefix conf prefix = do
   subscriptions <- subscriptionsList conf Nothing Nothing
   let subscriptionsFiltered = filter (subscriptionAppHasPrefix prefix) subscriptions
-      subscriptionIdsFiltered = catMaybes . map _id $ subscriptionsFiltered
+      subscriptionIdsFiltered = catMaybes . map (view L.id) $ subscriptionsFiltered
   forM_ subscriptionIdsFiltered (subscriptionDelete conf)
 
 subscriptionAppHasPrefix :: Text -> Subscription -> Bool
 subscriptionAppHasPrefix prefix subscription =
-  let (ApplicationName owningApp) = (_owningApplication :: Subscription -> ApplicationName) subscription
+  let ApplicationName owningApp = subscription^.L.owningApplication
   in take (length prefix) owningApp == prefix
 
 mySubscription :: Maybe ApplicationName -> Subscription
@@ -70,16 +72,16 @@ mySubscription maybeOwningApp = Subscription
 testSubscriptionsCreateDelete :: Config -> Assertion
 testSubscriptionsCreateDelete conf = do
   subscription <- subscriptionCreate conf (mySubscription Nothing)
-  True @=? isJust (_id subscription)
-  let (Just subscriptionId) = _id subscription
+  True @=? isJust (subscription^.L.id)
+  let (Just subscriptionId) = subscription^.L.id
   subscriptionDelete conf subscriptionId
   return ()
 
 testSubscriptionsDoubleDeleteFailure :: Config -> Assertion
 testSubscriptionsDoubleDeleteFailure conf = do
   subscription <- subscriptionCreate conf (mySubscription Nothing)
-  True @=? isJust (_id subscription)
-  let (Just subscriptionId) = _id subscription
+  True @=? isJust (subscription^.L.id)
+  let (Just subscriptionId) = subscription^.L.id
   subscriptionDelete conf subscriptionId
   res <- try (subscriptionDelete conf subscriptionId)
   case res of
