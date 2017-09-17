@@ -17,6 +17,7 @@ import qualified Data.HashMap.Lazy as HashMap
 import           Data.Maybe
 import           GHC.Generics
 
+-- | Type for RFC7807 @Problem@ objects.
 data Problem = Problem
   { problemType     :: Text
   , problemTitle    :: Text

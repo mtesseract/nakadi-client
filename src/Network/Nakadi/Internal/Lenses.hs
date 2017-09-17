@@ -1,3 +1,5 @@
+{-# OPTIONS_HADDOCK prune           #-} -- FIXME, workaround for Haddock bug.
+
 {-# LANGUAGE DataKinds              #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -12,7 +14,6 @@ import           Control.Lens
 import           Data.Text                                  (Text)
 import           Data.Time.Clock
 import           Data.UUID                                  (UUID)
-import qualified Network.HTTP.Client                        as HTTP
 import           Network.Nakadi.Internal.TH
 
 import           Network.Nakadi.Internal.Types.Config
