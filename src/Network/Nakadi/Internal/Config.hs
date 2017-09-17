@@ -1,3 +1,15 @@
+{-|
+Module      : Network.Nakadi.Internal.Config
+Description : Nakadi Client Configuration (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Internal module containing configuration specific code.
+-}
+
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TupleSections         #-}

@@ -1,3 +1,15 @@
+ {-|
+Module      : Network.Nakadi.Internal.TH
+Description : Nakadi Client TemplateHaskell (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Internal TemplateHaskell specific code.
+-}
+
 {-# LANGUAGE TemplateHaskell #-}
 
 module Network.Nakadi.Internal.TH where

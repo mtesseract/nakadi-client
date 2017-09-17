@@ -1,4 +1,14 @@
--- | Custom Prelude on top of Prelude
+ {-|
+Module      : Network.Nakadi.Prelude
+Description : Nakadi Client Prelude (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Internal custom Prelude.
+-}
 
 module Network.Nakadi.Internal.Prelude
   ( module Prelude

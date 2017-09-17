@@ -1,4 +1,14 @@
--- | HTTP Client Convenience Functions.
+{-|
+Module      : Network.Nakadi.Internal.Http
+Description : Nakadi Client HTTP (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Internal module containing HTTP client relevant code.
+-}
 
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}

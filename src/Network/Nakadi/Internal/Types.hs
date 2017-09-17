@@ -1,4 +1,14 @@
--- | Internal Types
+{-|
+Module      : Network.Nakadi.Internal.Types
+Description : Nakadi Client Types (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Exports all types for internal usage.
+-}
 
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}

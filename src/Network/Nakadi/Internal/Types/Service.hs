@@ -1,4 +1,14 @@
--- | Types modelling the Nakadi Service API.
+{-|
+Module      : Network.Nakadi.Internal.Types.Service
+Description : Nakadi Client Service Types (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Types modelling the Nakadi Service API.
+-}
 
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}

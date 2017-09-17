@@ -1,3 +1,15 @@
+{-|
+Module      : Network.Nakadi.Internal.Util
+Description : Nakadi Client Utilities (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Internal utility functions.
+-}
+
 {-# LANGUAGE TupleSections #-}
 
 module Network.Nakadi.Internal.Util

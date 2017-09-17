@@ -1,4 +1,14 @@
--- | Implementation of the error object described in RFC7807.
+{-|
+Module      : Network.Nakadi.Internal.Types.Problem
+Description : Nakadi Client Problem Type (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Implementation of the error object described in RFC7807.
+-}
 
 {-# LANGUAGE ApplicativeDo   #-}
 {-# LANGUAGE DeriveGeneric   #-}
