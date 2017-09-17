@@ -11,8 +11,6 @@ This module implements lenses for the data types contained in this
 package.
 -}
 
-{-# OPTIONS_HADDOCK prune           #-} -- FIXME, workaround for Haddock bug.
-
 {-# LANGUAGE DataKinds              #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}

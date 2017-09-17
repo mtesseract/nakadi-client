@@ -16,19 +16,18 @@ module Network.Nakadi.Types
   , module Network.Nakadi.Types.Logger
   , module Network.Nakadi.Types.Problem
   , module Network.Nakadi.Types.Service
+  , module Network.Nakadi.Types.Subscription
   , MonadNakadi
   , MonadNakadiEnv
-  , SubscriptionEventStreamContext
   , HasNakadiConfig(..)
   ) where
 
 import           Network.Nakadi.Internal.Types     (MonadNakadi, MonadNakadiEnv)
 
+import           Network.Nakadi.Internal.Lenses
 import           Network.Nakadi.Types.Config
 import           Network.Nakadi.Types.Exceptions
 import           Network.Nakadi.Types.Logger
 import           Network.Nakadi.Types.Problem
 import           Network.Nakadi.Types.Service
 import           Network.Nakadi.Types.Subscription
-
-import           Network.Nakadi.Internal.Lenses

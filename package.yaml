@@ -73,6 +73,7 @@ library:
   - Network.Nakadi.Types.Problem
   - Network.Nakadi.Types.Service
   - Network.Nakadi.Types.Subscription
+  - Network.Nakadi.Registry
   - Network.Nakadi.Lenses
 tests:
   nakadi-client-test-suite:

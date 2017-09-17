@@ -1,5 +1,5 @@
 {-|
-Module      : Network.Nakadi.Internal.Subscription
+Module      : Network.Nakadi.Internal.Types.Subscription
 Description : Nakadi Client Subscription Types (Internal)
 Copyright   : (c) Moritz Schulte 2017
 License     : BSD3
