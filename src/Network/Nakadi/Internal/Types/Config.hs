@@ -14,6 +14,7 @@ module Network.Nakadi.Internal.Types.Config where
 
 import           Network.Nakadi.Internal.Prelude
 
+import           Control.Retry
 import           Network.HTTP.Client
 
 import           Network.Nakadi.Types.Logger
@@ -30,6 +31,7 @@ data Config = Config
   , _deserializationFailureCallback :: Maybe (ByteString -> IO ())
   , _streamConnectCallback          :: Maybe StreamConnectCallback
   , _logFunc                        :: Maybe LogFunc
+  , _retryPolicy                    :: RetryPolicyM IO
   }
 
 -- | ConsumeParameters

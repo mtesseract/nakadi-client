@@ -48,6 +48,7 @@ dependencies:
 - aeson-casing
 - tasty
 - template-haskell
+- retry
 library:
   source-dirs: src
   exposed-modules:
@@ -95,3 +96,4 @@ tests:
     - say
     - random
     - async
+    - retry

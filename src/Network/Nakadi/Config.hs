@@ -16,11 +16,15 @@ module Network.Nakadi.Config where
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
+import           Control.Retry
 import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS
 import qualified Network.Nakadi.Internal.Lenses  as L
-
 import           Network.Nakadi.Internal.Types
+
+-- | Default retry policy.
+defaultRetryPolicy :: MonadIO m => RetryPolicyM m
+defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
@@ -37,7 +41,8 @@ newConfig' manager consumeParameters request =
                 , _requestModifier                = return
                 , _deserializationFailureCallback = Nothing
                 , _streamConnectCallback          = Nothing
-                , _logFunc                        = Nothing }
+                , _logFunc                        = Nothing
+                , _retryPolicy                    = defaultRetryPolicy }
 
 -- | Produce a new configuration, with optional HTTP manager settings
 -- and mandatory HTTP request template.
@@ -70,6 +75,10 @@ setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
 -- | Install a logger callback in the provided configuration.
 setLogFunc :: LogFunc -> Config -> Config
 setLogFunc logFunc = L.logFunc .~ Just logFunc
+
+-- | Set a custom retry policy in the provided configuration.
+setRetryPolicy :: RetryPolicyM IO -> Config -> Config
+setRetryPolicy = (L.retryPolicy .~)
 
 -- | Default parameters for event consumption.
 defaultConsumeParameters :: ConsumeParameters

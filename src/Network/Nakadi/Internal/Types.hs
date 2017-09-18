@@ -43,7 +43,7 @@ import           Control.Monad.Reader.Class
 
 -- | Type constraint synonym for encapsulating the monad constraints
 -- required by most funtions in this package.
-type MonadNakadi m = (MonadIO m, MonadCatch m, MonadThrow m)
+type MonadNakadi m = (MonadIO m, MonadCatch m, MonadThrow m, MonadMask m)
 
 -- | Type constraint synonym for encapsulating the monad constraints
 -- required by most funtions in this package. Reader Monad version,
