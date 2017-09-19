@@ -2,7 +2,7 @@
 
 ### About
 
-`nakadi-client` is a BSD3 licensed Haskell client library for
+`nakadi-client` is a BSD2/BSD3 licensed Haskell client library for
 interacting with the [Nakadi event
 broker](https://zalando.github.io/nakadi/) system developed by
 [Zalando](https://github.com/zalando). The streaming is built on top
