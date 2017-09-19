@@ -11,6 +11,8 @@ This module implements lenses for the data types contained in this
 package.
 -}
 
+{-# OPTIONS_HADDOCK prune           #-}
+
 {-# LANGUAGE DataKinds              #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
