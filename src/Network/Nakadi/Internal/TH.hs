@@ -2,7 +2,7 @@
 Module      : Network.Nakadi.Internal.TH
 Description : Nakadi Client TemplateHaskell (Internal)
 Copyright   : (c) Moritz Schulte 2017
-License     : BSD3
+License     : BSD2
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
 Portability : POSIX
@@ -38,8 +38,10 @@ nakadiLensRules :: LensRules
 nakadiLensRules =
   defaultFieldRules & lensField .~ nakadiLensNamer
 
--- | Convenience function, copied from the lens package (which is
--- BSD2-licensed).
+-- | Convenience function, copied from the lens package.
+--
+-- License: BSD2
+-- Copyright (C) 2012-2016 Edward A. Kmett
 overHead :: (a -> a) -> [a] -> [a]
 overHead _ []     = []
 overHead f (x:xs) = f x : xs
