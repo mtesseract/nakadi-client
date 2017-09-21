@@ -224,7 +224,7 @@ instance FromJSON FlowId where
 data Metadata = Metadata
   { _eid        :: Text -- ^ Event ID
   , _occurredAt :: Timestamp -- ^ Occurred-At timestamp
-  , _parentEids :: [Text] -- ^ Event IDs of the Events which triggered this event
+  , _parentEids :: Maybe [Text] -- ^ Event IDs of the Events which triggered this event
   , _partition  :: Maybe Text -- ^ Partition on which this Event is stored
   } deriving (Eq, Show, Generic)
 
@@ -740,7 +740,7 @@ data MetadataEnriched = MetadataEnriched
   , _occurredAt :: Timestamp
   , _receivedAt :: Timestamp
   , _version    :: SchemaVersion
-  , _parentEids :: [Text]
+  , _parentEids :: Maybe [Text]
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''MetadataEnriched
