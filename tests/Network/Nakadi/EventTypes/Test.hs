@@ -108,7 +108,11 @@ testEventTypePublishData conf = do
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
-                              , _metadata = Metadata eid (Timestamp now) [] Nothing
+                              , _metadata = Metadata { _eid = eid
+                                                     , _occurredAt = Timestamp now
+                                                     , _parentEids = Nothing
+                                                     , _partition = Nothing
+                                                     }
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }

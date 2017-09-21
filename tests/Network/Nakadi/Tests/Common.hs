@@ -54,7 +54,11 @@ extractCursor Partition { ..} =
 myDataChangeEvent :: Text -> UTCTime -> DataChangeEvent Foo
 myDataChangeEvent eid now =  DataChangeEvent
   { _payload = Foo "Hello!"
-  , _metadata = Metadata eid (Timestamp now) [] Nothing
+  , _metadata = Metadata { _eid        = eid
+                         , _occurredAt = Timestamp now
+                         , _parentEids = Nothing
+                         , _partition  = Nothing
+                         }
   , _dataType = "test.FOO"
   , _dataOp = DataOpUpdate
   }
