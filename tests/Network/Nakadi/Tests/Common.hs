@@ -17,6 +17,11 @@ data Foo = Foo { fortune :: Text } deriving (Show, Eq, Generic)
 deriving instance FromJSON Foo
 deriving instance ToJSON Foo
 
+data WrongFoo = WrongFoo { fortune :: Int } deriving (Show, Eq, Generic)
+
+deriving instance FromJSON WrongFoo
+deriving instance ToJSON WrongFoo
+
 myEventTypeName :: EventTypeName
 myEventTypeName = "test.FOO"
 

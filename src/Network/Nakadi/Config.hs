@@ -63,7 +63,10 @@ setRequestModifier = (L.requestModifier .~)
 
 -- | Install a callback in the provided configuration to use in case
 -- of deserialization failures when consuming events.
-setDeserializationFailureCallback :: (ByteString -> IO ()) -> Config -> Config
+setDeserializationFailureCallback ::
+  (ByteString -> Text -> IO ())
+  -> Config
+  -> Config
 setDeserializationFailureCallback cb = L.deserializationFailureCallback .~ Just cb
 
 -- | Install a callback in the provided configuration which is used
