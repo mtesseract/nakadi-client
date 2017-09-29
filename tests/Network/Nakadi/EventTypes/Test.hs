@@ -19,6 +19,7 @@ import           Network.Nakadi.EventTypes.CursorsLag.Test
 import           Network.Nakadi.EventTypes.ShiftedCursors.Test
 import qualified Network.Nakadi.Lenses                         as L
 import           Network.Nakadi.Tests.Common
+import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -31,6 +32,7 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypeCursorDistances0" (testEventTypeCursorDistances0 conf)
   , testCase "EventTypeCursorDistances10" (testEventTypeCursorDistances10 conf)
   , testCase "EventTypePublishData" (testEventTypePublishData conf)
+  , testCase "EventTypeDeserializationFailure" (testEventTypeDeserializationFailure conf)
   , testEventTypesShiftedCursors conf
   , testEventTypesCursorsLag conf
   ]
@@ -126,3 +128,40 @@ testEventTypePublishData conf = do
   where delayedPublish events = do
           threadDelay (10^6)
           eventPublish conf myEventTypeName Nothing events
+
+testEventTypeDeserializationFailure :: Config -> Assertion
+testEventTypeDeserializationFailure conf' = do
+  now <- getCurrentTime
+  eid <- tshow <$> genRandomUUID
+  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreate conf myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = Metadata { _eid = eid
+                                                     , _occurredAt = Timestamp now
+                                                     , _parentEids = Nothing
+                                                     , _partition = Nothing
+                                                     }
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+  withAsync (delayedPublish [event]) $ \asyncHandle -> do
+    link asyncHandle
+    eventConsumed :: Maybe (EventStreamBatch WrongFoo) <- runResourceT $ do
+      source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
+      runConduit $ source .| headC
+    isJust eventConsumed @=? True
+
+  counter <- atomically $ readTVar deserializationFailureCounter
+  1 @=? counter
+
+  where delayedPublish events = do
+          threadDelay (10^6)
+          eventPublish conf myEventTypeName Nothing events
+
+        conf = conf'
+               & setDeserializationFailureCallback (deserializationFailureCb deserializationFailureCounter)
+
+        deserializationFailureCb counter _ errMsg = do
+          atomically $ modifyTVar counter (+ 1)
+
+        deserializationFailureCounter = unsafePerformIO $ newTVarIO 0

@@ -67,11 +67,12 @@ conduitDecode ::
   -> ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
                                 -- into custom values
 conduitDecode Config { .. } = awaitForever $ \a ->
-  case decodeStrict a of
-    Just v  -> yield v
-    Nothing -> liftIO $ callback a
+  case eitherDecodeStrict a of
+    Right v  -> yield v
+    Left err -> liftIO $ callback a (Text.pack err)
 
-    where callback = fromMaybe (const (return ())) _deserializationFailureCallback
+    where callback = fromMaybe dummyCallback _deserializationFailureCallback
+          dummyCallback _ _ = return ()
 
 httpBuildRequest ::
   (MonadIO m, MonadCatch m)

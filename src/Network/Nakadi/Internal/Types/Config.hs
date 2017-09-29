@@ -28,7 +28,7 @@ data Config = Config
   , _requestModifier                :: Request -> IO Request
   , _manager                        :: Manager
   , _consumeParameters              :: ConsumeParameters
-  , _deserializationFailureCallback :: Maybe (ByteString -> IO ())
+  , _deserializationFailureCallback :: Maybe (ByteString -> Text -> IO ())
   , _streamConnectCallback          :: Maybe StreamConnectCallback
   , _logFunc                        :: Maybe LogFunc
   , _retryPolicy                    :: RetryPolicyM IO
