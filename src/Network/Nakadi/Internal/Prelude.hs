@@ -25,6 +25,8 @@ module Network.Nakadi.Internal.Prelude
   , encodeUtf8
   , decodeUtf8
   , identity
+  , undefined
+  , error
   , MonadIO
   , Request
   , Response
@@ -43,10 +45,19 @@ import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
 import           Data.Text.Encoding
 import           Network.HTTP.Client        (Request, Response)
-import           Prelude                    hiding (id)
+import           Prelude                    hiding (id, undefined, error)
+import qualified Prelude
 
 tshow :: Show a => a -> Text
 tshow = Text.pack . show
 
 identity :: a -> a
 identity x = x
+
+{-# WARNING undefined "usage of 'undefined' forbidden" #-}
+undefined :: a
+undefined = Prelude.undefined
+
+{-# WARNING error "usage of 'error' forbidden" #-}
+error :: String -> a
+error = Prelude.error
