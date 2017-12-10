@@ -18,6 +18,7 @@ default-extensions:
 ghc-options:
 - -Wall
 - -fno-warn-type-defaults
+- -Werror
 dependencies:
 - base >=4.7 && <5
 - conduit
