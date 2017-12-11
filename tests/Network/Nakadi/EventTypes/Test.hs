@@ -161,7 +161,7 @@ testEventTypeDeserializationFailure conf' = do
         conf = conf'
                & setDeserializationFailureCallback (deserializationFailureCb deserializationFailureCounter)
 
-        deserializationFailureCb counter _ errMsg = do
+        deserializationFailureCb counter _ _errMsg =
           atomically $ modifyTVar counter (+ 1)
 
         deserializationFailureCounter = unsafePerformIO $ newTVarIO 0

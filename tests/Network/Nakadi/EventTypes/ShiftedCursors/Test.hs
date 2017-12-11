@@ -10,9 +10,6 @@ module Network.Nakadi.EventTypes.ShiftedCursors.Test where
 
 import           ClassyPrelude
 
-import           Conduit
-import           Control.Concurrent.Async    (link)
-import           Data.Function               ((&))
 import           Network.Nakadi
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
