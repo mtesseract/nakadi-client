@@ -4,7 +4,11 @@ import ClassyPrelude
 import Network.Wai.Handler.Warp
 import qualified Network.Wai as Wai
 import Network.HTTP.Types
-import Network.HTTP.Client (Request(..), responseTimeoutMicro, parseRequest)
+import Network.HTTP.Client ( Request(..)
+                           , HttpException(..)
+                           , HttpExceptionContent(..)
+                           , responseTimeoutMicro
+                           , parseRequest)
 import           Network.Nakadi
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -79,9 +83,12 @@ testResponseTimeoutSuccess = do
 
 testResponseTimeoutFail :: Assertion
 testResponseTimeoutFail = do
-  let timeout = responseTimeoutMicro (3 * 10^6) -- Accept delay of 3s
-  conf <- newConfig Nothing testServerRequest { port = testServerResponseTimeoutPort
-                                              , responseTimeout = timeout }
-  withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle -> do
-    events <- eventTypesList conf
-    [] @=? events
+  res <- try $ do
+    let timeout = responseTimeoutMicro (3 * 10^6) -- Accept delay of 3s
+    conf <- newConfig Nothing testServerRequest { port = testServerResponseTimeoutPort
+                                                , responseTimeout = timeout }
+    withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle -> do
+      eventTypesList conf
+  case res of
+    Left (HttpExceptionRequest _request ResponseTimeout) -> return ()
+    _ -> assertFailure "Expected HttpExceptionRequest with content ResponseTimeout"
