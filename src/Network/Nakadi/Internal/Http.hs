@@ -50,7 +50,13 @@ import           Data.Aeson
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
 import qualified Data.Conduit.Binary             as Conduit
 import qualified Data.Text                       as Text
-import           Network.HTTP.Client             (responseClose, responseOpen)
+import           Network.HTTP.Client             ( BodyReader
+                                                 , responseClose
+                                                 , responseOpen
+                                                 , checkResponse
+                                                 , responseStatus
+                                                 , HttpException(..)
+                                                 , HttpExceptionContent(..))
 import           Network.HTTP.Client.Conduit     (bodyReaderSource)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
@@ -74,6 +80,12 @@ conduitDecode Config { .. } = awaitForever $ \a ->
     where callback = fromMaybe dummyCallback _deserializationFailureCallback
           dummyCallback _ _ = return ()
 
+-- | Throw 'HttpException' exception on server errors (5xx).
+checkNakadiResponse :: Request -> Response BodyReader -> IO ()
+checkNakadiResponse request response =
+  when (statusCode (responseStatus response) `div` 100 == 5) $
+  throwIO $ HttpExceptionRequest request (StatusCodeException (void response) mempty)
+
 httpBuildRequest ::
   (MonadIO m, MonadCatch m)
   => Config -- ^ Configuration, contains the impure request modifier
@@ -81,7 +93,9 @@ httpBuildRequest ::
   -> m Request -- ^ Resulting request to excecute
 httpBuildRequest Config { .. } requestDef = do
   let manager = _manager
-      request = requestDef _requestTemplate & setRequestManager manager
+      request = requestDef _requestTemplate
+                & setRequestManager manager
+                & (\req -> req { checkResponse = checkNakadiResponse })
   tryAny (liftIO (_requestModifier request)) >>= \case
     Right modifiedRequest -> return modifiedRequest
     Left  exn             -> throwIO $ RequestModificationException exn
@@ -95,7 +109,7 @@ httpExecRequest ::
   -> m (Response ByteString.Lazy.ByteString)
 httpExecRequest config requestDef =
   httpBuildRequest config requestDef
-  >>= (retryAction undefined . (liftIO . httpLbs))
+  >>= retryAction config . liftIO . httpLbs
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier. Returns the HTTP response and separately the

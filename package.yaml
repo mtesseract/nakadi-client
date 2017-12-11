@@ -1,5 +1,4 @@
-name: nakadi-client
-version: '0.3.0.0'
+version: '0.3.0.1'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
              with the Nakadi event broker system developed by Zalando.
@@ -18,6 +17,7 @@ default-extensions:
 ghc-options:
 - -Wall
 - -fno-warn-type-defaults
+- -Werror
 dependencies:
 - base >=4.7 && <5
 - conduit
@@ -89,6 +89,7 @@ tests:
     - tasty
     - tasty-hunit
     - http-client
+    - http-types
     - http-conduit
     - aeson
     - lens-aeson
@@ -97,3 +98,6 @@ tests:
     - random
     - async
     - retry
+    - stm
+    - warp
+    - wai
