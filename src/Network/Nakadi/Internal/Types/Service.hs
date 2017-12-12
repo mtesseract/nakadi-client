@@ -242,24 +242,6 @@ data Event a = Event
 
 deriveJSON nakadiJsonOptions ''Event
 
--- | EventStreamBatch
-
-data EventStreamBatch a = EventStreamBatch
-  { _cursor :: Cursor -- ^ Cursor for this batch
-  , _events :: Maybe (Vector (Event a)) -- ^ Events in this batch
-  } deriving (Show, Generic)
-
-deriveJSON nakadiJsonOptions ''EventStreamBatch
-
--- | SubscriptionEventStreamBatch
-
-data SubscriptionEventStreamBatch a = SubscriptionEventStreamBatch
-  { _cursor :: SubscriptionCursor -- ^ cursor for this subscription batch
-  , _events :: Maybe (Vector (Event a)) -- ^ Events for this subscription batch
-  } deriving (Show, Generic)
-
-deriveJSON nakadiJsonOptions ''SubscriptionEventStreamBatch
-
 -- | ID of an Event
 
 newtype EventId = EventId
@@ -759,6 +741,23 @@ deriveJSON nakadiJsonOptions {
                                         , ("_metadata", "metadata") ]
   }  ''EventEnriched
 
+-- | EventStreamBatch
+
+data EventStreamBatch a = EventStreamBatch
+  { _cursor :: Cursor -- ^ Cursor for this batch
+  , _events :: Maybe (Vector (EventEnriched a)) -- ^ Events in this batch
+  } deriving (Show, Generic)
+
+deriveJSON nakadiJsonOptions ''EventStreamBatch
+
+-- | SubscriptionEventStreamBatch
+
+data SubscriptionEventStreamBatch a = SubscriptionEventStreamBatch
+  { _cursor :: SubscriptionCursor -- ^ cursor for this subscription batch
+  , _events :: Maybe (Vector (EventEnriched a)) -- ^ Events for this subscription batch
+  } deriving (Show, Generic)
+
+deriveJSON nakadiJsonOptions ''SubscriptionEventStreamBatch
 
 -- | Type for "data_op" as contained in the DataChangeEvent.
 
