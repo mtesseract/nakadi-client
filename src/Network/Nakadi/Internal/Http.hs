@@ -88,13 +88,19 @@ httpBuildRequest ::
   (MonadIO m, MonadCatch m)
   => Config -- ^ Configuration, contains the impure request modifier
   -> (Request -> Request) -- ^ Pure request modifier
-  -> m Request -- ^ Resulting request to excecute
-httpBuildRequest Config { .. } requestDef = do
+  -> m Request -- ^ Resulting request to execute
+httpBuildRequest Config { .. } requestDef =
   let manager = _manager
       request = requestDef _requestTemplate
-                & setRequestManager manager
-                & (\req -> req { checkResponse = checkNakadiResponse })
-  tryAny (liftIO (_requestModifier request)) >>= \case
+                   & setRequestManager manager
+                   & (\req -> req { checkResponse = checkNakadiResponse })
+  in modifyRequest _requestModifier request
+
+
+-- | Modify the Request based on a user function in the configuration.
+modifyRequest :: (MonadIO m, MonadCatch m) => (Request -> IO Request) -> Request -> m Request
+modifyRequest rm request =
+  tryAny (liftIO (rm request)) >>= \case
     Right modifiedRequest -> return modifiedRequest
     Left  exn             -> throwIO $ RequestModificationException exn
 
@@ -167,7 +173,8 @@ httpJsonBodyStream config successStatus f exceptionMap requestDef = do
                        & setRequestManager manager
       responseOpen   = config^.L.http.L.responseOpen
       responseClose  = config^.L.http.L.responseClose
-  (_, response) <- allocate (retryAction config (responseOpen request manager)) responseClose
+  modifiedRequest <- modifyRequest (config^.L.requestModifier) request
+  (_, response) <- allocate (retryAction config (responseOpen modifiedRequest manager)) responseClose
   let response_  = void response
       bodySource = bodyReaderSource (getResponseBody response)
       status     = getResponseStatus response
