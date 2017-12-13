@@ -11,7 +11,7 @@ This module provides the Nakadi Subscription Types.
 -}
 
 module Network.Nakadi.Types.Subscription
-  ( SubscriptionEventStreamContext
+  ( SubscriptionEventStreamContext(..)
   ) where
 
 import           Network.Nakadi.Internal.Types.Subscription
