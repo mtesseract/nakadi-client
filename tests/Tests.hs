@@ -2,6 +2,7 @@ import           ClassyPrelude
 
 import           Network.HTTP.Client
 import           Network.Nakadi
+import           Network.Nakadi.Config.Test
 import           Network.Nakadi.Connection.Test
 import           Network.Nakadi.EventTypes.Test
 import           Network.Nakadi.Registry.Test
@@ -57,7 +58,8 @@ main = do
 
 unitTests :: [TestTree]
 unitTests =
-  [ testConnection
+  [ testConfig
+  , testConnection
   ]
 
 integrationTests :: Config -> [TestTree]

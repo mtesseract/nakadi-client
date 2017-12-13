@@ -37,11 +37,13 @@ class HasNakadiConfig s a where
   nakadiConfig :: Lens' s a
 
 makeNakadiLenses ''Config
+makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
 makeNakadiLenses ''EventStreamBatch
 makeNakadiLenses ''SubscriptionEventStreamBatch
 makeNakadiLenses ''Event
 makeNakadiLenses ''Metadata
+makeNakadiLenses ''MetadataEnriched
 makeNakadiLenses ''Partition
 makeNakadiLenses ''CursorDistanceQuery
 makeNakadiLenses ''CursorDistanceResult

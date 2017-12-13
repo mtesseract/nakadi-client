@@ -17,8 +17,11 @@ import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
 import           Control.Retry
-import           Network.HTTP.Client
-import           Network.HTTP.Client.TLS
+import           Network.HTTP.Client             (Manager, ManagerSettings,
+                                                  responseClose, responseOpen)
+import           Network.HTTP.Client.TLS         (newTlsManagerWith,
+                                                  tlsManagerSettings)
+import           Network.HTTP.Simple             (httpLbs)
 import qualified Network.Nakadi.Internal.Lenses  as L
 import           Network.Nakadi.Internal.Types
 
@@ -42,7 +45,16 @@ newConfig' manager consumeParameters request =
                 , _deserializationFailureCallback = Nothing
                 , _streamConnectCallback          = Nothing
                 , _logFunc                        = Nothing
-                , _retryPolicy                    = defaultRetryPolicy }
+                , _retryPolicy                    = defaultRetryPolicy
+                , _http                           = defaultHttpBackend
+                }
+
+-- | Default 'HttpBackend' doing IO using http-client.
+defaultHttpBackend :: HttpBackend
+defaultHttpBackend =
+  HttpBackend { _httpLbs                        = httpLbs
+              , _responseOpen                   = responseOpen
+              , _responseClose                  = responseClose }
 
 -- | Produce a new configuration, with optional HTTP manager settings
 -- and mandatory HTTP request template.
@@ -82,6 +94,11 @@ setLogFunc logFunc = L.logFunc .~ Just logFunc
 -- | Set a custom retry policy in the provided configuration.
 setRetryPolicy :: RetryPolicyM IO -> Config -> Config
 setRetryPolicy = (L.retryPolicy .~)
+
+-- | Set a custom HTTP Backend in the provided configuration. Can be
+-- used for testing.
+setHttpBackend :: HttpBackend -> Config -> Config
+setHttpBackend = (L.http .~)
 
 -- | Default parameters for event consumption.
 defaultConsumeParameters :: ConsumeParameters
