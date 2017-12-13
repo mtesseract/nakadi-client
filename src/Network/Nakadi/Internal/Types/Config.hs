@@ -17,6 +17,7 @@ import           Network.Nakadi.Internal.Prelude
 import           Control.Retry
 import           Network.HTTP.Client
 
+import qualified Data.ByteString.Lazy as LB (ByteString)
 import           Network.Nakadi.Types.Logger
 
 -- | Config
@@ -32,6 +33,13 @@ data Config = Config
   , _streamConnectCallback          :: Maybe StreamConnectCallback
   , _logFunc                        :: Maybe LogFunc
   , _retryPolicy                    :: RetryPolicyM IO
+  , _http                           :: HttpBackend
+  }
+
+data HttpBackend = HttpBackend
+  { _httpLbs                        :: Request -> IO (Response LB.ByteString)
+  , _responseOpen                   :: Request -> Manager -> IO (Response BodyReader)
+  , _responseClose                  :: Response BodyReader -> IO ()
   }
 
 -- | ConsumeParameters

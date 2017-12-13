@@ -2,6 +2,7 @@ import           ClassyPrelude
 
 import           Network.HTTP.Client
 import           Network.Nakadi
+import           Network.Nakadi.Config.Test
 import           Network.Nakadi.Connection.Test
 import           Network.Nakadi.EventTypes.Test
 import           Network.Nakadi.Registry.Test
@@ -23,7 +24,8 @@ main = do
 
 tests :: Config -> TestTree
 tests conf = testGroup "Test Suite"
-  [ testConnection
+  [ testConfig
+  , testConnection
   , testEventTypes conf
   , testRegistry conf
   , testSubscriptions conf
