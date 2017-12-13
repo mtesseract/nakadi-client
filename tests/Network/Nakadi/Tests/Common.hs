@@ -75,3 +75,8 @@ recreateEvent :: Config -> EventTypeName -> EventType -> IO ()
 recreateEvent conf eventTypeName eventType = do
   eventTypeDelete conf eventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf eventType
+
+delayedPublish :: (ToJSON a) => Config -> Maybe FlowId -> [a] -> IO ()
+delayedPublish conf flowId events  = do
+  threadDelay (10^6)
+  eventPublish conf myEventTypeName flowId events

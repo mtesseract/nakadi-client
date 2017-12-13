@@ -59,7 +59,7 @@ subscriptionSource config maybeParams subscriptionId = do
   let consumeParams = fromMaybe (config^.L.consumeParameters) maybeParams
       queryParams = buildSubscriptionConsumeQueryParameters consumeParams
 
-      addFlowId     = case _flowId consumeParams of
+      addFlowId     = case consumeParams^.L.flowId of
                         Just flowId -> setRequestHeader "X-Flow-Id" [encodeUtf8 flowId]
                         Nothing     -> identity
   httpJsonBodyStream config ok200 buildSubscriptionEventStream
