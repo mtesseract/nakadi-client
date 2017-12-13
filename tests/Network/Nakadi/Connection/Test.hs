@@ -1,18 +1,17 @@
 module Network.Nakadi.Connection.Test where
 
-import ClassyPrelude
-import Network.Wai.Handler.Warp
-import qualified Network.Wai as Wai
-import Network.HTTP.Types
-import Network.HTTP.Client ( Request(..)
-                           , HttpException(..)
-                           , HttpExceptionContent(..)
-                           , responseTimeoutMicro
-                           , parseRequest)
+import           ClassyPrelude
+import           Network.HTTP.Client      (HttpException (..),
+                                           HttpExceptionContent (..),
+                                           Request (..), parseRequest,
+                                           responseTimeoutMicro)
+import           Network.HTTP.Types
 import           Network.Nakadi
+import qualified Network.Wai              as Wai
+import           Network.Wai.Handler.Warp
+import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import System.IO.Unsafe
 
 testConnection :: TestTree
 testConnection = testGroup "Connection.Retry"

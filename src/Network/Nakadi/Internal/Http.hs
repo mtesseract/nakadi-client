@@ -51,8 +51,6 @@ import qualified Data.ByteString.Lazy            as ByteString.Lazy
 import qualified Data.Conduit.Binary             as Conduit
 import qualified Data.Text                       as Text
 import           Network.HTTP.Client             ( BodyReader
-                                                 , responseClose
-                                                 , responseOpen
                                                  , checkResponse
                                                  , responseStatus
                                                  , HttpException(..)
@@ -109,7 +107,7 @@ httpExecRequest ::
   -> m (Response ByteString.Lazy.ByteString)
 httpExecRequest config requestDef =
   httpBuildRequest config requestDef
-  >>= retryAction config . liftIO . httpLbs
+  >>= retryAction config . liftIO . (config^.L.http.L.httpLbs)
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier. Returns the HTTP response and separately the
@@ -167,6 +165,8 @@ httpJsonBodyStream config successStatus f exceptionMap requestDef = do
   let manager        = config^.L.manager
       request        = requestDef (config^.L.requestTemplate)
                        & setRequestManager manager
+      responseOpen   = config^.L.http.L.responseOpen
+      responseClose  = config^.L.http.L.responseClose
   (_, response) <- allocate (retryAction config (responseOpen request manager)) responseClose
   let response_  = void response
       bodySource = bodyReaderSource (getResponseBody response)
