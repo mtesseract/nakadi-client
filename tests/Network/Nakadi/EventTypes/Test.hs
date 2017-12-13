@@ -8,7 +8,9 @@
 
 module Network.Nakadi.EventTypes.Test where
 
-import           ClassyPrelude
+import           ClassyPrelude hiding (toList)
+
+import           Data.Foldable (toList)
 
 import           Conduit
 import           Control.Concurrent.Async                      (link)
@@ -32,6 +34,7 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypeCursorDistances0" (testEventTypeCursorDistances0 conf)
   , testCase "EventTypeCursorDistances10" (testEventTypeCursorDistances10 conf)
   , testCase "EventTypePublishData" (testEventTypePublishData conf)
+  , testCase "EventTypeParseFlowId" (testEventTypeParseFlowId conf)
   , testCase "EventTypeDeserializationFailure" (testEventTypeDeserializationFailure conf)
   , testEventTypesShiftedCursors conf
   , testEventTypesCursorsLag conf
@@ -118,16 +121,44 @@ testEventTypePublishData conf = do
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }
-  withAsync (delayedPublish [event]) $ \asyncHandle -> do
+  withAsync (delayedPublish conf Nothing [event]) $ \asyncHandle -> do
     link asyncHandle
     eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
       source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
       runConduit $ source .| headC
     isJust eventConsumed @=? True
 
-  where delayedPublish events = do
-          threadDelay (10^6)
-          eventPublish conf myEventTypeName Nothing events
+testEventTypeParseFlowId :: Config -> Assertion
+testEventTypeParseFlowId conf = do
+  now <- getCurrentTime
+  eid <- tshow <$> genRandomUUID
+  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreate conf myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = Metadata { _eid = eid
+                                                     , _occurredAt = Timestamp now
+                                                     , _parentEids = Nothing
+                                                     , _partition = Nothing
+                                                     }
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+      expectedFlowId = Just $ FlowId "12345"
+  withAsync (delayedPublish conf expectedFlowId [event]) $ \asyncHandle -> do
+    link asyncHandle
+    eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
+      source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
+      runConduit $ source .| headC
+    isJust eventConsumed @=? True
+    let events = eventConsumed >>= (\batch -> batch^.L.events)
+    isJust events @=? True
+
+    case events of
+      Nothing -> assertFailure "Received no events"
+      Just v -> case toList v of
+        [EventEnriched _ x] ->
+          x^.L.flowId @=? expectedFlowId
+        _ -> assertFailure "Received not a singleton event list"
 
 testEventTypeDeserializationFailure :: Config -> Assertion
 testEventTypeDeserializationFailure conf' = do
@@ -144,7 +175,7 @@ testEventTypeDeserializationFailure conf' = do
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }
-  withAsync (delayedPublish [event]) $ \asyncHandle -> do
+  withAsync (delayedPublish conf Nothing [event]) $ \asyncHandle -> do
     link asyncHandle
     eventConsumed :: Maybe (EventStreamBatch WrongFoo) <- runResourceT $ do
       source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
@@ -154,14 +185,10 @@ testEventTypeDeserializationFailure conf' = do
   counter <- atomically $ readTVar deserializationFailureCounter
   1 @=? counter
 
-  where delayedPublish events = do
-          threadDelay (10^6)
-          eventPublish conf myEventTypeName Nothing events
-
-        conf = conf'
+  where conf = conf'
                & setDeserializationFailureCallback (deserializationFailureCb deserializationFailureCounter)
 
-        deserializationFailureCb counter _ _errMsg =
+        deserializationFailureCb counter _ _ =
           atomically $ modifyTVar counter (+ 1)
 
         deserializationFailureCounter = unsafePerformIO $ newTVarIO 0
