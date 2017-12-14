@@ -14,6 +14,7 @@ Types modelling the Nakadi Service API.
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
 module Network.Nakadi.Internal.Types.Service where
