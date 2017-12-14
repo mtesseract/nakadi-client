@@ -8,25 +8,63 @@ import           Network.Nakadi.EventTypes.Test
 import           Network.Nakadi.Registry.Test
 import           Network.Nakadi.Subscriptions.Test
 import           System.Environment
+import           System.Exit
+import           System.IO                         (hFlush)
 import           Test.Tasty
-
-createConfig :: IO Config
-createConfig = do
-  nakadiEndpoint <- fromMaybe (error "TEST_NAKADI_ENDPOINT not set") <$>
-                    lookupEnv "TEST_NAKADI_ENDPOINT"
-  request <- parseRequest nakadiEndpoint
-  newConfig Nothing request
 
 main :: IO ()
 main = do
-  conf <- createConfig
-  defaultMain (tests conf)
+  putStrLn ""
+  maybeNakadiEndpoint <- lookupEnv "TEST_NAKADI_ENDPOINT"
+  (label, runTests) <- case maybeNakadiEndpoint of
+    Nothing -> do
+      hPut stderr . encodeUtf8 $
+        "***************************************************************\n\
+        \** The environment variable TEST_NAKADI_ENDPOINT is not set. **\n\
+        \**                                                           **\n\
+        \**              SKIPPING INTEGRATION TESTS                   **\n\
+        \**                                                           **\n\
+        \** If you want to run the integration tests contained in     **\n\
+        \** this test suite, you need to run a Nakadi server which    **\n\
+        \** allows access without authentication. Then, set the       **\n\
+        \** environment variable TEST_NAKADI_ENDPOINT to the base     **\n\
+        \** endpoint of this Nakadi server.                           **\n\
+        \**                                                           **\n\
+        \** To run a local Nakadi server clone the repository         **\n\
+        \**                                                           **\n\
+        \**     https://github.com/zalando/nakadi                     **\n\
+        \**                                                           **\n\
+        \** and follow the contained instructions; the command        **\n\
+        \**                                                           **\n\
+        \**     ./gradlew startNakadi                                 **\n\
+        \**                                                           **\n\
+        \** starts a local Nakadi server at http://localhost:8080.    **\n\
+        \**                                                           **\n\
+        \** Thus, set TEST_NAKADI_ENDPOINT to http://localhost:8080.  **\n\
+        \***************************************************************\n"
+      return ("nakadi-client Test Suite (w/o integration tests)", unitTests)
+    Just nakadiEndpoint -> do
+      let nakadiEndpointT = pack nakadiEndpoint
+      case parseRequest nakadiEndpoint of
+        Just request -> do
+          conf <- newConfig Nothing request
+          return ("nakadi-client Test Suite", unitTests ++ integrationTests conf)
+        Nothing -> do
+          hPut stderr . encodeUtf8 $
+            "Failed to parse Nakadi URL in TEST_NAKADI_ENDPOINT (" <> nakadiEndpointT <> ")"
+          hFlush stderr
+          exitFailure
+  defaultMain (testGroup label runTests)
 
-tests :: Config -> TestTree
-tests conf = testGroup "Test Suite"
+unitTests :: [TestTree]
+unitTests =
   [ testConfig
   , testConnection
-  , testEventTypes conf
+  ]
+
+integrationTests :: Config -> [TestTree]
+integrationTests conf =
+  [ testEventTypes conf
   , testRegistry conf
   , testSubscriptions conf
   ]

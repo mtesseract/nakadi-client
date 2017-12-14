@@ -14,7 +14,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 
 testConnection :: TestTree
-testConnection = testGroup "Connection.Retry"
+testConnection = testGroup "Connection"
   [ testCase "SimpleRetry" testSimpleRetry
   , testCase "ResponseTimeout Success" testResponseTimeoutSuccess
   , testCase "ResponseTimeout Fail" testResponseTimeoutFail
