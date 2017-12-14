@@ -7,7 +7,6 @@ import           Network.Nakadi.Connection.Test
 import           Network.Nakadi.EventTypes.Test
 import           Network.Nakadi.Registry.Test
 import           Network.Nakadi.Subscriptions.Test
-import           Network.Nakadi.Internal.Http.Test
 import           System.Environment
 import           System.Exit
 import           System.IO                         (hFlush)

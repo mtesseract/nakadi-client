@@ -2,7 +2,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards       #-}
 
-module Network.Nakadi.Internal.Http.Test where
+module Network.Nakadi.Internal.Http.Test
+  ( testHttp
+  ) where
 
 import           Network.HTTP.Client
 import           Network.HTTP.Types
@@ -17,11 +19,11 @@ import           Network.HTTP.Client.Internal (CookieJar (..), Request(..), Resp
 import           Network.Nakadi
 import           Conduit
 
-testInternal :: TestTree
-testInternal = testGroup "Internal"
-  [
-    testCase "HttpRequestModifier" testHttpRequestModifier
+testHttp :: TestTree
+testHttp = testGroup "Http"
+  [ testCase "HttpRequestModifier" testHttpRequestModifier
   ]
+
 resp :: Response (IO ByteString)
 resp = Response
     { responseStatus = status200
@@ -32,35 +34,17 @@ resp = Response
     , responseClose' = ResponseClose (pure ())
     }
 
-resp2 :: Response ByteString
-resp2 = Response
-    { responseStatus = status200
-    , responseVersion = http11
-    , responseHeaders = []
-    , responseBody = ""
-    , responseCookieJar = CJ []
-    , responseClose' = ResponseClose (pure ())
-    }
-
-
 headers :: RequestHeaders
 headers = [("test-header", "header-value")]
-
-dummyHttpLbs :: Request -> IO (Response ByteString)
-dummyHttpLbs = const $ return resp2
 
 dummyResponseOpen :: Request -> Manager -> IO (Response (IO ByteString))
 dummyResponseOpen Request { .. } _ = do
   requestHeaders @=? headers
   pure resp
 
-dummyResponseClose :: Response BodyReader -> IO ()
-dummyResponseClose _response = return ()
-
 dummyHttpBackend :: HttpBackend
 dummyHttpBackend = defaultHttpBackend {
     _responseOpen = dummyResponseOpen
-  , _responseClose = dummyResponseClose
 }
 
 dummyRequestModifier :: Request -> IO Request
