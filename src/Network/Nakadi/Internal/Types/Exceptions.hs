@@ -10,6 +10,8 @@ Portability : POSIX
 Nakadi client exceptions.
 -}
 
+{-# LANGUAGE StrictData #-}
+
 module Network.Nakadi.Internal.Types.Exceptions where
 
 import           Network.Nakadi.Internal.Prelude

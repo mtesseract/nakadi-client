@@ -22,3 +22,4 @@ nakadi-client.cabal
 .idea
 out
 *.iml
+nakadi-client.iml

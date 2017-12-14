@@ -10,6 +10,8 @@ Portability : POSIX
 Internal configuration specific types.
 -}
 
+{-# LANGUAGE StrictData #-}
+
 module Network.Nakadi.Internal.Types.Config where
 
 import           Network.Nakadi.Internal.Prelude
