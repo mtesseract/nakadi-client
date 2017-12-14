@@ -45,6 +45,7 @@ module Network.Nakadi.Types.Service
   , BatchFlushTimeout(..)
   , CursorCommitResultType(..)
   , CursorCommitResult(..)
+  , CursorCommitResults(..)
   , SchemaType(..)
   , EventTypeSchema(..)
   , PaginationLink(..)
