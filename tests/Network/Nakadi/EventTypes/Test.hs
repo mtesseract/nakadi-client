@@ -8,9 +8,7 @@
 
 module Network.Nakadi.EventTypes.Test where
 
-import           ClassyPrelude hiding (toList)
-
-import           Data.Foldable (toList)
+import           ClassyPrelude
 
 import           Conduit
 import           Control.Concurrent.Async                      (link)
