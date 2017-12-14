@@ -39,7 +39,6 @@ module Network.Nakadi.Internal.Http
   ) where
 
 import           Network.Nakadi.Internal.Prelude
-import           Prelude (id)
 
 import           Conduit
 import           Control.Arrow
@@ -172,7 +171,7 @@ httpJsonBodyStream config successStatus f exceptionMap _ = do
   let manager        = config^.L.manager
       responseOpen   = config^.L.http.L.responseOpen
       responseClose  = config^.L.http.L.responseClose
-  request <- httpBuildRequest config id
+  request <- httpBuildRequest config identity
   (_, response) <- allocate (retryAction config (responseOpen request manager)) responseClose
   let response_  = void response
       bodySource = bodyReaderSource (getResponseBody response)
