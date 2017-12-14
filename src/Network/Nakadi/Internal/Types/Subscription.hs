@@ -11,6 +11,8 @@ Internal Subscription specific types, which are not part of the Nakadi
 Service API but custom to this package.
 -}
 
+{-# LANGUAGE StrictData #-}
+
 module Network.Nakadi.Internal.Types.Subscription where
 
 import           Network.Nakadi.Internal.Types.Config

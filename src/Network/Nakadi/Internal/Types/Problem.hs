@@ -13,6 +13,7 @@ Implementation of the error object described in RFC7807.
 {-# LANGUAGE ApplicativeDo   #-}
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StrictData      #-}
 {-# LANGUAGE TupleSections   #-}
 
 module Network.Nakadi.Internal.Types.Problem where
