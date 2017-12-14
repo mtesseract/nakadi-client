@@ -122,8 +122,8 @@ runSubscriptionR ::
   -> ConduitM ()
               Void
               (ReaderT SubscriptionEventStreamContext m)
-              r              -- ^ Subscription Conduit to run
-  -> m r                     -- ^ Result of the Conduit
+              s              -- ^ Subscription Conduit to run
+  -> m s                     -- ^ Result of the Conduit
 runSubscriptionR subscriptionEventStream conduit = do
   config <- asks (view L.nakadiConfig)
   runSubscription config subscriptionEventStream conduit
