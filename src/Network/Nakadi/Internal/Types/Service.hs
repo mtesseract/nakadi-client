@@ -436,6 +436,12 @@ data CursorCommitResult = CursorCommitResult
 
 deriveJSON nakadiJsonOptions ''CursorCommitResult
 
+newtype CursorCommitResults = CursorCommitResults
+  { _items :: [CursorCommitResult]
+  } deriving (Show, Eq, Ord)
+
+deriveJSON nakadiJsonOptions ''CursorCommitResults
+
 -- | SchemaType
 
 data SchemaType = SchemaTypeJson

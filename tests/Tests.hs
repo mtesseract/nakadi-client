@@ -11,6 +11,7 @@ import           System.Environment
 import           System.Exit
 import           System.IO                         (hFlush)
 import           Test.Tasty
+import           Network.Nakadi.Internal.Test
 
 main :: IO ()
 main = do
@@ -60,6 +61,7 @@ unitTests :: [TestTree]
 unitTests =
   [ testConfig
   , testConnection
+  , testInternal
   ]
 
 integrationTests :: Config -> [TestTree]

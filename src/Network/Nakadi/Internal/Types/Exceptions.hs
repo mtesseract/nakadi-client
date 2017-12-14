@@ -33,7 +33,7 @@ data NakadiException = BatchPartiallySubmitted [BatchItemResponse]
                      | TooManyRequests Problem
                      | BadRequest Problem
                      | SubscriptionNotFound Problem
-                     | CursorAlreadyCommitted [CursorCommitResult]
+                     | CursorAlreadyCommitted CursorCommitResults
                      | CursorResetInProgress Problem
                      | EventTypeNotFound Problem
                      | SubscriptionExistsAlready Subscription
