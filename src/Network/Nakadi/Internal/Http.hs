@@ -167,12 +167,14 @@ httpJsonBodyStream ::
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
   -> m (b, ConduitM () a (ReaderT r m) ())
-httpJsonBodyStream config successStatus f exceptionMap _ = do
+httpJsonBodyStream config successStatus f exceptionMap requestDef = do
   let manager        = config^.L.manager
+      request        = requestDef (config^.L.requestTemplate)
+                         & setRequestManager manager
       responseOpen   = config^.L.http.L.responseOpen
       responseClose  = config^.L.http.L.responseClose
-  request <- httpBuildRequest config identity
-  (_, response) <- allocate (retryAction config (responseOpen request manager)) responseClose
+  modifiedRequest <- modifyRequest (config^.L.requestModifier) request
+  (_, response) <- allocate (retryAction config (responseOpen modifiedRequest manager)) responseClose
   let response_  = void response
       bodySource = bodyReaderSource (getResponseBody response)
       status     = getResponseStatus response
