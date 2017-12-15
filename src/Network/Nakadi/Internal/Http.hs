@@ -169,12 +169,10 @@ httpJsonBodyStream ::
   -> m (b, ConduitM () a (ReaderT r m) ())
 httpJsonBodyStream config successStatus f exceptionMap requestDef = do
   let manager        = config^.L.manager
-      request        = requestDef (config^.L.requestTemplate)
-                         & setRequestManager manager
       responseOpen   = config^.L.http.L.responseOpen
       responseClose  = config^.L.http.L.responseClose
-  modifiedRequest <- modifyRequest (config^.L.requestModifier) request
-  (_, response) <- allocate (retryAction config (responseOpen modifiedRequest manager)) responseClose
+  request         <- httpBuildRequest config requestDef
+  (_, response)   <- allocate (retryAction config (responseOpen request manager)) responseClose
   let response_  = void response
       bodySource = bodyReaderSource (getResponseBody response)
       status     = getResponseStatus response
