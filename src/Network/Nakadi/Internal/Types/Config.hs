@@ -19,12 +19,14 @@ import           Network.Nakadi.Internal.Prelude
 import           Control.Retry
 import           Network.HTTP.Client
 
-import qualified Data.ByteString.Lazy as LB (ByteString)
+import qualified Data.ByteString.Lazy            as LB (ByteString)
 import           Network.Nakadi.Types.Logger
 
 -- | Config
 
 type StreamConnectCallback = Maybe LogFunc -> Response () -> IO ()
+
+type HttpErrorCallback = Request -> RetryStatus -> HttpException -> IO ()
 
 data Config = Config
   { _requestTemplate                :: Request
@@ -36,12 +38,13 @@ data Config = Config
   , _logFunc                        :: Maybe LogFunc
   , _retryPolicy                    :: RetryPolicyM IO
   , _http                           :: HttpBackend
+  , _httpErrorCallback              :: Maybe HttpErrorCallback
   }
 
 data HttpBackend = HttpBackend
-  { _httpLbs                        :: Request -> IO (Response LB.ByteString)
-  , _responseOpen                   :: Request -> Manager -> IO (Response BodyReader)
-  , _responseClose                  :: Response BodyReader -> IO ()
+  { _httpLbs       :: Request -> IO (Response LB.ByteString)
+  , _responseOpen  :: Request -> Manager -> IO (Response BodyReader)
+  , _responseClose :: Response BodyReader -> IO ()
   }
 
 -- | ConsumeParameters
