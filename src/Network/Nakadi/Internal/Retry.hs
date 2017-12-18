@@ -11,10 +11,11 @@ This module provides the basic retry mechanism via the retry package.
 -}
 
 {-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Network.Nakadi.Internal.Retry where
+module Network.Nakadi.Internal.Retry
+  ( retryAction
+  ) where
 
 import           Network.Nakadi.Internal.Prelude
 
@@ -26,11 +27,15 @@ import           Network.HTTP.Types.Status
 import qualified Network.Nakadi.Internal.Lenses  as L
 import           Network.Nakadi.Internal.Types
 
-httpErrorCallback :: Config -> Request -> RetryStatus -> HttpException -> IO ()
-httpErrorCallback config =
+httpErrorCallback :: MonadIO m => Config -> Request -> HttpException -> RetryStatus -> m ()
+httpErrorCallback config req exn retryStatus = liftIO $
   case config^.L.httpErrorCallback of
-    Just cb -> cb
-    Nothing -> \_req _retryStatus _exn -> pure ()
+    Just cb -> do
+      finalFailure <- applyPolicy (config^.L.retryPolicy) retryStatus >>= \case
+        Just _  -> pure False
+        Nothing -> pure True
+      cb req exn retryStatus finalFailure
+    Nothing -> pure ()
 
 -- | Try to execute the provided IO action using the provided retry
 -- policy. If executing the IO action raises specific exceptions of
@@ -49,7 +54,7 @@ retryAction config req ma =
   in recovering nakadiRetryPolicy [handlerHttp] (const (ma req))
 
   where handlerHttp retryStatus = Handler $ \exn -> do
-          liftIO $ httpErrorCallback config req retryStatus exn
+          httpErrorCallback config req exn retryStatus
           pure $ shouldRetry exn
 
         shouldRetry (HttpExceptionRequest _ exceptionContent) =

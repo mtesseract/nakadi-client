@@ -26,7 +26,9 @@ import           Network.Nakadi.Types.Logger
 
 type StreamConnectCallback = Maybe LogFunc -> Response () -> IO ()
 
-type HttpErrorCallback = Request -> RetryStatus -> HttpException -> IO ()
+-- | Type synonym for user-provided callbacks which are used for HTTP
+-- Errror propagation.
+type HttpErrorCallback = Request -> HttpException -> RetryStatus -> Bool -> IO ()
 
 data Config = Config
   { _requestTemplate                :: Request
@@ -41,6 +43,9 @@ data Config = Config
   , _httpErrorCallback              :: Maybe HttpErrorCallback
   }
 
+-- | Type encapsulating the HTTP backend functions used by this
+-- package. By default the corresponding functions from the
+-- http-client package are used. Useful, for e.g., testing.
 data HttpBackend = HttpBackend
   { _httpLbs       :: Request -> IO (Response LB.ByteString)
   , _responseOpen  :: Request -> Manager -> IO (Response BodyReader)
