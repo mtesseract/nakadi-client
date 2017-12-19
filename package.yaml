@@ -78,6 +78,7 @@ library:
   - Network.Nakadi.Registry
   - Network.Nakadi.Lenses
   - Network.Nakadi.Internal.Http
+  - Network.Nakadi.Internal.Retry
 tests:
   nakadi-client-test-suite:
     main: Tests.hs
