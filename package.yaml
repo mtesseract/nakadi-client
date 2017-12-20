@@ -15,10 +15,21 @@ default-extensions:
 - NoImplicitPrelude
 - OverloadedStrings
 - DuplicateRecordFields
-ghc-options:
-- -Wall
-- -fno-warn-type-defaults
-- -Werror
+flags:
+  devel:
+    manual: true
+    default: false
+when:
+- condition: flag(devel)
+  then:
+    ghc-options:
+    - -Wall
+    - -fno-warn-type-defaults
+    - -Werror
+  else:
+    ghc-options:
+    - -Wall
+    - -fno-warn-type-defaults
 dependencies:
 - base >=4.7 && <5
 - conduit
