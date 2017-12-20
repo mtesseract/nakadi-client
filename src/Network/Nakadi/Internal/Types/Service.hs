@@ -731,7 +731,7 @@ data MetadataEnriched = MetadataEnriched
   , _version    :: SchemaVersion
   , _parentEids :: Maybe [Text]
   , _flowId     :: Maybe FlowId
-  , _partition  :: Maybe Text
+  , _partition  :: Maybe PartitionName
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''MetadataEnriched
