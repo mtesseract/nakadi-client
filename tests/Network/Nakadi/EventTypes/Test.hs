@@ -85,7 +85,7 @@ testEventTypeCursorDistances10 conf = do
 
   forM_ [1..10] $ \_ -> do
     now <- getCurrentTime
-    eid <- tshow <$> genRandomUUID
+    eid <- EventId <$> genRandomUUID
     eventPublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
 
   cursorPairs <- forM cursors $ \cursor@Cursor { .. } -> do
@@ -107,7 +107,7 @@ consumeParametersSingle = defaultConsumeParameters
 testEventTypePublishData :: Config -> Assertion
 testEventTypePublishData conf = do
   now <- getCurrentTime
-  eid <- tshow <$> genRandomUUID
+  eid <- EventId <$> genRandomUUID
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
@@ -129,7 +129,7 @@ testEventTypePublishData conf = do
 testEventTypeParseFlowId :: Config -> Assertion
 testEventTypeParseFlowId conf = do
   now <- getCurrentTime
-  eid <- tshow <$> genRandomUUID
+  eid <- EventId <$> genRandomUUID
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
@@ -161,7 +161,7 @@ testEventTypeParseFlowId conf = do
 testEventTypeDeserializationFailure :: Config -> Assertion
 testEventTypeDeserializationFailure conf' = do
   now <- getCurrentTime
-  eid <- tshow <$> genRandomUUID
+  eid <- EventId <$> genRandomUUID
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"

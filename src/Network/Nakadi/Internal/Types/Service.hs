@@ -220,12 +220,24 @@ instance FromJSON FlowId where
   parseJSON (String s) = return $ FlowId s
   parseJSON invalid    = typeMismatch "FlowId" invalid
 
+-- | ID of an Event
+
+newtype EventId = EventId
+  { unEventId :: UUID -- ^ Wrapped UUID
+  } deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance ToJSON EventId where
+  toJSON = String . tshow . unEventId
+
+instance FromJSON EventId where
+  parseJSON = parseUUID "EventId" EventId
+
 -- | Metadata
 
 data Metadata = Metadata
-  { _eid        :: Text -- ^ Event ID
+  { _eid        :: EventId -- ^ Event ID
   , _occurredAt :: Timestamp -- ^ Occurred-At timestamp
-  , _parentEids :: Maybe [Text] -- ^ Event IDs of the Events which triggered this event
+  , _parentEids :: Maybe [EventId] -- ^ Event IDs of the Events which triggered this event
   , _partition  :: Maybe Text -- ^ Partition on which this Event is stored
   } deriving (Eq, Show, Generic)
 
@@ -242,18 +254,6 @@ data Event a = Event
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''Event
-
--- | ID of an Event
-
-newtype EventId = EventId
-  { unEventId :: UUID -- ^ Wrapped UUID
-  } deriving (Show, Eq, Ord, Generic, Hashable)
-
-instance ToJSON EventId where
-  toJSON = String . tshow . unEventId
-
-instance FromJSON EventId where
-  parseJSON = parseUUID "EventId" EventId
 
 -- | Partition Data
 
@@ -724,12 +724,12 @@ deriveJSON nakadiJsonOptions ''EventType
 -- | Type of enriched metadata values.
 
 data MetadataEnriched = MetadataEnriched
-  { _eid        :: Text
+  { _eid        :: EventId
   , _eventType  :: EventTypeName
   , _occurredAt :: Timestamp
   , _receivedAt :: Timestamp
   , _version    :: SchemaVersion
-  , _parentEids :: Maybe [Text]
+  , _parentEids :: Maybe [EventId]
   , _flowId     :: Maybe FlowId
   , _partition  :: Maybe Text
   } deriving (Eq, Show, Generic)

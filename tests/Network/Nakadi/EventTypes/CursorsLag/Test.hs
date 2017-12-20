@@ -36,7 +36,7 @@ testCursorsLagZero conf = do
 testCursorsLagN :: Config -> Int64 -> Assertion
 testCursorsLagN conf n = do
   now <- getCurrentTime
-  eid <- tshow <$> genRandomUUID
+  eid <- EventId <$> genRandomUUID
   recreateEvent conf myEventTypeName myEventType
   partitions <- eventTypePartitions conf myEventTypeName
   let cursorsMap = Map.fromList $

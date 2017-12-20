@@ -56,7 +56,7 @@ extractCursor Partition { ..} =
   Cursor { _partition = _partition
          , _offset    = _newestAvailableOffset }
 
-myDataChangeEvent :: Text -> UTCTime -> DataChangeEvent Foo
+myDataChangeEvent :: EventId -> UTCTime -> DataChangeEvent Foo
 myDataChangeEvent eid now =  DataChangeEvent
   { _payload = Foo "Hello!"
   , _metadata = Metadata { _eid        = eid

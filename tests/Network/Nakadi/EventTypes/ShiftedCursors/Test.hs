@@ -32,7 +32,7 @@ testShiftedCursorsZero conf = do
 testShiftedCursorsN :: Config -> Int64 -> Assertion
 testShiftedCursorsN conf n = do
   now <- getCurrentTime
-  eid <- tshow <$> genRandomUUID
+  eid <- EventId <$> genRandomUUID
   recreateEvent conf myEventTypeName myEventType
   partitions <- eventTypePartitions conf myEventTypeName
   let cursors = map extractCursor partitions
