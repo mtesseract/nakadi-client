@@ -50,11 +50,10 @@ import           Data.Aeson
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
 import qualified Data.Conduit.Binary             as Conduit
 import qualified Data.Text                       as Text
-import           Network.HTTP.Client             ( BodyReader
-                                                 , checkResponse
-                                                 , responseStatus
-                                                 , HttpException(..)
-                                                 , HttpExceptionContent(..))
+import           Network.HTTP.Client             (BodyReader,
+                                                  HttpException (..),
+                                                  HttpExceptionContent (..),
+                                                  checkResponse, responseStatus)
 import           Network.HTTP.Client.Conduit     (bodyReaderSource)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
@@ -111,9 +110,9 @@ httpExecRequest ::
   => Config
   -> (Request -> Request)
   -> m (Response ByteString.Lazy.ByteString)
-httpExecRequest config requestDef =
-  httpBuildRequest config requestDef
-  >>= retryAction config . liftIO . (config^.L.http.L.httpLbs)
+httpExecRequest config requestDef = do
+  req <- httpBuildRequest config requestDef
+  retryAction config req (liftIO . (config^.L.http.L.httpLbs))
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier. Returns the HTTP response and separately the
@@ -168,11 +167,12 @@ httpJsonBodyStream ::
   -> (Request -> Request)
   -> m (b, ConduitM () a (ReaderT r m) ())
 httpJsonBodyStream config successStatus f exceptionMap requestDef = do
-  let manager        = config^.L.manager
-      responseOpen   = config^.L.http.L.responseOpen
-      responseClose  = config^.L.http.L.responseClose
-  request         <- httpBuildRequest config requestDef
-  (_, response)   <- allocate (retryAction config (responseOpen request manager)) responseClose
+  request <- httpBuildRequest config requestDef
+  let manager           = config^.L.manager
+      responseOpen      = config^.L.http.L.responseOpen
+      responseClose     = config^.L.http.L.responseClose
+      responseOpenRetry = retryAction config request (flip responseOpen manager)
+  (_, response) <- allocate responseOpenRetry responseClose
   let response_  = void response
       bodySource = bodyReaderSource (getResponseBody response)
       status     = getResponseStatus response

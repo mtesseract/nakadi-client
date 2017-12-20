@@ -19,12 +19,16 @@ import           Network.Nakadi.Internal.Prelude
 import           Control.Retry
 import           Network.HTTP.Client
 
-import qualified Data.ByteString.Lazy as LB (ByteString)
+import qualified Data.ByteString.Lazy            as LB (ByteString)
 import           Network.Nakadi.Types.Logger
 
 -- | Config
 
 type StreamConnectCallback = Maybe LogFunc -> Response () -> IO ()
+
+-- | Type synonym for user-provided callbacks which are used for HTTP
+-- Errror propagation.
+type HttpErrorCallback = Request -> HttpException -> RetryStatus -> Bool -> IO ()
 
 data Config = Config
   { _requestTemplate                :: Request
@@ -36,12 +40,16 @@ data Config = Config
   , _logFunc                        :: Maybe LogFunc
   , _retryPolicy                    :: RetryPolicyM IO
   , _http                           :: HttpBackend
+  , _httpErrorCallback              :: Maybe HttpErrorCallback
   }
 
+-- | Type encapsulating the HTTP backend functions used by this
+-- package. By default the corresponding functions from the
+-- http-client package are used. Useful, for e.g., testing.
 data HttpBackend = HttpBackend
-  { _httpLbs                        :: Request -> IO (Response LB.ByteString)
-  , _responseOpen                   :: Request -> Manager -> IO (Response BodyReader)
-  , _responseClose                  :: Response BodyReader -> IO ()
+  { _httpLbs       :: Request -> IO (Response LB.ByteString)
+  , _responseOpen  :: Request -> Manager -> IO (Response BodyReader)
+  , _responseClose :: Response BodyReader -> IO ()
   }
 
 -- | ConsumeParameters

@@ -47,6 +47,7 @@ newConfig' manager consumeParameters request =
                 , _logFunc                        = Nothing
                 , _retryPolicy                    = defaultRetryPolicy
                 , _http                           = defaultHttpBackend
+                , _httpErrorCallback              = Nothing
                 }
 
 -- | Default 'HttpBackend' doing IO using http-client.
@@ -86,6 +87,14 @@ setDeserializationFailureCallback cb = L.deserializationFailureCallback .~ Just 
 -- connection.
 setStreamConnectCallback :: StreamConnectCallback  -> Config -> Config
 setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
+
+-- | Install a callback in the provided configuration which is called
+-- on HTTP 5xx errors. This allows the user to act on such error
+-- conditions by e.g. logging errors or updating metrics. Note that
+-- this callback is called synchronously, thus blocking in this
+-- callback delays potential retry attempts.
+setHttpErrorCallback :: HttpErrorCallback -> Config -> Config
+setHttpErrorCallback cb = L.httpErrorCallback .~ Just cb
 
 -- | Install a logger callback in the provided configuration.
 setLogFunc :: LogFunc -> Config -> Config

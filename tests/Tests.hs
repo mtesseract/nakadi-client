@@ -5,13 +5,13 @@ import           Network.Nakadi
 import           Network.Nakadi.Config.Test
 import           Network.Nakadi.Connection.Test
 import           Network.Nakadi.EventTypes.Test
+import           Network.Nakadi.Internal.Test
 import           Network.Nakadi.Registry.Test
 import           Network.Nakadi.Subscriptions.Test
 import           System.Environment
 import           System.Exit
 import           System.IO                         (hFlush)
 import           Test.Tasty
-import           Network.Nakadi.Internal.Test
 
 main :: IO ()
 main = do
@@ -59,9 +59,9 @@ main = do
 
 unitTests :: [TestTree]
 unitTests =
-  [ testConfig
+  [ testInternal
+  , testConfig
   , testConnection
-  , testInternal
   ]
 
 integrationTests :: Config -> [TestTree]
