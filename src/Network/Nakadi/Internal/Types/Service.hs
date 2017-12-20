@@ -226,7 +226,7 @@ data Metadata = Metadata
   { _eid        :: Text -- ^ Event ID
   , _occurredAt :: Timestamp -- ^ Occurred-At timestamp
   , _parentEids :: Maybe [Text] -- ^ Event IDs of the Events which triggered this event
-  , _partition  :: Maybe Text -- ^ Partition on which this Event is stored
+  , _partition  :: Maybe PartitionName -- ^ Partition on which this Event is stored
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''Metadata
@@ -731,7 +731,7 @@ data MetadataEnriched = MetadataEnriched
   , _version    :: SchemaVersion
   , _parentEids :: Maybe [Text]
   , _flowId     :: Maybe FlowId
-  , _partition  :: Maybe Text
+  , _partition  :: Maybe PartitionName
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''MetadataEnriched
