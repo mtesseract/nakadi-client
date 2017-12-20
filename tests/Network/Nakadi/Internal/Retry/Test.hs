@@ -42,22 +42,16 @@ prepareMockResponse successNum = do
     then return responseSuccess
     else throwM (HttpExceptionRequest defaultRequest (StatusCodeException responseFailure mempty))
 
-  where responseSuccess = Response
-          { responseStatus = status200
-          , responseVersion = http11
-          , responseHeaders = []
-          , responseBody = mempty
+  where responseTemplate = Response
+          { responseStatus    = status200
+          , responseVersion   = http11
+          , responseHeaders   = []
+          , responseBody      = mempty
           , responseCookieJar = CJ []
-          , responseClose' = ResponseClose (pure ())
+          , responseClose'    = ResponseClose (pure ())
           }
-        responseFailure = Response
-          { responseStatus = status503
-          , responseVersion = http11
-          , responseHeaders = []
-          , responseBody = mempty
-          , responseCookieJar = CJ []
-          , responseClose' = ResponseClose (pure ())
-          }
+        responseSuccess = responseTemplate
+        responseFailure = void $ responseTemplate { responseStatus = status503 }
 
 maxRetries :: Int
 maxRetries = 7
@@ -83,7 +77,7 @@ mockHttpBackend numFailures = do
 
     where mockHttpLbs responder _request = responder
 
--- | Tests that the callbacked is called exactly numFailures times
+-- | Tests that the callback is called exactly numFailures times
 -- before the request succeeds — depending on the retry policy.
 testHttpErrorCallbackN :: Int -> Assertion
 testHttpErrorCallbackN numFailures = do

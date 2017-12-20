@@ -27,8 +27,11 @@ import           Network.HTTP.Types.Status
 import qualified Network.Nakadi.Internal.Lenses  as L
 import           Network.Nakadi.Internal.Types
 
-httpErrorCallback :: MonadIO m => Config -> Request -> HttpException -> RetryStatus -> m ()
-httpErrorCallback config req exn retryStatus = liftIO $
+-- | Invokes the HTTP Error Callback set in the configuration for the
+-- provided 'Request', 'HttpException' and 'RetryStatus'. If no
+-- callback is set, this is no-op.
+invokeHttpErrorCallback :: MonadIO m => Config -> Request -> HttpException -> RetryStatus -> m ()
+invokeHttpErrorCallback config req exn retryStatus = liftIO $
   case config^.L.httpErrorCallback of
     Just cb -> do
       finalFailure <- applyPolicy (config^.L.retryPolicy) retryStatus >>= \case
@@ -54,7 +57,7 @@ retryAction config req ma =
   in recovering nakadiRetryPolicy [handlerHttp] (const (ma req))
 
   where handlerHttp retryStatus = Handler $ \exn -> do
-          httpErrorCallback config req exn retryStatus
+          invokeHttpErrorCallback config req exn retryStatus
           pure $ shouldRetry exn
 
         shouldRetry (HttpExceptionRequest _ exceptionContent) =
