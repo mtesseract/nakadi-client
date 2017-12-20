@@ -1,5 +1,5 @@
 name: nakadi-client
-version: '0.3.1.0'
+version: '0.4.0.0'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
              with the Nakadi event broker system developed by Zalando.
@@ -47,7 +47,6 @@ dependencies:
 - time
 - split
 - aeson-casing
-- tasty
 - template-haskell
 - retry
 library:
@@ -104,3 +103,4 @@ tests:
     - stm
     - warp
     - wai
+    - tasty
