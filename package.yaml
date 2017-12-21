@@ -1,5 +1,5 @@
 name: nakadi-client
-version: '0.4.0.0'
+version: '0.4.0.1'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
              with the Nakadi event broker system developed by Zalando.
@@ -11,6 +11,8 @@ license: BSD3
 github: mtesseract/nakadi-haskell
 extra-source-files:
 - README.md
+- AUTHORS.md
+- .gitignore
 default-extensions:
 - NoImplicitPrelude
 - OverloadedStrings
