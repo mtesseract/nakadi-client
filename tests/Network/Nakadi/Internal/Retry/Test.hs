@@ -71,8 +71,8 @@ mockHttpBackend numFailures = do
   responder <- prepareMockResponse numFailures
   return HttpBackend
     { _httpLbs       = mockHttpLbs responder
-    , _responseOpen  = responseOpen
-    , _responseClose = responseClose
+    , _responseOpen  = (\req -> error "Not Implemented")
+    , _responseClose = (\res -> error "Not Implemented")
     }
 
     where mockHttpLbs responder _request = responder

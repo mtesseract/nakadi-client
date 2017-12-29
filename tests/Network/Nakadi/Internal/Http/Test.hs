@@ -1,22 +1,25 @@
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Network.Nakadi.Internal.Http.Test
   ( testHttp
   ) where
 
-import           Network.HTTP.Client
-import           Network.HTTP.Types
-import           Test.Tasty
-import           Test.Tasty.HUnit
+import           ClassyPrelude
+import           Conduit
 import           Control.Monad
 import           Control.Monad.Reader
-import           ClassyPrelude
-import           Network.Nakadi.Internal.Http
-import           Network.HTTP.Client.Internal (CookieJar (..), Request(..), Response (..), ResponseClose (..))
+import           Network.HTTP.Client
+import           Network.HTTP.Client.Internal (CookieJar (..), Request (..),
+                                               Response (..),
+                                               ResponseClose (..))
+import           Network.HTTP.Types
 import           Network.Nakadi
-import           Conduit
+import           Network.Nakadi.BackendIO
+import           Network.Nakadi.Internal.Http
+import           Test.Tasty
+import           Test.Tasty.HUnit
 
 testHttp :: TestTree
 testHttp = testGroup "Http"
@@ -36,15 +39,16 @@ resp = Response
 headers :: RequestHeaders
 headers = [("test-header", "header-value")]
 
-dummyResponseOpen :: Request -> Manager -> IO (Response (IO ByteString))
-dummyResponseOpen Request { .. } _ = do
+dummyResponseOpen :: Request -> IO (Response (IO ByteString))
+dummyResponseOpen Request { .. } = do
   requestHeaders @=? headers
   pure resp
 
-dummyHttpBackend :: HttpBackend
-dummyHttpBackend = defaultHttpBackend {
-    _responseOpen = dummyResponseOpen
-}
+dummyHttpBackend :: MonadIO m => m HttpBackend
+dummyHttpBackend = do
+  mngr <- liftIO $ newManager defaultManagerSettings
+  let backend = backendIO mngr
+  pure $ backend { _responseOpen = dummyResponseOpen }
 
 dummyRequestModifier :: Request -> IO Request
 dummyRequestModifier request = pure (request { requestHeaders = headers })
@@ -52,7 +56,8 @@ dummyRequestModifier request = pure (request { requestHeaders = headers })
 testHttpRequestModifier :: Assertion
 testHttpRequestModifier = do
     conf <- newConfig Nothing defaultRequest
-    let config = conf {_http = dummyHttpBackend, _requestModifier = dummyRequestModifier }
+    backend <- dummyHttpBackend
+    let config = conf {_http = backend, _requestModifier = dummyRequestModifier }
     (_, source) <- runResourceT $ httpJsonBodyStream config ok200 (const (Right ())) [] id
     (_ :: Maybe Text) <- runResourceT $ runReaderT (runConduit $ source .| headC) ()
     return ()

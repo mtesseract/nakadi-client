@@ -18,11 +18,13 @@ module Network.Nakadi.Types
   , module Network.Nakadi.Types.Service
   , module Network.Nakadi.Types.Subscription
   , MonadNakadi
-  , MonadNakadiEnv
+  , MonadNakadiEnv(..)
   , HasNakadiConfig(..)
+  , NakadiT
+  , runNakadiT
   ) where
 
-import           Network.Nakadi.Internal.Types     (MonadNakadi, MonadNakadiEnv)
+import           Network.Nakadi.Internal.Types
 
 import           Network.Nakadi.Internal.Lenses
 import           Network.Nakadi.Types.Config

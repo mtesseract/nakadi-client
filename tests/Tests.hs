@@ -6,6 +6,7 @@ import           Network.Nakadi.Config.Test
 import           Network.Nakadi.Connection.Test
 import           Network.Nakadi.EventTypes.Test
 import           Network.Nakadi.Internal.Test
+import           Network.Nakadi.MonadicAPI.Test
 import           Network.Nakadi.Registry.Test
 import           Network.Nakadi.Subscriptions.Test
 import           System.Environment
@@ -69,4 +70,5 @@ integrationTests conf =
   [ testEventTypes conf
   , testRegistry conf
   , testSubscriptions conf
+  , testMonadicAPI conf
   ]

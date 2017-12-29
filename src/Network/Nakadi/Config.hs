@@ -17,12 +17,11 @@ import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
 import           Control.Retry
-import           Network.HTTP.Client             (Manager, ManagerSettings,
-                                                  responseClose, responseOpen)
-import           Network.HTTP.Client.TLS         (newTlsManagerWith,
-                                                  tlsManagerSettings)
-import           Network.HTTP.Simple             (httpLbs)
-import qualified Network.Nakadi.Internal.Lenses  as L
+import           Network.HTTP.Client               (Manager, ManagerSettings)
+import           Network.HTTP.Client.TLS           (newTlsManagerWith,
+                                                    tlsManagerSettings)
+import           Network.Nakadi.Internal.BackendIO
+import qualified Network.Nakadi.Internal.Lenses    as L
 import           Network.Nakadi.Internal.Types
 
 -- | Default retry policy.
@@ -32,12 +31,12 @@ defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
 newConfig' ::
-  (MonadIO m, MonadThrow m)
+  MonadNakadi b m
   => Manager           -- ^ Manager Settings
   -> ConsumeParameters -- ^ Consumption Parameters
   -> Request           -- ^ Request Template
-  -> m Config          -- ^ Resulting Configuration
-newConfig' manager consumeParameters request =
+  -> m (Config' b)     -- ^ Resulting Configuration
+newConfig' manager consumeParameters request = do
   return Config { _consumeParameters              = consumeParameters
                 , _manager                        = manager
                 , _requestTemplate                = request
@@ -46,24 +45,17 @@ newConfig' manager consumeParameters request =
                 , _streamConnectCallback          = Nothing
                 , _logFunc                        = Nothing
                 , _retryPolicy                    = defaultRetryPolicy
-                , _http                           = defaultHttpBackend
+                , _http                           = backendIO manager
                 , _httpErrorCallback              = Nothing
                 }
-
--- | Default 'HttpBackend' doing IO using http-client.
-defaultHttpBackend :: HttpBackend
-defaultHttpBackend =
-  HttpBackend { _httpLbs                        = httpLbs
-              , _responseOpen                   = responseOpen
-              , _responseClose                  = responseClose }
 
 -- | Produce a new configuration, with optional HTTP manager settings
 -- and mandatory HTTP request template.
 newConfig ::
-  (MonadIO m, MonadThrow m)
+  MonadNakadi b m
   => Maybe ManagerSettings -- ^ Optional 'ManagerSettings'
   -> Request               -- ^ Request template for Nakadi requests
-  -> m Config              -- ^ Resulting Configuration
+  -> m (Config' b)         -- ^ Resulting Configuration
 newConfig mngrSettings request = do
   manager <- newTlsManagerWith (fromMaybe tlsManagerSettings mngrSettings)
   newConfig' manager defaultConsumeParameters request
@@ -85,7 +77,7 @@ setDeserializationFailureCallback cb = L.deserializationFailureCallback .~ Just 
 -- | Install a callback in the provided configuration which is used
 -- after having successfully established a streaming Nakadi
 -- connection.
-setStreamConnectCallback :: StreamConnectCallback  -> Config -> Config
+setStreamConnectCallback :: StreamConnectCallback m -> Config' m -> Config' m
 setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
 
 -- | Install a callback in the provided configuration which is called
@@ -93,7 +85,7 @@ setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
 -- conditions by e.g. logging errors or updating metrics. Note that
 -- this callback is called synchronously, thus blocking in this
 -- callback delays potential retry attempts.
-setHttpErrorCallback :: HttpErrorCallback -> Config -> Config
+setHttpErrorCallback :: HttpErrorCallback m -> Config' m -> Config' m
 setHttpErrorCallback cb = L.httpErrorCallback .~ Just cb
 
 -- | Install a logger callback in the provided configuration.

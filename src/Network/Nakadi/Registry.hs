@@ -17,18 +17,18 @@ module Network.Nakadi.Registry
   , registryPartitionStrategiesR
   ) where
 
-import           Control.Lens
 import           Network.Nakadi.Internal.Http
 import           Network.Nakadi.Internal.Prelude
-
-import qualified Network.Nakadi.Internal.Lenses  as L
 
 path :: ByteString
 path = "/registry"
 
 -- | Retrieves supported partitioning strategies from Nakadi. @GET@ to
 -- @\/registry\/partition-strategies@.
-registryPartitionStrategies :: MonadNakadi m => Config -> m [PartitionStrategy]
+registryPartitionStrategies ::
+  MonadNakadi b m
+  => Config' b
+  -> m [PartitionStrategy]
 registryPartitionStrategies config =
   httpJsonBody config status200 []
   (setRequestMethod "GET" . setRequestPath (path <> "/partition-strategies"))
@@ -37,5 +37,5 @@ registryPartitionStrategies config =
 -- obtaining configuration from environment.
 registryPartitionStrategiesR :: MonadNakadiEnv r m => m [PartitionStrategy]
 registryPartitionStrategiesR = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   registryPartitionStrategies config

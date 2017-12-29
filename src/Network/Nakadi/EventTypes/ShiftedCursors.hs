@@ -24,9 +24,7 @@ module Network.Nakadi.EventTypes.ShiftedCursors
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Control.Lens
 import           Network.Nakadi.Internal.Http
-import qualified Network.Nakadi.Internal.Lenses  as L
 
 path :: EventTypeName -> ByteString
 path eventTypeName =
@@ -37,8 +35,8 @@ path eventTypeName =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. Low level
 -- interface.
 cursorsShift' ::
-  MonadNakadi m
-  => Config          -- ^ Configuration
+  MonadNakadi b m
+  => Config' b       -- ^ Configuration
   -> EventTypeName   -- ^ Event Type
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
@@ -51,19 +49,19 @@ cursorsShift' config eventTypeName cursors =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. Low level
 -- interface. Retrieves the configuration from the environment.
 cursorsShiftR' ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName   -- ^ Event Type
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
 cursorsShiftR' eventTypeName cursors = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   cursorsShift' config eventTypeName cursors
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface.
 cursorsShift ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors to shift
   -> Int64         -- ^ Shift Distance
@@ -79,11 +77,11 @@ cursorsShift config eventTypeName cursors n =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface. Retrieves the configuration from the environment.
 cursorsShiftR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors to shift
   -> Int64         -- ^ Shift Distance
   -> m [Cursor]    -- ^ Resulting Cursors
 cursorsShiftR eventTypeName cursors n = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   cursorsShift config eventTypeName cursors n

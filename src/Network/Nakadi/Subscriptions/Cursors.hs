@@ -50,8 +50,8 @@ path subscriptionId =
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION-ID\/cursors@. Commits
 -- cursors using low level interface.
 subscriptionCursorCommit' ::
-  MonadNakadi m
-  => Config                   -- ^ Configuration
+  MonadNakadi b m
+  => Config' b                -- ^ Configuration
   -> SubscriptionId           -- ^ Subsciption ID
   -> StreamId                 -- ^ Stream ID
   -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
@@ -67,26 +67,26 @@ subscriptionCursorCommit' config subscriptionId streamId cursors =
 -- cursors using low level interface. Uses the configuration contained
 -- in the environment.
 subscriptionCursorCommitR' ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => SubscriptionId           -- ^ Subsciption ID
   -> StreamId                 -- ^ Stream ID
   -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
   -> m ()
 subscriptionCursorCommitR' subscriptionId streamId cursors = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   subscriptionCursorCommit' config subscriptionId streamId cursors
 
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Commits
 -- cursors using high level interface.
 subscriptionCommit ::
-  (MonadNakadi m, MonadCatch m, HasNakadiSubscriptionCursor a)
+  (MonadNakadi b m, HasNakadiSubscriptionCursor a)
   => [a] -- ^ Values containing Subscription Cursors to commit
-  -> ReaderT SubscriptionEventStreamContext m ()
+  -> ReaderT (SubscriptionEventStreamContext b) m ()
 subscriptionCommit as = do
   SubscriptionEventStreamContext { .. } <- ask
   Safe.catchJust
     exceptionPredicate
-    (subscriptionCursorCommit' _ctxConfig _subscriptionId _streamId cursorsCommit)
+    (lift (subscriptionCursorCommit' _ctxConfig _subscriptionId _streamId cursorsCommit))
     (const (return ()))
 
   where exceptionPredicate = \case
@@ -99,8 +99,8 @@ subscriptionCommit as = do
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Retrieves
 -- subscriptions cursors.
 subscriptionCursors ::
-  MonadNakadi m
-  => Config                 -- ^ Configuration
+  MonadNakadi b m
+  => Config' b              -- ^ Configuration
   -> SubscriptionId         -- ^ Subscription ID
   -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
 subscriptionCursors config subscriptionId =
@@ -111,18 +111,18 @@ subscriptionCursors config subscriptionId =
 -- subscriptions cursors, using the configuration from the
 -- environment.
 subscriptionCursorsR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => SubscriptionId         -- ^ Subscription ID
   -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
 subscriptionCursorsR subscriptionId = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   subscriptionCursors config subscriptionId
 
 -- | @PATCH@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Resets
 -- subscriptions cursors.
 subscriptionCursorsReset ::
-  MonadNakadi m
-  => Config                           -- ^ Configuration
+  MonadNakadi b m
+  => Config' b                        -- ^ Configuration
   -> SubscriptionId                   -- ^ Subscription ID
   -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
   -> m ()
@@ -137,10 +137,10 @@ subscriptionCursorsReset config subscriptionId cursors =
 -- subscriptions cursors, using the configuration from the
 -- environment.
 subscriptionCursorsResetR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => SubscriptionId                   -- ^ Subscription ID
   -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
   -> m ()
 subscriptionCursorsResetR subscriptionId cursors = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   subscriptionCursorsReset config subscriptionId cursors

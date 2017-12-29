@@ -11,7 +11,6 @@ This module provides the basic retry mechanism via the retry package.
 -}
 
 {-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Network.Nakadi.Internal.Retry
   ( retryAction
@@ -20,7 +19,6 @@ module Network.Nakadi.Internal.Retry
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
-import           Control.Monad.IO.Class
 import           Control.Retry
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
@@ -30,31 +28,41 @@ import           Network.Nakadi.Internal.Types
 -- | Invokes the HTTP Error Callback set in the configuration for the
 -- provided 'Request', 'HttpException' and 'RetryStatus'. If no
 -- callback is set, this is no-op.
-invokeHttpErrorCallback :: MonadIO m => Config -> Request -> HttpException -> RetryStatus -> m ()
-invokeHttpErrorCallback config req exn retryStatus = liftIO $
+invokeHttpErrorCallback ::
+  (MonadIO b)
+  => Config' b
+  -> Request
+  -> HttpException
+  -> RetryStatus
+  -> b ()
+invokeHttpErrorCallback config req exn retryStatus = liftSub $
   case config^.L.httpErrorCallback of
     Just cb -> do
-      finalFailure <- applyPolicy (config^.L.retryPolicy) retryStatus >>= \case
-        Just _  -> pure False
-        Nothing -> pure True
+      finalFailure <- isFinalFailure
       cb req exn retryStatus finalFailure
     Nothing -> pure ()
+
+  where isFinalFailure =
+          applyPolicy (config^.L.retryPolicy) retryStatus >>= \case
+          Just _  -> pure False
+          Nothing -> pure True
 
 -- | Try to execute the provided IO action using the provided retry
 -- policy. If executing the IO action raises specific exceptions of
 -- type 'HttpException', the action will be potentially retried
 -- (depending on the retry policy).
 retryAction ::
-  (MonadIO m, MonadMask m)
-  => Config
+  (MonadIO b, MonadMask b, MonadSub b m, MonadIO m)
+  => Config' b
   -> Request
-  -> (Request -> m a)
+  -> (Request -> b a)
   -> m a
 retryAction config req ma =
   let policy = config^.L.retryPolicy
       nakadiRetryPolicy = RetryPolicyM $ \retryStatus ->
-        liftIO (getRetryPolicyM policy retryStatus)
-  in recovering nakadiRetryPolicy [handlerHttp] (const (ma req))
+        (getRetryPolicyM policy retryStatus)
+  in liftSub $
+     recovering nakadiRetryPolicy [handlerHttp] (\_retryStatus -> ma req)
 
   where handlerHttp retryStatus = Handler $ \exn -> do
           invokeHttpErrorCallback config req exn retryStatus

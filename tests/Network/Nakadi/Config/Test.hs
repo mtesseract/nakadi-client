@@ -23,8 +23,8 @@ dummyHttpLbs req = do
   atomically $ modifyTVar requestsExecuted (req :)
   throwIO (HttpExceptionRequest req ResponseTimeout)
 
-dummyResponseOpen :: Request -> Manager -> IO (Response (IO ByteString))
-dummyResponseOpen req _manager = do
+dummyResponseOpen :: Request -> IO (Response (IO ByteString))
+dummyResponseOpen req = do
   atomically $ modifyTVar requestsExecuted (req :)
   throwIO (HttpExceptionRequest req ResponseTimeout)
 

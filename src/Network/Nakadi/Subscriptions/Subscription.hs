@@ -22,10 +22,8 @@ module Network.Nakadi.Subscriptions.Subscription
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Control.Lens
 import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
-import qualified Network.Nakadi.Internal.Lenses      as L
 
 path :: SubscriptionId -> ByteString
 path subscriptionId =
@@ -35,8 +33,8 @@ path subscriptionId =
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION@. Looks up subscription
 -- information for a subscription ID.
 subscriptionGet ::
-  MonadNakadi m
-  => Config         -- ^ Configuration
+  MonadNakadi b m
+  => Config' b      -- ^ Configuration
   -> SubscriptionId -- ^ Subscription ID
   -> m Subscription -- ^ Resulting Subscription Information
 subscriptionGet config subscriptionId =
@@ -47,18 +45,18 @@ subscriptionGet config subscriptionId =
 -- information for a subscription ID. Uses configuration from the
 -- environment.
 subscriptionGetR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => SubscriptionId -- ^ Subscription ID
   -> m Subscription -- ^ Resulting Subscription Information
 subscriptionGetR subscriptionId = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   subscriptionGet config subscriptionId
 
 -- | @DELETE@ to @\/subscriptions\/SUBSCRIPTION@. Deletes a
 -- subscription by subscription ID.
 subscriptionDelete ::
-  MonadNakadi m
-  => Config         -- ^ Configuration
+  MonadNakadi b m
+  => Config' b      -- ^ Configuration
   -> SubscriptionId -- ^ ID of the Subcription to delete
   -> m ()
 subscriptionDelete config subscriptionId =
@@ -69,9 +67,9 @@ subscriptionDelete config subscriptionId =
 -- subscription by subscription ID. Uses configuration contained in
 -- the environment.
 subscriptionDeleteR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => SubscriptionId -- ^ ID of the Subcription to delete
   -> m ()
 subscriptionDeleteR subscriptionId = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   subscriptionDelete config subscriptionId

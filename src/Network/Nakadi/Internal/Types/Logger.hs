@@ -17,4 +17,6 @@ import           Prelude
 
 -- | Type of a logger callback provided to nakadi-client for logging
 -- purposes.
-type LogFunc = Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+type LogFunc' m = Loc -> LogSource -> LogLevel -> LogStr -> m ()
+
+type LogFunc = LogFunc' IO

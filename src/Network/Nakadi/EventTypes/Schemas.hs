@@ -25,9 +25,7 @@ module Network.Nakadi.EventTypes.Schemas
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Control.Lens
 import           Network.Nakadi.Internal.Http
-import qualified Network.Nakadi.Internal.Lenses  as L
 
 path :: EventTypeName -> Maybe SchemaVersion -> ByteString
 path eventTypeName maybeSchemaVersion =
@@ -41,8 +39,8 @@ path eventTypeName maybeSchemaVersion =
 -- | Retrieves schemas for the given 'EventTypeName' using low-level
 -- paging interface. @GET@ to @\/event-types\/NAME\/schemas@.
 eventTypeSchemasGet ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Name of Event Type
   -> Maybe Offset
   -> Maybe Limit
@@ -61,21 +59,21 @@ eventTypeSchemasGet config eventTypeName offset limit =
 -- | @GET@ to @\/event-types\/NAME\/schemas@. Uses the configuration
 -- contained in the environment.
 eventTypeSchemasGetR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> Maybe Offset
   -> Maybe Limit
   -> m EventTypeSchemasResponse
 eventTypeSchemasGetR eventTypeName offset limit = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypeSchemasGet config eventTypeName offset limit
 
 -- | Look up the schema of an event type given its 'EventTypeName' and
 -- 'SchemaVersion'. @GET@ to
 -- @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
 eventTypeSchema ::
-  MonadNakadi m
-  => Config
+  MonadNakadi b m
+  => Config' b
   -> EventTypeName
   -> SchemaVersion
   -> m EventTypeSchema
@@ -87,10 +85,10 @@ eventTypeSchema config eventTypeName schemaVersion =
 -- 'SchemaVersion', using the configuration found in the environment.
 -- @GET@ to @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
 eventTypeSchemaR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName
   -> SchemaVersion
   -> m EventTypeSchema
 eventTypeSchemaR eventTypeName schemaVersion = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypeSchema config eventTypeName schemaVersion

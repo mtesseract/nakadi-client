@@ -19,36 +19,39 @@ import           Network.Nakadi.Internal.Prelude
 import           Control.Retry
 import           Network.HTTP.Client
 
-import qualified Data.ByteString.Lazy            as LB (ByteString)
-import           Network.Nakadi.Types.Logger
+import qualified Data.ByteString.Lazy                 as LB (ByteString)
+import           Network.Nakadi.Internal.Types.Logger
 
 -- | Config
 
-type StreamConnectCallback = Maybe LogFunc -> Response () -> IO ()
+type StreamConnectCallback m = Maybe (LogFunc' m) -> Response () -> m ()
 
 -- | Type synonym for user-provided callbacks which are used for HTTP
 -- Errror propagation.
-type HttpErrorCallback = Request -> HttpException -> RetryStatus -> Bool -> IO ()
+type HttpErrorCallback m = Request -> HttpException -> RetryStatus -> Bool -> m ()
 
-data Config = Config
+type Config = Config' IO
+
+data Config' m = Config
   { _requestTemplate                :: Request
-  , _requestModifier                :: Request -> IO Request
+  , _requestModifier                :: Request -> m Request
   , _manager                        :: Manager
   , _consumeParameters              :: ConsumeParameters
-  , _deserializationFailureCallback :: Maybe (ByteString -> Text -> IO ())
-  , _streamConnectCallback          :: Maybe StreamConnectCallback
-  , _logFunc                        :: Maybe LogFunc
-  , _retryPolicy                    :: RetryPolicyM IO
+  , _deserializationFailureCallback :: Maybe (ByteString -> Text -> m ())
+  , _streamConnectCallback          :: Maybe (StreamConnectCallback m)
+  , _logFunc                        :: Maybe (LogFunc' m)
+  , _retryPolicy                    :: RetryPolicyM m
   , _http                           :: HttpBackend
-  , _httpErrorCallback              :: Maybe HttpErrorCallback
+  , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
   }
 
 -- | Type encapsulating the HTTP backend functions used by this
 -- package. By default the corresponding functions from the
 -- http-client package are used. Useful, for e.g., testing.
+
 data HttpBackend = HttpBackend
   { _httpLbs       :: Request -> IO (Response LB.ByteString)
-  , _responseOpen  :: Request -> Manager -> IO (Response BodyReader)
+  , _responseOpen  :: Request -> IO (Response BodyReader)
   , _responseClose :: Response BodyReader -> IO ()
   }
 

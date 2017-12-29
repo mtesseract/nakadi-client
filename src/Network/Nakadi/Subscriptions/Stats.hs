@@ -39,8 +39,8 @@ path subscriptionId =
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Low level
 -- interface for Subscriptions Statistics retrieval.
 subscriptionStats' ::
-  MonadNakadi m
-  => Config                             -- ^ Configuration
+  MonadNakadi b m
+  => Config' b                          -- ^ Configuration
   -> SubscriptionId                     -- ^ Subscription ID
   -> m SubscriptionEventTypeStatsResult -- ^ Subscription Statistics
 subscriptionStats' config subscriptionId =
@@ -51,18 +51,18 @@ subscriptionStats' config subscriptionId =
 -- interface for Subscriptions Statistics retrieval. Obtains
 -- configuration from environment.
 subscriptionStatsR' ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => SubscriptionId                     -- ^ Subscription ID
   -> m SubscriptionEventTypeStatsResult -- ^ Subscription Statistics
 subscriptionStatsR' subscriptionId = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   subscriptionStats' config subscriptionId
 
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. High level
 -- interface for Subscription Statistics retrieval.
 subscriptionStats ::
-  MonadNakadi m
-  => Config                                -- ^  Configuration
+  MonadNakadi b m
+  => Config' b                             -- ^  Configuration
   -> SubscriptionId                        -- ^ Subscription ID
   -> m (Map EventTypeName [PartitionStat]) -- ^ Subscription
                                            -- Statistics as a 'Map'.
@@ -74,10 +74,10 @@ subscriptionStats config subscriptionId = do
 -- interface for Subscription Statistics retrieval, obtains
 -- configuration from environment..
 subscriptionStatsR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => SubscriptionId                        -- ^ Subscription ID
   -> m (Map EventTypeName [PartitionStat]) -- ^ Subscription
                                            -- Statistics as a 'Map'.
 subscriptionStatsR subscriptionId = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   subscriptionStats config subscriptionId

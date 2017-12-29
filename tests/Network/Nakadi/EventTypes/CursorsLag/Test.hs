@@ -23,15 +23,16 @@ testEventTypesCursorsLag conf = testGroup "CursorsLag"
   ]
 
 testCursorsLagZero :: Config -> Assertion
-testCursorsLagZero conf = do
-  recreateEvent conf myEventTypeName myEventType
-  partitions <- eventTypePartitions conf myEventTypeName
+testCursorsLagZero conf = runNakadiT conf $ do
+  partitions <- eventTypePartitionsR myEventTypeName
   let cursorsMap = Map.fromList $
         map (\Partition { .. } -> (_partition, _newestAvailableOffset)) partitions
-  lagMap <- cursorsLag conf myEventTypeName cursorsMap
-  Map.size cursorsMap @=? Map.size lagMap
-  forM_ (Map.toList lagMap) $ \(_, lag) ->
-    lag @=? 0
+  lagMap <- cursorsLagR myEventTypeName cursorsMap
+  recreateEvent conf myEventTypeName myEventType
+  liftIO $ do
+    Map.size cursorsMap @=? Map.size lagMap
+    forM_ (Map.toList lagMap) $ \(_, lag) ->
+      lag @=? 0
 
 testCursorsLagN :: Config -> Int64 -> Assertion
 testCursorsLagN conf n = do

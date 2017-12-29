@@ -39,8 +39,8 @@ path eventTypeName =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. Low level
 -- interface.
 cursorsLag' ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors for which to compute the lag for
   -> m [Partition] -- ^ Resulting partition information containing
@@ -54,20 +54,20 @@ cursorsLag' config eventTypeName cursors =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. Low level
 -- interface, retrieving configuration from environment.
 cursorsLagR' ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors for which to compute the lag for
   -> m [Partition] -- ^ Resulting partition information containing
                    -- information about unconsumed events.
 cursorsLagR' eventTypeName cursors = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   cursorsLag' config eventTypeName cursors
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. High level
 -- interface.
 cursorsLag ::
-  MonadNakadi m
-  => Config                         -- ^ Configuration
+  MonadNakadi b m
+  => Config' b                      -- ^ Configuration
   -> EventTypeName                  -- ^ Event Type
   -> Map PartitionName CursorOffset -- ^ Cursor offsets associated to
                                     -- partitions.
@@ -82,11 +82,11 @@ cursorsLag config eventTypeName cursorsMap = do
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. High level
 -- interface, retrieving configuration from environment.
 cursorsLagR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName                  -- ^ Event Type
   -> Map PartitionName CursorOffset -- ^ Cursor offsets associated to
                                     -- partitions.
   -> m (Map PartitionName Int64)    -- ^ Cursor lags associated to partitions.
 cursorsLagR eventTypeName cursorsMap = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   cursorsLag config eventTypeName cursorsMap

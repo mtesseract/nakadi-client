@@ -21,11 +21,8 @@ module Network.Nakadi.EventTypes.Partitions
   , eventTypePartitionR
   ) where
 
-import           Network.Nakadi.Internal.Prelude
-
-import           Control.Lens
 import           Network.Nakadi.Internal.Http
-import qualified Network.Nakadi.Internal.Lenses  as L
+import           Network.Nakadi.Internal.Prelude
 
 path :: EventTypeName -> Maybe PartitionName -> ByteString
 path eventTypeName maybePartitionName =
@@ -39,8 +36,8 @@ path eventTypeName maybePartitionName =
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions@. Retrieves
 -- information about all partitions.
 eventTypePartitions ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Name of Event Type
   -> m [Partition] -- ^ Partition Information
 eventTypePartitions config eventTypeName =
@@ -51,18 +48,18 @@ eventTypePartitions config eventTypeName =
 -- information about all partitions, using the configuration contained
 -- in the environment.
 eventTypePartitionsR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> m [Partition] -- ^ Partition Information
 eventTypePartitionsR eventTypeName = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypePartitions config eventTypeName
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions\/PARTITION@.
 -- Retrieves information about a single partition.
 eventTypePartition ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Name of Event Type
   -> PartitionName -- ^ Name of Partition to look up
   -> m Partition   -- ^ Partition Information
@@ -74,10 +71,10 @@ eventTypePartition config eventTypeName partitionName =
 -- Retrieves information about a single partition, using the
 -- configuration contained in the environment.
 eventTypePartitionR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> PartitionName -- ^ Name of Partition to look up
   -> m Partition   -- ^ Partition Information
 eventTypePartitionR eventTypeName partitionName = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypePartition config eventTypeName partitionName

@@ -40,12 +40,12 @@ module Network.Nakadi.Internal.Http
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Conduit
+import           Conduit                         hiding (throwM)
 import           Control.Arrow
 import           Control.Lens
 import           Control.Monad                   (void)
 import           Control.Monad.Reader
-import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.Resource    hiding (throwM)
 import           Data.Aeson
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
 import qualified Data.Conduit.Binary             as Conduit
@@ -53,7 +53,8 @@ import qualified Data.Text                       as Text
 import           Network.HTTP.Client             (BodyReader,
                                                   HttpException (..),
                                                   HttpExceptionContent (..),
-                                                  checkResponse, responseStatus)
+                                                  checkResponse, responseBody,
+                                                  responseStatus)
 import           Network.HTTP.Client.Conduit     (bodyReaderSource)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
@@ -64,15 +65,15 @@ import           Network.Nakadi.Internal.Types
 import           Network.Nakadi.Internal.Util
 
 conduitDecode ::
-  (MonadIO m, FromJSON a)
-  => Config -- ^ Configuration, containing the
+  (MonadSub b m, FromJSON a)
+  => Config' b -- ^ Configuration, containing the
             -- deserialization-failure-callback.
   -> ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
                                 -- into custom values
 conduitDecode Config { .. } = awaitForever $ \a ->
   case eitherDecodeStrict a of
     Right v  -> yield v
-    Left err -> liftIO $ callback a (Text.pack err)
+    Left err -> liftSub $ callback a (Text.pack err)
 
     where callback = fromMaybe dummyCallback _deserializationFailureCallback
           dummyCallback _ _ = return ()
@@ -84,8 +85,8 @@ checkNakadiResponse request response =
   throwIO $ HttpExceptionRequest request (StatusCodeException (void response) mempty)
 
 httpBuildRequest ::
-  (MonadIO m, MonadCatch m)
-  => Config -- ^ Configuration, contains the impure request modifier
+  MonadNakadi b m
+  => Config' b -- ^ Configuration, contains the impure request modifier
   -> (Request -> Request) -- ^ Pure request modifier
   -> m Request -- ^ Resulting request to execute
 httpBuildRequest Config { .. } requestDef =
@@ -95,19 +96,22 @@ httpBuildRequest Config { .. } requestDef =
                    & (\req -> req { checkResponse = checkNakadiResponse })
   in modifyRequest _requestModifier request
 
-
 -- | Modify the Request based on a user function in the configuration.
-modifyRequest :: (MonadIO m, MonadCatch m) => (Request -> IO Request) -> Request -> m Request
+modifyRequest ::
+  MonadNakadi b m
+  => (Request -> b Request)
+  -> Request
+  -> m Request
 modifyRequest rm request =
-  tryAny (liftIO (rm request)) >>= \case
-    Right modifiedRequest -> return modifiedRequest
+  tryAny (liftSub (rm request)) >>= \case
+    Right modifiedRequest -> return $ modifiedRequest
     Left  exn             -> throwIO $ RequestModificationException exn
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier.
 httpExecRequest ::
-  (MonadIO m, MonadMask m)
-  => Config
+  (MonadNakadi b m, MonadIO b, MonadSub b m)
+  => Config' b
   -> (Request -> Request)
   -> m (Response ByteString.Lazy.ByteString)
 httpExecRequest config requestDef = do
@@ -118,16 +122,16 @@ httpExecRequest config requestDef = do
 -- pure request modifier. Returns the HTTP response and separately the
 -- response status.
 httpExecRequestWithStatus ::
-  (MonadIO m, MonadMask m)
-  => Config -- ^ Configuration
+  MonadNakadi b m
+  => Config' b -- ^ Configuration
   -> (Request -> Request) -- ^ Pure request modifier
   -> m (Response ByteString.Lazy.ByteString, Status)
 httpExecRequestWithStatus config requestDef =
   (identity &&& getResponseStatus) <$> httpExecRequest config requestDef
 
 httpJsonBody ::
-  (MonadMask m, MonadIO m, FromJSON a)
-  => Config
+  (MonadNakadi b m, FromJSON a)
+  => Config' b
   -> Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
@@ -137,14 +141,14 @@ httpJsonBody config successStatus exceptionMap requestDef = do
   if status == successStatus
     then decodeThrow (getResponseBody response)
     else case lookup status exceptionMap' of
-           Just mkExn -> mkExn (getResponseBody response) >>= throwIO
-           Nothing    -> throwIO (UnexpectedResponse (void response))
+           Just mkExn -> mkExn (getResponseBody response) >>= throwM
+           Nothing    -> throwM (UnexpectedResponse (void response))
 
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonNoBody ::
-  (MonadMask m, MonadIO m)
-  => Config
+  MonadNakadi b m
+  => Config' b
   -> Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
@@ -159,25 +163,23 @@ httpJsonNoBody config successStatus exceptionMap requestDef = do
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonBodyStream ::
-  (MonadMask m, MonadIO m, FromJSON a, MonadBaseControl IO m, MonadResource m)
-  => Config
+  (MonadNakadi b m, MonadResource m, FromJSON a)
+  => Config' b
   -> Status
-  -> (Response () -> Either Text b)
+  -> (Response () -> Either Text c)
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
-  -> m (b, ConduitM () a (ReaderT r m) ())
+  -> m (c, ConduitM () a (ReaderT r m) ())
 httpJsonBodyStream config successStatus f exceptionMap requestDef = do
+  let responseOpen  = config^.L.http.L.responseOpen
+      responseClose = config^.L.http.L.responseClose
   request <- httpBuildRequest config requestDef
-  let manager           = config^.L.manager
-      responseOpen      = config^.L.http.L.responseOpen
-      responseClose     = config^.L.http.L.responseClose
-      responseOpenRetry = retryAction config request (flip responseOpen manager)
-  (_, response) <- allocate responseOpenRetry responseClose
-  let response_  = void response
-      bodySource = bodyReaderSource (getResponseBody response)
-      status     = getResponseStatus response
+  (_, response) <- allocate (responseOpen request) responseClose
+  let bodySource = bodyReaderSource (responseBody response)
+      response_  = void response
+      status     = responseStatus response_
   if status == successStatus
-    then do connectCallback (config^.L.logFunc) response_
+    then do liftSub (connectCallback (config^.L.logFunc) response_)
             let conduit = bodySource
                           .| Conduit.lines
                           .| conduitDecode config
@@ -191,7 +193,7 @@ httpJsonBodyStream config successStatus f exceptionMap requestDef = do
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
         connectCallback = case config^.L.streamConnectCallback of
-          Just cb -> \logFunc response -> liftIO $ cb logFunc response
+          Just cb -> \logFunc response -> cb logFunc response
           Nothing -> \_ _ -> return ()
 
 setRequestQueryParameters ::

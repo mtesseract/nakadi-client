@@ -29,7 +29,6 @@ module Network.Nakadi.EventTypes
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Control.Lens
 import           Network.Nakadi.EventTypes.CursorDistances
 import           Network.Nakadi.EventTypes.CursorsLag
 import           Network.Nakadi.EventTypes.Events
@@ -39,16 +38,14 @@ import           Network.Nakadi.EventTypes.Schemas
 import           Network.Nakadi.EventTypes.ShiftedCursors
 import           Network.Nakadi.Internal.Http
 
-import qualified Network.Nakadi.Internal.Lenses            as L
-
 path :: ByteString
 path = "/event-types"
 
 -- | @GET@ to @\/event-types@. Retrieves a list of all registered
 -- event types.
 eventTypesList ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> m [EventType] -- ^ Registered Event Types
 eventTypesList config =
   httpJsonBody config status200 []
@@ -57,16 +54,16 @@ eventTypesList config =
 -- | @GET@ to @\/event-types@. Retrieves a list of all registered
 -- event types, using the configuration contained in the environment.
 eventTypesListR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => m [EventType] -- ^ Registered Event Types
 eventTypesListR = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypesList config
 
 -- | @POST@ to @\/event-types@. Creates a new event type.
 eventTypeCreate ::
-  MonadNakadi m
-  => Config    -- ^ Configuration
+  MonadNakadi b m
+  => Config' b -- ^ Configuration
   -> EventType -- ^ Event Type to create
   -> m ()
 eventTypeCreate config eventType =
@@ -76,9 +73,9 @@ eventTypeCreate config eventType =
 -- | @POST@ to @\/event-types@. Creates a new event type. Uses the
 -- configuration from the environment.
 eventTypeCreateR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventType -- ^ Event Type to create
   -> m ()
 eventTypeCreateR eventType = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypeCreate config eventType

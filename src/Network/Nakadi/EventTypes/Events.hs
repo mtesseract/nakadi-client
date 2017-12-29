@@ -43,8 +43,8 @@ path eventTypeName =
 -- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
 -- for event batch consumption.
 eventSource ::
-  (MonadNakadi m, MonadResource m, MonadBaseControl IO m, MonadMask m, FromJSON a)
-  => Config                  -- ^ Configuration parameter
+  (MonadNakadi b m, MonadResource m, MonadBaseControl IO m, FromJSON a)
+  => Config' b               -- ^ Configuration parameter
   -> Maybe ConsumeParameters -- ^ Optional parameters for event consumption
   -> EventTypeName           -- ^ Name of the event type to consume
   -> Maybe [Cursor]          -- ^ Optional list of cursors; by default
@@ -69,7 +69,7 @@ eventSource config maybeParams eventTypeName maybeCursors = do
 -- for event batch consumption. Retrieves configuration from
 -- environment.
 eventSourceR ::
-  (MonadNakadiEnv r m, MonadResource m, MonadBaseControl IO m, MonadMask m, FromJSON a)
+  (MonadNakadiEnv b m, MonadResource m, FromJSON a, MonadBaseControl IO m)
   => Maybe ConsumeParameters -- ^ Optional parameters for event consumption
   -> EventTypeName           -- ^ Name of the event type to consume
   -> Maybe [Cursor]          -- ^ Optional list of cursors; by default
@@ -78,14 +78,14 @@ eventSourceR ::
   -> m (ConduitM () (EventStreamBatch a)
         m ())                -- ^ Returns a Conduit source.
 eventSourceR maybeParams eventType maybeCursors = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventSource config maybeParams eventType maybeCursors
 
 -- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
 -- events for the specified event type.
 eventPublish ::
-  (MonadNakadi m, ToJSON a)
-  => Config
+  (MonadNakadi b m, ToJSON a)
+  => Config' b
   -> EventTypeName
   -> Maybe FlowId
   -> [a]
@@ -103,11 +103,11 @@ eventPublish config eventTypeName maybeFlowId eventBatch =
 -- events for the specified event type. Uses the configuration from
 -- the environment.
 eventPublishR ::
-  (MonadNakadiEnv r m, ToJSON a)
+  (MonadNakadiEnv b m, ToJSON a)
   => EventTypeName
   -> Maybe FlowId
   -> [a]
   -> m ()
 eventPublishR eventTypeName maybeFlowId eventBatch = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventPublish config eventTypeName maybeFlowId eventBatch

@@ -24,9 +24,7 @@ module Network.Nakadi.EventTypes.EventType
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Control.Lens
 import           Network.Nakadi.Internal.Http
-import qualified Network.Nakadi.Internal.Lenses  as L
 
 path :: EventTypeName -> ByteString
 path eventTypeName = "/event-types/" <> encodeUtf8 (unEventTypeName eventTypeName)
@@ -34,8 +32,8 @@ path eventTypeName = "/event-types/" <> encodeUtf8 (unEventTypeName eventTypeNam
 -- | Retrieves an 'EventType' by its 'EventTypeName'. @GET@ to
 -- @\/event-types\/EVENT-TYPE@.
 eventTypeGet ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Name of Event Type
   -> m EventType   -- ^ Event Type information
 eventTypeGet config eventTypeName =
@@ -47,18 +45,18 @@ eventTypeGet config eventTypeName =
 -- configuration found in the environment. @GET@ to
 -- @\/event-types\/EVENT-TYPE@.
 eventTypeGetR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> m EventType   -- ^ Event Type information
 eventTypeGetR eventTypeName = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypeGet config eventTypeName
 
 -- | Updates an event type given its 'EventTypeName' and its new
 -- 'EventType' description. @PUT@ to @\/event-types\/EVENT-TYPE@.
 eventTypeUpdate ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Name of Event Type
   -> EventType     -- ^ Event Type Settings
   -> m ()
@@ -72,19 +70,19 @@ eventTypeUpdate config eventTypeName eventType =
 -- 'EventType' description, using the configuration found in the
 -- environment. @PUT@ to @\/event-types\/EVENT-TYPE@.
 eventTypeUpdateR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> EventType     -- ^ Event Type Settings
   -> m ()
 eventTypeUpdateR eventTypeName eventType = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypeUpdate config eventTypeName eventType
 
 -- | Deletes an event type given its 'EventTypeName'. @DELETE@ to
 -- @\/event-types\/EVENT-TYPE@.
 eventTypeDelete ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Name of Event Type
   -> m ()
 eventTypeDelete config eventTypeName =
@@ -95,9 +93,9 @@ eventTypeDelete config eventTypeName =
 -- configuration found in the environment. @DELETE@ to
 -- @\/event-types\/EVENT-TYPE@.
 eventTypeDeleteR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> m ()
 eventTypeDeleteR eventTypeName = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   eventTypeDelete config eventTypeName

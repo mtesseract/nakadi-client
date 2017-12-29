@@ -71,8 +71,8 @@ myDataChangeEvent eid now =  DataChangeEvent
 genRandomUUID :: IO UUID
 genRandomUUID = randomIO
 
-recreateEvent :: Config -> EventTypeName -> EventType -> IO ()
-recreateEvent conf eventTypeName eventType = do
+recreateEvent :: MonadIO m => Config -> EventTypeName -> EventType -> m ()
+recreateEvent conf eventTypeName eventType = liftIO $ do
   eventTypeDelete conf eventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf eventType
 

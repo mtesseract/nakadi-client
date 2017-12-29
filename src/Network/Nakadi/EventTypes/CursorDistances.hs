@@ -36,8 +36,8 @@ path eventTypeName =
 
 -- | Query for distance between cursors. Low level call.
 cursorsDistance' ::
-  MonadNakadi m
-  => Config                   -- ^ Configuration
+  MonadNakadi b m
+  => Config' b                -- ^ Configuration
   -> EventTypeName            -- ^ Event Type
   -> [CursorDistanceQuery]    -- ^ List of cursor-distance-queries
   -> m [CursorDistanceResult] -- ^ List of cursor-distance-results
@@ -50,18 +50,18 @@ cursorsDistance' config eventTypeName cursorDistanceQuery =
 -- | Query for distance between cursors. Low level call, retrieving
 -- configuration from environment.
 cursorsDistanceR' ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName            -- ^ Event Type
   -> [CursorDistanceQuery]    -- ^ List of cursor-distance-queries
   -> m [CursorDistanceResult] -- ^ List of cursor-distance-results
 cursorsDistanceR' eventTypeName cursorDistanceQuery = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   cursorsDistance' config eventTypeName cursorDistanceQuery
 
 -- | Given two cursors, compute the distance between these cursors.
 cursorDistance ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
+  MonadNakadi b m
+  => Config' b     -- ^ Configuration
   -> EventTypeName -- ^ Event Type
   -> Cursor        -- ^ First cursor
   -> Cursor        -- ^ Second cursor
@@ -77,12 +77,12 @@ cursorDistance config eventTypeName cursor cursor' =
 -- | Given two cursors, compute the distance between these cursors,
 -- retrieving configuration from environment.
 cursorDistanceR ::
-  MonadNakadiEnv r m
+  MonadNakadiEnv b m
   => EventTypeName -- ^ Event Type
   -> Cursor        -- ^ First cursor
   -> Cursor        -- ^ Second cursor
   -> m Int64       -- ^ Resulting difference between first and second
                    -- cursor
 cursorDistanceR eventTypeName cursor cursor' = do
-  config <- asks (view L.nakadiConfig)
+  config <- nakadiAsk
   cursorDistance config eventTypeName cursor cursor'
