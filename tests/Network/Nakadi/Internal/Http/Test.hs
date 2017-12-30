@@ -8,15 +8,12 @@ module Network.Nakadi.Internal.Http.Test
 
 import           ClassyPrelude
 import           Conduit
-import           Control.Monad
-import           Control.Monad.Reader
 import           Network.HTTP.Client
 import           Network.HTTP.Client.Internal (CookieJar (..), Request (..),
                                                Response (..),
                                                ResponseClose (..))
 import           Network.HTTP.Types
 import           Network.Nakadi
-import           Network.Nakadi.BackendIO
 import           Network.Nakadi.Internal.Http
 import           Test.Tasty
 import           Test.Tasty.HUnit
