@@ -12,6 +12,11 @@ import           Data.UUID      (UUID)
 import           Network.Nakadi
 import           System.Random
 
+type App = ReaderT () IO
+
+runApp :: App a -> IO a
+runApp = flip runReaderT ()
+
 data Foo = Foo { fortune :: Text } deriving (Show, Eq, Generic)
 
 deriving instance FromJSON Foo
@@ -68,15 +73,15 @@ myDataChangeEvent eid now =  DataChangeEvent
   , _dataOp = DataOpUpdate
   }
 
-genRandomUUID :: IO UUID
-genRandomUUID = randomIO
+genRandomUUID :: MonadIO m => m UUID
+genRandomUUID = liftIO randomIO
 
-recreateEvent :: MonadIO m => Config -> EventTypeName -> EventType -> m ()
-recreateEvent conf eventTypeName eventType = liftIO $ do
-  eventTypeDelete conf eventTypeName `catch` (ignoreExnNotFound ())
-  eventTypeCreate conf eventType
+recreateEvent :: MonadNakadiEnv b m => EventTypeName -> EventType -> m ()
+recreateEvent eventTypeName eventType = do
+  eventTypeDeleteR eventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreateR eventType
 
-delayedPublish :: (ToJSON a) => Config -> Maybe FlowId -> [a] -> IO ()
-delayedPublish conf flowId events  = do
-  threadDelay (10^6)
-  eventPublish conf myEventTypeName flowId events
+delayedPublish :: (MonadNakadiEnv b m, ToJSON a) => Maybe FlowId -> [a] -> m ()
+delayedPublish flowId events  = do
+  liftIO $ threadDelay (10^6)
+  eventPublishR myEventTypeName flowId events

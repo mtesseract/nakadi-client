@@ -3,17 +3,26 @@
 module Network.Nakadi.MonadicAPI.Test where
 
 import           ClassyPrelude
-import qualified Network.Nakadi   as Nakadi
+import           Control.Monad.Trans.Resource
+import           Control.Retry
+import           Network.HTTP.Client
+import qualified Network.Nakadi               as Nakadi
+import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import Control.Monad.Trans.Resource
 
-testMonadicAPI :: Nakadi.MonadNakadi b IO => Nakadi.Config' b -> TestTree
+httpErrorCallback :: Request -> HttpException -> RetryStatus -> Bool -> App ()
+httpErrorCallback _req exn _retryStatus _isFinalFailure =
+  putStrLn $ "nakadi-client triggered exception: " <> tshow exn
+
+testMonadicAPI :: Nakadi.Config' App -> TestTree
 testMonadicAPI conf = testGroup "Monadic API"
-  [ testCase "Simple Monadic API" (testSimpleMonadicAPI conf) ]
+  [ testCase "Simple Monadic API" (testSimpleMonadicAPI conf') ]
 
-testSimpleMonadicAPI :: Nakadi.MonadNakadi b IO => Nakadi.Config' b -> Assertion
-testSimpleMonadicAPI conf = Nakadi.runNakadiT conf $ do
+  where conf' = Nakadi.setHttpErrorCallback httpErrorCallback conf
+
+testSimpleMonadicAPI :: Nakadi.Config' App -> Assertion
+testSimpleMonadicAPI conf = runApp . Nakadi.runNakadiT conf $ do
   -- Tests Nakadi call within NakadiT monad transformer
   _events <- Nakadi.eventTypesListR
   -- But we can also call Nakadi from within monad transformers on top of NakadiT:

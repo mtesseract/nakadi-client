@@ -1,11 +1,12 @@
 module Network.Nakadi.Config.Test where
 
 import           ClassyPrelude
-import           Control.Lens         ((<&>))
+import           Control.Lens                ((<&>))
 import           Control.Retry
-import qualified Data.ByteString.Lazy as LB
+import qualified Data.ByteString.Lazy        as LB
 import           Network.HTTP.Client
 import           Network.Nakadi
+import           Network.Nakadi.Tests.Common
 import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -35,14 +36,15 @@ dummyHttpBackend :: HttpBackend
 dummyHttpBackend = HttpBackend dummyHttpLbs dummyResponseOpen dummyResponseClose
 
 testCustomHttpBackend :: Assertion
-testCustomHttpBackend = do
-  let trivialRetryPolicy = limitRetries 0
+testCustomHttpBackend = runApp $ do
+  let trivialRetryPolicy = limitRetries 0 :: RetryPolicyM App
   conf <- newConfig Nothing defaultRequest
           <&> setHttpBackend dummyHttpBackend
           <&> setRetryPolicy trivialRetryPolicy
-  res0 <- try $ registryPartitionStrategies conf -- This should use httpLbs
-  case res0 of
+  res0 <- runNakadiT conf $
+    try $ registryPartitionStrategies conf -- This should use httpLbs
+  liftIO $ case res0 of
     Left (HttpExceptionRequest _ ResponseTimeout) -> return ()
     _ -> assertFailure "Expected ResponseTimeout exception from dummy HttpBackend"
   requests <- atomically . readTVar $ requestsExecuted
-  1 @=? length requests
+  liftIO $ 1 @=? length requests

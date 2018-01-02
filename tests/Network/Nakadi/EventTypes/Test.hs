@@ -23,7 +23,7 @@ import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-testEventTypes :: Config -> TestTree
+testEventTypes :: Config' App -> TestTree
 testEventTypes conf = testGroup "EventTypes"
   [ testCase "EventTypesPrepare" (testEventTypesPrepare conf)
   , testCase "EventTypesGet" (testEventTypesGet conf)
@@ -38,78 +38,78 @@ testEventTypes conf = testGroup "EventTypes"
   , testEventTypesCursorsLag conf
   ]
 
-testEventTypesPrepare :: Config -> Assertion
-testEventTypesPrepare conf = do
+testEventTypesPrepare :: Config' App -> Assertion
+testEventTypesPrepare conf = runApp . runNakadiT conf $ do
   subscriptions <- subscriptionsList conf Nothing Nothing
   let subscriptionIds = catMaybes . map (view L.id) $ subscriptions
   forM_ subscriptionIds (subscriptionDelete conf)
 
-testEventTypesGet :: Config -> Assertion
-testEventTypesGet conf =
+testEventTypesGet :: Config' App -> Assertion
+testEventTypesGet conf = runApp . runNakadiT conf $
   void $ eventTypesList conf
 
-testEventTypesDeleteCreateGet :: Config -> Assertion
-testEventTypesDeleteCreateGet conf = do
-  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
-  eventTypeCreate conf myEventType
-  myEventTypes <- filterMyEvent <$> eventTypesList conf
-  length myEventTypes @=? 1
-  eventTypeDelete conf myEventTypeName
-  myEventTypes' <- filterMyEvent <$> eventTypesList conf
-  length myEventTypes' @=? 0
+testEventTypesDeleteCreateGet :: Config' App -> Assertion
+testEventTypesDeleteCreateGet conf = runApp . runNakadiT conf $ do
+  eventTypeDeleteR myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreateR myEventType
+  myEventTypes <- filterMyEvent <$> eventTypesListR
+  liftIO $ length myEventTypes @=? 1
+  eventTypeDeleteR myEventTypeName
+  myEventTypes' <- filterMyEvent <$> eventTypesListR
+  liftIO $ length myEventTypes' @=? 0
 
   where filterMyEvent = filter ((myEventTypeName ==) . (view L.name))
 
-testEventTypePartitionsGet :: Config -> Assertion
-testEventTypePartitionsGet conf = do
+testEventTypePartitionsGet :: Config' App -> Assertion
+testEventTypePartitionsGet conf = runApp . runNakadiT conf $ do
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   void $ eventTypePartitions conf myEventTypeName
 
-testEventTypeCursorDistances0 :: Config -> Assertion
-testEventTypeCursorDistances0 conf = do
-  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
-  eventTypeCreate conf myEventType
-  partitions <- eventTypePartitions conf myEventTypeName
+testEventTypeCursorDistances0 :: Config' App -> Assertion
+testEventTypeCursorDistances0 conf = runApp . runNakadiT conf $ do
+  eventTypeDeleteR myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreateR myEventType
+  partitions <- eventTypePartitionsR myEventTypeName
   let cursors = map extractCursor partitions
   forM_ cursors $ \cursor -> do
-    distance <- cursorDistance conf myEventTypeName cursor cursor
-    distance @=? 0
+    distance <- cursorDistanceR myEventTypeName cursor cursor
+    liftIO $ distance @=? 0
 
-testEventTypeCursorDistances10 :: Config -> Assertion
-testEventTypeCursorDistances10 conf = do
-  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
-  eventTypeCreate conf myEventType
+testEventTypeCursorDistances10 :: Config' App -> Assertion
+testEventTypeCursorDistances10 conf = runApp . runNakadiT conf $ do
+  eventTypeDeleteR myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreateR myEventType
   partitions <- eventTypePartitions conf myEventTypeName
   let cursors = map extractCursor partitions
 
   forM_ [1..10] $ \_ -> do
-    now <- getCurrentTime
+    now <- liftIO getCurrentTime
     eid <- EventId <$> genRandomUUID
-    eventPublish conf myEventTypeName Nothing [myDataChangeEvent eid now]
+    eventPublishR myEventTypeName Nothing [myDataChangeEvent eid now]
 
   cursorPairs <- forM cursors $ \cursor@Cursor { .. } -> do
-    part <- eventTypePartition conf myEventTypeName _partition
+    part <- eventTypePartitionR myEventTypeName _partition
     let cursor' = extractCursor part
     return (cursor, cursor')
 
   distances <- forM cursorPairs $ \(c, c') -> do
-    cursorDistance conf myEventTypeName c c'
+    cursorDistanceR myEventTypeName c c'
 
   let totalDistances = sum distances
-  totalDistances @=? 10
+  liftIO $ totalDistances @=? 10
 
 consumeParametersSingle :: ConsumeParameters
 consumeParametersSingle = defaultConsumeParameters
                           & setBatchLimit 1
                           & setBatchFlushTimeout 1
 
-testEventTypePublishData :: Config -> Assertion
-testEventTypePublishData conf = do
-  now <- getCurrentTime
+testEventTypePublishData :: Config' App -> Assertion
+testEventTypePublishData conf = runApp . runNakadiT conf $ do
+  now <- liftIO getCurrentTime
   eid <- EventId <$> genRandomUUID
-  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
-  eventTypeCreate conf myEventType
+  eventTypeDeleteR myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreateR myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
                               , _metadata = Metadata { _eid = eid
                                                      , _occurredAt = Timestamp now
@@ -119,19 +119,19 @@ testEventTypePublishData conf = do
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }
-  withAsync (delayedPublish conf Nothing [event]) $ \asyncHandle -> do
-    link asyncHandle
+  withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
+    liftIO $ link asyncHandle
     eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
       source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
       runConduit $ source .| headC
-    isJust eventConsumed @=? True
+    liftIO $ isJust eventConsumed @=? True
 
-testEventTypeParseFlowId :: Config -> Assertion
-testEventTypeParseFlowId conf = do
-  now <- getCurrentTime
+testEventTypeParseFlowId :: Config' App -> Assertion
+testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
+  now <- liftIO getCurrentTime
   eid <- EventId <$> genRandomUUID
-  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
-  eventTypeCreate conf myEventType
+  eventTypeDeleteR myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreateR myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
                               , _metadata = Metadata { _eid = eid
                                                      , _occurredAt = Timestamp now
@@ -142,28 +142,28 @@ testEventTypeParseFlowId conf = do
                               , _dataOp = DataOpUpdate
                               }
       expectedFlowId = Just $ FlowId "12345"
-  withAsync (delayedPublish conf expectedFlowId [event]) $ \asyncHandle -> do
-    link asyncHandle
+  withAsync (delayedPublish expectedFlowId [event]) $ \asyncHandle -> do
+    liftIO $ link asyncHandle
     eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
-      source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
+      source <- eventSourceR (Just consumeParametersSingle) myEventTypeName Nothing
       runConduit $ source .| headC
-    isJust eventConsumed @=? True
+    liftIO $ isJust eventConsumed @=? True
     let events = eventConsumed >>= (\batch -> batch^.L.events)
-    isJust events @=? True
+    liftIO $ isJust events @=? True
 
-    case events of
+    liftIO $ case events of
       Nothing -> assertFailure "Received no events"
       Just v -> case toList v of
         [EventEnriched _ x] ->
           x^.L.flowId @=? expectedFlowId
         _ -> assertFailure "Received not a singleton event list"
 
-testEventTypeDeserializationFailure :: Config -> Assertion
-testEventTypeDeserializationFailure conf' = do
-  now <- getCurrentTime
+testEventTypeDeserializationFailure :: Config' App -> Assertion
+testEventTypeDeserializationFailure conf' = runApp . runNakadiT conf $ do
+  now <- liftIO getCurrentTime
   eid <- EventId <$> genRandomUUID
-  eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
-  eventTypeCreate conf myEventType
+  eventTypeDeleteR myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreateR myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
                               , _metadata = Metadata { _eid = eid
                                                      , _occurredAt = Timestamp now
@@ -173,20 +173,20 @@ testEventTypeDeserializationFailure conf' = do
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }
-  withAsync (delayedPublish conf Nothing [event]) $ \asyncHandle -> do
-    link asyncHandle
+  withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
+    liftIO $ link asyncHandle
     eventConsumed :: Maybe (EventStreamBatch WrongFoo) <- runResourceT $ do
       source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
       runConduit $ source .| headC
-    isJust eventConsumed @=? True
+    liftIO $ isJust eventConsumed @=? True
 
   counter <- atomically $ readTVar deserializationFailureCounter
-  1 @=? counter
+  liftIO $ 1 @=? counter
 
   where conf = conf'
-               & setDeserializationFailureCallback (deserializationFailureCb deserializationFailureCounter)
+               & setDeserializationFailureCallback deserializationFailureCb
 
-        deserializationFailureCb counter _ _ =
-          atomically $ modifyTVar counter (+ 1)
+        deserializationFailureCb _ _ =
+          atomically $ modifyTVar deserializationFailureCounter (+ 1)
 
         deserializationFailureCounter = unsafePerformIO $ newTVarIO 0

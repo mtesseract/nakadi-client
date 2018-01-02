@@ -9,6 +9,7 @@ import           Network.Nakadi.Internal.Test
 import           Network.Nakadi.MonadicAPI.Test
 import           Network.Nakadi.Registry.Test
 import           Network.Nakadi.Subscriptions.Test
+import           Network.Nakadi.Tests.Common
 import           System.Environment
 import           System.Exit
 import           System.IO                         (hFlush)
@@ -49,7 +50,7 @@ main = do
       let nakadiEndpointT = pack nakadiEndpoint
       case parseRequest nakadiEndpoint of
         Just request -> do
-          conf <- newConfig Nothing request
+          conf <- runApp $ newConfig Nothing request
           return ("nakadi-client Test Suite", unitTests ++ integrationTests conf)
         Nothing -> do
           hPut stderr . encodeUtf8 $
@@ -65,7 +66,7 @@ unitTests =
   , testConnection
   ]
 
-integrationTests :: Config -> [TestTree]
+integrationTests :: Config' App -> [TestTree]
 integrationTests conf =
   [ testEventTypes conf
   , testRegistry conf
