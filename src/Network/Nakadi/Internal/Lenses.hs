@@ -40,12 +40,13 @@ makeNakadiLenses ''Config'
 makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
 makeNakadiLenses ''EventStreamBatch
+makeNakadiLenses ''Event
 makeNakadiLenses ''EventEnriched
 makeNakadiLenses ''SubscriptionEventStreamBatch
-makeNakadiLenses ''Event
 makeNakadiLenses ''Metadata
 makeNakadiLenses ''MetadataEnriched
 makeNakadiLenses ''DataChangeEvent
+makeNakadiLenses ''DataChangeEventEnriched
 makeNakadiLenses ''Partition
 makeNakadiLenses ''CursorDistanceQuery
 makeNakadiLenses ''CursorDistanceResult

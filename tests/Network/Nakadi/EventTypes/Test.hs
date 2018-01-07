@@ -144,7 +144,7 @@ testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
       expectedFlowId = Just $ FlowId "12345"
   withAsync (delayedPublish expectedFlowId [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
+    eventConsumed :: Maybe (EventStreamBatch (EventEnriched Foo)) <- runResourceT $ do
       source <- eventSourceR (Just consumeParametersSingle) myEventTypeName Nothing
       runConduit $ source .| headC
     liftIO $ isJust eventConsumed @=? True

@@ -118,6 +118,9 @@ tests:
     - async
     - retry
     - stm
+    - stm-chans
+    - stm-conduit
     - warp
     - wai
     - tasty
+    - lifted-async

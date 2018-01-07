@@ -55,7 +55,6 @@ testHttpRequestModifier = do
     conf <- newConfig Nothing defaultRequest
     backend <- dummyHttpBackend
     let config = conf {_http = backend, _requestModifier = dummyRequestModifier }
-    runNakadiT config . runResourceT $ do
-      (_, source) <- httpJsonBodyStream ok200 (const (Right ())) [] id
-      (_ :: Maybe Text) <- runReaderT (runConduit $ source .| headC) ()
-      return ()
+    (_, source) <- httpJsonBodyStream config ok200 (const (Right ())) [] id
+    (_ :: Maybe Text) <- runResourceT $ runReaderT (runConduit $ source .| headC) ()
+    return ()

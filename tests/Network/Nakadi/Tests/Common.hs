@@ -11,6 +11,8 @@ import           Data.Aeson
 import           Data.UUID      (UUID)
 import           Network.Nakadi
 import           System.Random
+import qualified Network.Nakadi.Lenses as L
+import Control.Lens
 
 type App = ReaderT () IO
 
@@ -78,6 +80,9 @@ genRandomUUID = liftIO randomIO
 
 recreateEvent :: MonadNakadiEnv b m => EventTypeName -> EventType -> m ()
 recreateEvent eventTypeName eventType = do
+  subscriptionIds <- subscriptionsListR Nothing (Just [eventTypeName])
+    <&> catMaybes . map (view L.id)
+  mapM_ subscriptionDeleteR subscriptionIds
   eventTypeDeleteR eventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreateR eventType
 
