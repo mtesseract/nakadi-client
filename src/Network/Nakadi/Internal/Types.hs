@@ -57,17 +57,17 @@ import           Control.Monad.Trans.Control
 type MonadNakadi b m = (MonadIO m, MonadIO b, MonadCatch m, MonadSub b m, MonadMask b)
 
 class MonadNakadi b m => MonadNakadiEnv b m | m -> b where
-    {-# MINIMAL (nakadiAsk | nakadiReader) #-}
-    nakadiAsk :: m (Config' b)
-    nakadiAsk = nakadiReader identity
-    -- nakadiLocal :: (Config' b -> Config' b) -> m a -> m a
-    nakadiReader :: (Config' b -> a) -> m a
-    nakadiReader f = nakadiAsk >>= (return . f)
+  -- {-# MINIMAL (nakadiAsk | nakadiReader) #-}
+  nakadiAsk :: m (Config' b)
+  nakadiAsk = nakadiReader identity
+  nakadiLocal :: (Config' b -> Config' b) -> m a -> m a
+  nakadiReader :: (Config' b -> a) -> m a
+  nakadiReader f = nakadiAsk >>= (return . f)
 
 instance (MonadIO m, MonadIO b, MonadCatch m, MonadMask b, MonadSub b m)
       => MonadNakadiEnv b (ReaderT (Config' b) m) where
   nakadiAsk = Reader.ask
-  -- nakadiLocal = Reader.local
+  nakadiLocal = Reader.local
   nakadiReader = Reader.reader
 
 class (Monad b, Monad m) => MonadSub b m where
@@ -120,20 +120,24 @@ instance (MonadIO m) => MonadIO (NakadiT b m) where
     liftIO = lift . liftIO
     {-# INLINE liftIO #-}
 
-instance (MonadIO m, MonadIO b, MonadCatch m, MonadMask b, MonadSub b m) => MonadNakadiEnv b (NakadiT b m) where
+instance (MonadIO m, MonadIO b, MonadCatch m, MonadMask b, MonadSub b m)
+      => MonadNakadiEnv b (NakadiT b m) where
   nakadiAsk = NakadiT return
   nakadiReader f = NakadiT (return . f)
-  -- nakadiLocal f (NakadiT m) = NakadiT (\ c -> m (f c))
+  nakadiLocal f (NakadiT m) = NakadiT (\ c -> m (f c))
 
 instance (MonadNakadiEnv b m) => MonadNakadiEnv b (ReaderT r m) where
   nakadiAsk = lift nakadiAsk
   nakadiReader = lift . nakadiReader
-  -- nakadiLocal f (Reader.ReaderT m) = Reader.ReaderT (\ r -> nakadiLocal f (m r))
+  nakadiLocal f (Reader.ReaderT m) = Reader.ReaderT (\ r -> nakadiLocal f (m r))
 
 instance (MonadNakadiEnv b m) => MonadNakadiEnv b (ResourceT m) where
   nakadiAsk = lift nakadiAsk
   nakadiReader = lift . nakadiReader
-  -- nakadiLocal f m = _
+  nakadiLocal f m = transResourceT (nakadiLocal f) m
+
+instance (MonadResource m) => MonadResource (NakadiT b m) where
+  liftResourceT = lift . liftResourceT
 
 instance MonadThrow m => MonadThrow (NakadiT b m) where
   throwM e = lift $ Control.Monad.Catch.throwM e

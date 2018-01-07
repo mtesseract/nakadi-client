@@ -85,20 +85,20 @@ checkNakadiResponse request response =
   throwIO $ HttpExceptionRequest request (StatusCodeException (void response) mempty)
 
 httpBuildRequest ::
-  MonadNakadi b m
-  => Config' b -- ^ Configuration, contains the impure request modifier
-  -> (Request -> Request) -- ^ Pure request modifier
+  MonadNakadiEnv b m
+  => (Request -> Request) -- ^ Pure request modifier
   -> m Request -- ^ Resulting request to execute
-httpBuildRequest Config { .. } requestDef =
+httpBuildRequest requestDef = do
+  Config { .. } <- nakadiAsk
   let manager = _manager
       request = requestDef _requestTemplate
                    & setRequestManager manager
                    & (\req -> req { checkResponse = checkNakadiResponse })
-  in modifyRequest _requestModifier request
+  modifyRequest _requestModifier request
 
 -- | Modify the Request based on a user function in the configuration.
 modifyRequest ::
-  MonadNakadi b m
+  MonadNakadiEnv b m
   => (Request -> b Request)
   -> Request
   -> m Request
@@ -110,34 +110,32 @@ modifyRequest rm request =
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier.
 httpExecRequest ::
-  (MonadNakadi b m, MonadIO b, MonadSub b m)
-  => Config' b
-  -> (Request -> Request)
+  (MonadNakadiEnv b m, MonadIO b, MonadSub b m)
+  => (Request -> Request)
   -> m (Response ByteString.Lazy.ByteString)
-httpExecRequest config requestDef = do
-  req <- httpBuildRequest config requestDef
+httpExecRequest requestDef = do
+  config <- nakadiAsk
+  req <- httpBuildRequest requestDef
   retryAction config req (liftIO . (config^.L.http.L.httpLbs))
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier. Returns the HTTP response and separately the
 -- response status.
 httpExecRequestWithStatus ::
-  MonadNakadi b m
-  => Config' b -- ^ Configuration
-  -> (Request -> Request) -- ^ Pure request modifier
+  MonadNakadiEnv b m
+  => (Request -> Request) -- ^ Pure request modifier
   -> m (Response ByteString.Lazy.ByteString, Status)
-httpExecRequestWithStatus config requestDef =
-  (identity &&& getResponseStatus) <$> httpExecRequest config requestDef
+httpExecRequestWithStatus requestDef =
+  (identity &&& getResponseStatus) <$> httpExecRequest requestDef
 
 httpJsonBody ::
-  (MonadNakadi b m, FromJSON a)
-  => Config' b
-  -> Status
+  (MonadNakadiEnv b m, FromJSON a)
+  => Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
   -> m a
-httpJsonBody config successStatus exceptionMap requestDef = do
-  (response, status) <- httpExecRequestWithStatus config requestDef
+httpJsonBody successStatus exceptionMap requestDef = do
+  (response, status) <- httpExecRequestWithStatus requestDef
   if status == successStatus
     then decodeThrow (getResponseBody response)
     else case lookup status exceptionMap' of
@@ -147,14 +145,13 @@ httpJsonBody config successStatus exceptionMap requestDef = do
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonNoBody ::
-  MonadNakadi b m
-  => Config' b
-  -> Status
+  MonadNakadiEnv b m
+  => Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
   -> m ()
-httpJsonNoBody config successStatus exceptionMap requestDef = do
-  (response, status) <- httpExecRequestWithStatus config requestDef
+httpJsonNoBody successStatus exceptionMap requestDef = do
+  (response, status) <- httpExecRequestWithStatus requestDef
   unless (status == successStatus) $
     case lookup status exceptionMap' of
       Just mkExn -> mkExn (getResponseBody response) >>= throwIO
@@ -163,26 +160,29 @@ httpJsonNoBody config successStatus exceptionMap requestDef = do
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonBodyStream ::
-  (MonadNakadi b m, MonadResource m, FromJSON a)
-  => Config' b
-  -> Status
+  forall b m n a c r.
+  (MonadNakadiEnv b m, MonadResource m, FromJSON a
+  , MonadSub b n, MonadIO n)
+  => Status
   -> (Response () -> Either Text c)
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
-  -> m (c, ConduitM () a (ReaderT r m) ())
-httpJsonBodyStream config successStatus f exceptionMap requestDef = do
+  -> m (c, ConduitM () a (ReaderT r n) ())
+httpJsonBodyStream successStatus f exceptionMap requestDef = do
+  config <- nakadiAsk
   let responseOpen  = config^.L.http.L.responseOpen
       responseClose = config^.L.http.L.responseClose
-  request <- httpBuildRequest config requestDef
+  request <- httpBuildRequest requestDef
   (_, response) <- allocate (responseOpen request) responseClose
   let bodySource = bodyReaderSource (responseBody response)
       response_  = void response
       status     = responseStatus response_
   if status == successStatus
-    then do liftSub (connectCallback (config^.L.logFunc) response_)
-            let conduit = bodySource
-                          .| Conduit.lines
-                          .| conduitDecode config
+    then do liftSub (connectCallback config (config^.L.logFunc) response_)
+            let conduit = transPipe liftSub $
+                          (bodySource
+                           .| Conduit.lines
+                           .| conduitDecode config :: ConduitM () a b ())
             case f response_ of
               Left errMsg -> throwString (Text.unpack errMsg)
               Right b     -> return (b, readerC (const conduit))
@@ -192,7 +192,7 @@ httpJsonBodyStream config successStatus f exceptionMap requestDef = do
 
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
-        connectCallback = case config^.L.streamConnectCallback of
+        connectCallback config = case config^.L.streamConnectCallback of
           Just cb -> \logFunc response -> cb logFunc response
           Nothing -> \_ _ -> return ()
 

@@ -38,8 +38,7 @@ subscriptionGet ::
   -> SubscriptionId -- ^ Subscription ID
   -> m Subscription -- ^ Resulting Subscription Information
 subscriptionGet config subscriptionId =
-  httpJsonBody config ok200 [(status404, errorSubscriptionNotFound)]
-  (setRequestMethod "GET" . setRequestPath (path subscriptionId))
+  runNakadiT config $ subscriptionGetR subscriptionId
 
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION@. Looks up subscription
 -- information for a subscription ID. Uses configuration from the
@@ -48,9 +47,9 @@ subscriptionGetR ::
   MonadNakadiEnv b m
   => SubscriptionId -- ^ Subscription ID
   -> m Subscription -- ^ Resulting Subscription Information
-subscriptionGetR subscriptionId = do
-  config <- nakadiAsk
-  subscriptionGet config subscriptionId
+subscriptionGetR subscriptionId =
+  httpJsonBody ok200 [(status404, errorSubscriptionNotFound)]
+  (setRequestMethod "GET" . setRequestPath (path subscriptionId))
 
 -- | @DELETE@ to @\/subscriptions\/SUBSCRIPTION@. Deletes a
 -- subscription by subscription ID.
@@ -60,8 +59,7 @@ subscriptionDelete ::
   -> SubscriptionId -- ^ ID of the Subcription to delete
   -> m ()
 subscriptionDelete config subscriptionId =
-  httpJsonNoBody config status204 [(status404, errorSubscriptionNotFound)]
-  (setRequestMethod "DELETE" . setRequestPath (path subscriptionId))
+  runNakadiT config $ subscriptionDeleteR subscriptionId
 
 -- | @DELETE@ to @\/subscriptions\/SUBSCRIPTION@. Deletes a
 -- subscription by subscription ID. Uses configuration contained in
@@ -70,6 +68,6 @@ subscriptionDeleteR ::
   MonadNakadiEnv b m
   => SubscriptionId -- ^ ID of the Subcription to delete
   -> m ()
-subscriptionDeleteR subscriptionId = do
-  config <- nakadiAsk
-  subscriptionDelete config subscriptionId
+subscriptionDeleteR subscriptionId =
+  httpJsonNoBody status204 [(status404, errorSubscriptionNotFound)]
+  (setRequestMethod "DELETE" . setRequestPath (path subscriptionId))

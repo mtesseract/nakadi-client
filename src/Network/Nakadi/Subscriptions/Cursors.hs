@@ -57,11 +57,7 @@ subscriptionCursorCommit' ::
   -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
   -> m ()
 subscriptionCursorCommit' config subscriptionId streamId cursors =
-  httpJsonNoBody config status204 [(ok200, errorCursorAlreadyCommitted)]
-  (setRequestMethod "POST"
-   . addRequestHeader "X-Nakadi-StreamId" (encodeUtf8 (unStreamId streamId))
-   . setRequestBodyJSON cursors
-   . setRequestPath (path subscriptionId))
+  runNakadiT config $ subscriptionCursorCommitR' subscriptionId streamId cursors
 
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION-ID\/cursors@. Commits
 -- cursors using low level interface. Uses the configuration contained
@@ -72,9 +68,12 @@ subscriptionCursorCommitR' ::
   -> StreamId                 -- ^ Stream ID
   -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
   -> m ()
-subscriptionCursorCommitR' subscriptionId streamId cursors = do
-  config <- nakadiAsk
-  subscriptionCursorCommit' config subscriptionId streamId cursors
+subscriptionCursorCommitR' subscriptionId streamId cursors =
+  httpJsonNoBody status204 [(ok200, errorCursorAlreadyCommitted)]
+  (setRequestMethod "POST"
+   . addRequestHeader "X-Nakadi-StreamId" (encodeUtf8 (unStreamId streamId))
+   . setRequestBodyJSON cursors
+   . setRequestPath (path subscriptionId))
 
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Commits
 -- cursors using high level interface.
@@ -104,8 +103,7 @@ subscriptionCursors ::
   -> SubscriptionId         -- ^ Subscription ID
   -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
 subscriptionCursors config subscriptionId =
-  httpJsonBody config ok200 []
-  (setRequestMethod "GET" . setRequestPath (path subscriptionId))
+  runNakadiT config $ subscriptionCursorsR subscriptionId
 
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Retrieves
 -- subscriptions cursors, using the configuration from the
@@ -114,9 +112,9 @@ subscriptionCursorsR ::
   MonadNakadiEnv b m
   => SubscriptionId         -- ^ Subscription ID
   -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
-subscriptionCursorsR subscriptionId = do
-  config <- nakadiAsk
-  subscriptionCursors config subscriptionId
+subscriptionCursorsR subscriptionId =
+  httpJsonBody ok200 []
+  (setRequestMethod "GET" . setRequestPath (path subscriptionId))
 
 -- | @PATCH@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Resets
 -- subscriptions cursors.
@@ -127,11 +125,7 @@ subscriptionCursorsReset ::
   -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
   -> m ()
 subscriptionCursorsReset config subscriptionId cursors =
-  httpJsonNoBody config status204 [ (status404, errorSubscriptionNotFound)
-                                 , (status409, errorCursorResetInProgress) ]
-  (setRequestMethod "PATCH"
-   . setRequestPath (path subscriptionId)
-   . setRequestBodyJSON (Object (HashMap.fromList [("items", toJSON cursors)])))
+  runNakadiT config $ subscriptionCursorsResetR subscriptionId cursors
 
 -- | @PATCH@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Resets
 -- subscriptions cursors, using the configuration from the
@@ -141,6 +135,9 @@ subscriptionCursorsResetR ::
   => SubscriptionId                   -- ^ Subscription ID
   -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
   -> m ()
-subscriptionCursorsResetR subscriptionId cursors = do
-  config <- nakadiAsk
-  subscriptionCursorsReset config subscriptionId cursors
+subscriptionCursorsResetR subscriptionId cursors =
+  httpJsonNoBody status204 [ (status404, errorSubscriptionNotFound)
+                           , (status409, errorCursorResetInProgress) ]
+  (setRequestMethod "PATCH"
+   . setRequestPath (path subscriptionId)
+   . setRequestBodyJSON (Object (HashMap.fromList [("items", toJSON cursors)])))

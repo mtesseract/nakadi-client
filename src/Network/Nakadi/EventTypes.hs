@@ -48,17 +48,16 @@ eventTypesList ::
   => Config' b     -- ^ Configuration
   -> m [EventType] -- ^ Registered Event Types
 eventTypesList config =
-  httpJsonBody config status200 []
-  (setRequestMethod "GET" . setRequestPath path)
+  runNakadiT config $ eventTypesListR
 
 -- | @GET@ to @\/event-types@. Retrieves a list of all registered
 -- event types, using the configuration contained in the environment.
 eventTypesListR ::
   MonadNakadiEnv b m
   => m [EventType] -- ^ Registered Event Types
-eventTypesListR = do
-  config <- nakadiAsk
-  eventTypesList config
+eventTypesListR =
+  httpJsonBody status200 []
+  (setRequestMethod "GET" . setRequestPath path)
 
 -- | @POST@ to @\/event-types@. Creates a new event type.
 eventTypeCreate ::
@@ -67,8 +66,7 @@ eventTypeCreate ::
   -> EventType -- ^ Event Type to create
   -> m ()
 eventTypeCreate config eventType =
-  httpJsonNoBody config status201 []
-  (setRequestMethod "POST" . setRequestPath path . setRequestBodyJSON eventType)
+  runNakadiT config $ eventTypeCreateR eventType
 
 -- | @POST@ to @\/event-types@. Creates a new event type. Uses the
 -- configuration from the environment.
@@ -76,6 +74,8 @@ eventTypeCreateR ::
   MonadNakadiEnv b m
   => EventType -- ^ Event Type to create
   -> m ()
-eventTypeCreateR eventType = do
-  config <- nakadiAsk
-  eventTypeCreate config eventType
+eventTypeCreateR eventType =
+  httpJsonNoBody status201 []
+  (setRequestMethod "POST"
+   . setRequestPath path
+   . setRequestBodyJSON eventType)

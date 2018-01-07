@@ -40,10 +40,11 @@ path eventTypeName =
   <> encodeUtf8 (unEventTypeName eventTypeName)
   <> "/events"
 
--- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
+-- -- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
 -- for event batch consumption.
 eventSource ::
-  (MonadNakadi b m, MonadResource m, MonadBaseControl IO m, FromJSON a)
+  (MonadNakadi b m, MonadResource m, MonadBaseControl IO m, FromJSON a
+  , MonadNakadiEnv b n, MonadBaseControl IO n)
   => Config' b               -- ^ Configuration parameter
   -> Maybe ConsumeParameters -- ^ Optional parameters for event consumption
   -> EventTypeName           -- ^ Name of the event type to consume
@@ -51,35 +52,39 @@ eventSource ::
                              -- consumption begins with the most
                              -- recent event
   -> m (ConduitM () (EventStreamBatch a)
-        m ())                -- ^ Returns a Conduit source.
-eventSource config maybeParams eventTypeName maybeCursors = do
-  let consumeParams = fromMaybe (config^.L.consumeParameters) maybeParams
-      queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
-  runReaderC () . snd <$>
-    httpJsonBodyStream config ok200 (const (Right ())) [ (status429, errorTooManyRequests)
-                                                       , (status429, errorEventTypeNotFound) ]
-    (setRequestPath (path eventTypeName)
-     . setRequestQueryParameters queryParams
-     . case maybeCursors of
-         Just cursors -> let cursors' = ByteString.Lazy.toStrict (encode cursors)
-                         in addRequestHeader "X-Nakadi-Cursors" cursors'
-         Nothing      -> identity)
+        n ())                -- ^ Returns a Conduit source.
+eventSource config maybeParams eventTypeName maybeCursors =
+  runNakadiT config $ eventSourceR maybeParams eventTypeName maybeCursors
 
 -- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
 -- for event batch consumption. Retrieves configuration from
 -- environment.
 eventSourceR ::
-  (MonadNakadiEnv b m, MonadResource m, FromJSON a, MonadBaseControl IO m)
+  (MonadNakadiEnv b m, MonadResource m, FromJSON a, MonadBaseControl IO m
+  , MonadSub b n, MonadIO n
+  )
   => Maybe ConsumeParameters -- ^ Optional parameters for event consumption
   -> EventTypeName           -- ^ Name of the event type to consume
   -> Maybe [Cursor]          -- ^ Optional list of cursors; by default
                              -- consumption begins with the most
                              -- recent event
   -> m (ConduitM () (EventStreamBatch a)
-        m ())                -- ^ Returns a Conduit source.
-eventSourceR maybeParams eventType maybeCursors = do
+        n ())                -- ^ Returns a Conduit source.
+eventSourceR maybeParams eventTypeName maybeCursors = do
   config <- nakadiAsk
-  eventSource config maybeParams eventType maybeCursors
+  let consumeParams = fromMaybe (config^.L.consumeParameters) maybeParams
+      queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
+  runReaderC () . snd <$>
+    httpJsonBodyStream ok200 (const (Right ())) [ (status429, errorTooManyRequests)
+                                                , (status429, errorEventTypeNotFound) ]
+    (setRequestPath (path eventTypeName)
+     . setRequestQueryParameters queryParams
+     . addCursors)
+
+    where addCursors = case maybeCursors of
+            Just cursors -> let cursors' = ByteString.Lazy.toStrict (encode cursors)
+                            in addRequestHeader "X-Nakadi-Cursors" cursors'
+            Nothing      -> identity
 
 -- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
 -- events for the specified event type.
@@ -91,13 +96,7 @@ eventPublish ::
   -> [a]
   -> m ()
 eventPublish config eventTypeName maybeFlowId eventBatch =
-  httpJsonNoBody config status200
-  [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
-  , (status422, errorBatchNotSubmitted) ]
-  (setRequestMethod "POST"
-   . setRequestPath (path eventTypeName)
-   . maybe identity (addRequestHeader "X-Flow-Id" . encodeUtf8 . unFlowId) maybeFlowId
-   . setRequestBodyJSON eventBatch)
+  runNakadiT config $ eventPublishR eventTypeName maybeFlowId eventBatch
 
 -- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
 -- events for the specified event type. Uses the configuration from
@@ -108,6 +107,11 @@ eventPublishR ::
   -> Maybe FlowId
   -> [a]
   -> m ()
-eventPublishR eventTypeName maybeFlowId eventBatch = do
-  config <- nakadiAsk
-  eventPublish config eventTypeName maybeFlowId eventBatch
+eventPublishR eventTypeName maybeFlowId eventBatch =
+  httpJsonNoBody status200
+  [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
+  , (status422, errorBatchNotSubmitted) ]
+  (setRequestMethod "POST"
+   . setRequestPath (path eventTypeName)
+   . maybe identity (addRequestHeader "X-Flow-Id" . encodeUtf8 . unFlowId) maybeFlowId
+   . setRequestBodyJSON eventBatch)

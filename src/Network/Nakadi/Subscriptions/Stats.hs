@@ -44,8 +44,7 @@ subscriptionStats' ::
   -> SubscriptionId                     -- ^ Subscription ID
   -> m SubscriptionEventTypeStatsResult -- ^ Subscription Statistics
 subscriptionStats' config subscriptionId =
-  httpJsonBody config ok200 [(status404, errorSubscriptionNotFound)]
-  (setRequestMethod "GET" . setRequestPath (path subscriptionId))
+  runNakadiT config $ subscriptionStatsR' subscriptionId
 
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Low level
 -- interface for Subscriptions Statistics retrieval. Obtains
@@ -54,9 +53,9 @@ subscriptionStatsR' ::
   MonadNakadiEnv b m
   => SubscriptionId                     -- ^ Subscription ID
   -> m SubscriptionEventTypeStatsResult -- ^ Subscription Statistics
-subscriptionStatsR' subscriptionId = do
-  config <- nakadiAsk
-  subscriptionStats' config subscriptionId
+subscriptionStatsR' subscriptionId =
+  httpJsonBody ok200 [(status404, errorSubscriptionNotFound)]
+  (setRequestMethod "GET" . setRequestPath (path subscriptionId))
 
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. High level
 -- interface for Subscription Statistics retrieval.
@@ -66,9 +65,8 @@ subscriptionStats ::
   -> SubscriptionId                        -- ^ Subscription ID
   -> m (Map EventTypeName [PartitionStat]) -- ^ Subscription
                                            -- Statistics as a 'Map'.
-subscriptionStats config subscriptionId = do
-  items <- subscriptionStats' config subscriptionId <&> view L.items
-  return . Map.fromList . map (\SubscriptionEventTypeStats { .. } -> (_eventType, _partitions)) $ items
+subscriptionStats config subscriptionId =
+  runNakadiT config $ subscriptionStatsR subscriptionId
 
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. High level
 -- interface for Subscription Statistics retrieval, obtains
@@ -79,5 +77,5 @@ subscriptionStatsR ::
   -> m (Map EventTypeName [PartitionStat]) -- ^ Subscription
                                            -- Statistics as a 'Map'.
 subscriptionStatsR subscriptionId = do
-  config <- nakadiAsk
-  subscriptionStats config subscriptionId
+  items <- subscriptionStatsR' subscriptionId <&> view L.items
+  return . Map.fromList . map (\SubscriptionEventTypeStats { .. } -> (_eventType, _partitions)) $ items

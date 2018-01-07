@@ -754,7 +754,7 @@ deriveJSON nakadiJsonOptions {
 
 data EventStreamBatch a = EventStreamBatch
   { _cursor :: Cursor -- ^ Cursor for this batch
-  , _events :: Maybe (Vector (EventEnriched a)) -- ^ Events in this batch
+  , _events :: Maybe (Vector a) -- ^ Events in this batch
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''EventStreamBatch
@@ -803,3 +803,21 @@ data DataChangeEvent a = DataChangeEvent
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''DataChangeEvent
+
+-- | Type of enriched DataChangeEvent.
+
+data DataChangeEventEnriched a = DataChangeEventEnriched
+  { _payload  :: a -- Cannot be named '_data', as this this would
+                   -- cause the lense 'data' to be created, which is a
+                   -- reserved keyword.
+  , _metadata :: MetadataEnriched
+  , _dataOp   :: DataOp
+  , _dataType :: Text
+  } deriving (Eq, Show, Generic)
+
+deriveJSON nakadiJsonOptions {
+  fieldLabelModifier = makeFieldRenamer [ ("_payload",  "data")
+                                        , ("_metadata", "metadata")
+                                        , ("_dataOp", "data_op")
+                                        , ("_dataType", "data_type") ]
+  }  ''DataChangeEventEnriched

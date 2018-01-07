@@ -41,10 +41,7 @@ cursorsShift' ::
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
 cursorsShift' config eventTypeName cursors =
-  httpJsonBody config ok200 []
-  (setRequestMethod "POST"
-   . setRequestPath (path eventTypeName)
-   . setRequestBodyJSON cursors)
+  runNakadiT config $ cursorsShiftR' eventTypeName cursors
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. Low level
 -- interface. Retrieves the configuration from the environment.
@@ -53,9 +50,11 @@ cursorsShiftR' ::
   => EventTypeName   -- ^ Event Type
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
-cursorsShiftR' eventTypeName cursors = do
-  config <- nakadiAsk
-  cursorsShift' config eventTypeName cursors
+cursorsShiftR' eventTypeName cursors =
+  httpJsonBody ok200 []
+  (setRequestMethod "POST"
+   . setRequestPath (path eventTypeName)
+   . setRequestBodyJSON cursors)
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface.
@@ -67,12 +66,7 @@ cursorsShift ::
   -> Int64         -- ^ Shift Distance
   -> m [Cursor]    -- ^ Resulting Cursors
 cursorsShift config eventTypeName cursors n =
-  cursorsShift' config eventTypeName (map makeShiftCursor cursors)
-
-  where makeShiftCursor Cursor { .. } =
-          ShiftedCursor { _partition = _partition
-                        , _offset    = _offset
-                        , _shift     = n }
+  runNakadiT config $ cursorsShiftR eventTypeName cursors n
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface. Retrieves the configuration from the environment.
@@ -83,5 +77,9 @@ cursorsShiftR ::
   -> Int64         -- ^ Shift Distance
   -> m [Cursor]    -- ^ Resulting Cursors
 cursorsShiftR eventTypeName cursors n = do
-  config <- nakadiAsk
-  cursorsShift config eventTypeName cursors n
+  cursorsShiftR' eventTypeName (map makeShiftCursor cursors)
+
+  where makeShiftCursor Cursor { .. } =
+          ShiftedCursor { _partition = _partition
+                        , _offset    = _offset
+                        , _shift     = n }

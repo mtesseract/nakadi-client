@@ -46,15 +46,7 @@ eventTypeSchemasGet ::
   -> Maybe Limit
   -> m EventTypeSchemasResponse
 eventTypeSchemasGet config eventTypeName offset limit =
-  httpJsonBody config ok200 []
-  (setRequestMethod "GET"
-   . setRequestPath (path eventTypeName Nothing)
-   . setRequestQueryParameters [ ("offset", offset')
-                               , ("limit",  limit') ])
-  where offset' = encodeUtf8 (tshow (maybe defaultOffset unOffset offset))
-        limit'  = encodeUtf8 (tshow (maybe defaultLimit  unLimit  limit))
-        defaultOffset =  0
-        defaultLimit  = 20
+  runNakadiT config $ eventTypeSchemasGetR eventTypeName offset limit
 
 -- | @GET@ to @\/event-types\/NAME\/schemas@. Uses the configuration
 -- contained in the environment.
@@ -64,9 +56,16 @@ eventTypeSchemasGetR ::
   -> Maybe Offset
   -> Maybe Limit
   -> m EventTypeSchemasResponse
-eventTypeSchemasGetR eventTypeName offset limit = do
-  config <- nakadiAsk
-  eventTypeSchemasGet config eventTypeName offset limit
+eventTypeSchemasGetR eventTypeName offset limit =
+  httpJsonBody ok200 []
+  (setRequestMethod "GET"
+   . setRequestPath (path eventTypeName Nothing)
+   . setRequestQueryParameters [ ("offset", offset')
+                               , ("limit",  limit') ])
+  where offset' = encodeUtf8 (tshow (maybe defaultOffset unOffset offset))
+        limit'  = encodeUtf8 (tshow (maybe defaultLimit  unLimit  limit))
+        defaultOffset =  0
+        defaultLimit  = 20
 
 -- | Look up the schema of an event type given its 'EventTypeName' and
 -- 'SchemaVersion'. @GET@ to
@@ -78,8 +77,7 @@ eventTypeSchema ::
   -> SchemaVersion
   -> m EventTypeSchema
 eventTypeSchema config eventTypeName schemaVersion =
-  httpJsonBody config ok200 []
-  (setRequestMethod "GET" . setRequestPath (path eventTypeName (Just schemaVersion)))
+  runNakadiT config $ eventTypeSchemaR eventTypeName schemaVersion
 
 -- | Look up the schema of an event type given its 'EventTypeName' and
 -- 'SchemaVersion', using the configuration found in the environment.
@@ -89,6 +87,7 @@ eventTypeSchemaR ::
   => EventTypeName
   -> SchemaVersion
   -> m EventTypeSchema
-eventTypeSchemaR eventTypeName schemaVersion = do
-  config <- nakadiAsk
-  eventTypeSchema config eventTypeName schemaVersion
+eventTypeSchemaR eventTypeName schemaVersion =
+  httpJsonBody ok200 []
+  (setRequestMethod "GET"
+   . setRequestPath (path eventTypeName (Just schemaVersion)))

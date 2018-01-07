@@ -30,12 +30,13 @@ registryPartitionStrategies ::
   => Config' b
   -> m [PartitionStrategy]
 registryPartitionStrategies config =
-  httpJsonBody config status200 []
-  (setRequestMethod "GET" . setRequestPath (path <> "/partition-strategies"))
+  runNakadiT config $ registryPartitionStrategiesR
 
 -- | Retrieves supported partitioning strategies from Nakadi,
 -- obtaining configuration from environment.
-registryPartitionStrategiesR :: MonadNakadiEnv r m => m [PartitionStrategy]
-registryPartitionStrategiesR = do
-  config <- nakadiAsk
-  registryPartitionStrategies config
+registryPartitionStrategiesR ::
+  MonadNakadiEnv r m
+  => m [PartitionStrategy]
+registryPartitionStrategiesR =
+  httpJsonBody status200 []
+  (setRequestMethod "GET" . setRequestPath (path <> "/partition-strategies"))

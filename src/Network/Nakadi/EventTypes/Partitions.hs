@@ -41,8 +41,7 @@ eventTypePartitions ::
   -> EventTypeName -- ^ Name of Event Type
   -> m [Partition] -- ^ Partition Information
 eventTypePartitions config eventTypeName =
-  httpJsonBody config ok200 [(status404, errorEventTypeNotFound)]
-  (setRequestPath (path eventTypeName Nothing))
+  runNakadiT config $ eventTypePartitionsR eventTypeName
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions@. Retrieves
 -- information about all partitions, using the configuration contained
@@ -51,9 +50,9 @@ eventTypePartitionsR ::
   MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> m [Partition] -- ^ Partition Information
-eventTypePartitionsR eventTypeName = do
-  config <- nakadiAsk
-  eventTypePartitions config eventTypeName
+eventTypePartitionsR eventTypeName =
+  httpJsonBody ok200 [(status404, errorEventTypeNotFound)]
+  (setRequestPath (path eventTypeName Nothing))
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions\/PARTITION@.
 -- Retrieves information about a single partition.
@@ -64,8 +63,7 @@ eventTypePartition ::
   -> PartitionName -- ^ Name of Partition to look up
   -> m Partition   -- ^ Partition Information
 eventTypePartition config eventTypeName partitionName =
-  httpJsonBody config ok200 []
-  (setRequestPath (path eventTypeName (Just partitionName)))
+  runNakadiT config $ eventTypePartitionR eventTypeName partitionName
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions\/PARTITION@.
 -- Retrieves information about a single partition, using the
@@ -75,6 +73,6 @@ eventTypePartitionR ::
   => EventTypeName -- ^ Name of Event Type
   -> PartitionName -- ^ Name of Partition to look up
   -> m Partition   -- ^ Partition Information
-eventTypePartitionR eventTypeName partitionName = do
-  config <- nakadiAsk
-  eventTypePartition config eventTypeName partitionName
+eventTypePartitionR eventTypeName partitionName =
+  httpJsonBody ok200 []
+  (setRequestPath (path eventTypeName (Just partitionName)))

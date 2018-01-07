@@ -42,10 +42,7 @@ cursorsDistance' ::
   -> [CursorDistanceQuery]    -- ^ List of cursor-distance-queries
   -> m [CursorDistanceResult] -- ^ List of cursor-distance-results
 cursorsDistance' config eventTypeName cursorDistanceQuery =
-  httpJsonBody config ok200 []
-  (setRequestMethod "POST"
-   . setRequestPath (path eventTypeName)
-   . setRequestBodyJSON cursorDistanceQuery)
+  runNakadiT config $ cursorsDistanceR' eventTypeName cursorDistanceQuery
 
 -- | Query for distance between cursors. Low level call, retrieving
 -- configuration from environment.
@@ -54,9 +51,11 @@ cursorsDistanceR' ::
   => EventTypeName            -- ^ Event Type
   -> [CursorDistanceQuery]    -- ^ List of cursor-distance-queries
   -> m [CursorDistanceResult] -- ^ List of cursor-distance-results
-cursorsDistanceR' eventTypeName cursorDistanceQuery = do
-  config <- nakadiAsk
-  cursorsDistance' config eventTypeName cursorDistanceQuery
+cursorsDistanceR' eventTypeName cursorDistanceQuery =
+  httpJsonBody ok200 []
+  (setRequestMethod "POST"
+   . setRequestPath (path eventTypeName)
+   . setRequestBodyJSON cursorDistanceQuery)
 
 -- | Given two cursors, compute the distance between these cursors.
 cursorDistance ::
@@ -68,11 +67,7 @@ cursorDistance ::
   -> m Int64       -- ^ Resulting difference between first and second
                    -- cursor
 cursorDistance config eventTypeName cursor cursor' =
-  let cursorDistanceQuery = CursorDistanceQuery { _initialCursor = cursor
-                                                , _finalCursor   = cursor' }
-  in cursorsDistance' config eventTypeName [cursorDistanceQuery] >>= \case
-    distanceResult:_ -> return $ distanceResult^.L.distance
-    _                -> throwIO CursorDistanceNoResult
+  runNakadiT config $ cursorDistanceR eventTypeName cursor cursor'
 
 -- | Given two cursors, compute the distance between these cursors,
 -- retrieving configuration from environment.
@@ -83,6 +78,9 @@ cursorDistanceR ::
   -> Cursor        -- ^ Second cursor
   -> m Int64       -- ^ Resulting difference between first and second
                    -- cursor
-cursorDistanceR eventTypeName cursor cursor' = do
-  config <- nakadiAsk
-  cursorDistance config eventTypeName cursor cursor'
+cursorDistanceR eventTypeName cursor cursor' =
+  let cursorDistanceQuery = CursorDistanceQuery { _initialCursor = cursor
+                                                , _finalCursor   = cursor' }
+  in cursorsDistanceR' eventTypeName [cursorDistanceQuery] >>= \case
+    distanceResult:_ -> return $ distanceResult^.L.distance
+    _                -> throwIO CursorDistanceNoResult
