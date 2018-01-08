@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies           #-}
 {-|
 Module      : Network.Nakadi.Internal.Types
 Description : Nakadi Client Types (Internal)
@@ -15,8 +14,10 @@ Exports all types for internal usage.
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE IncoherentInstances    #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
 module Network.Nakadi.Internal.Types
