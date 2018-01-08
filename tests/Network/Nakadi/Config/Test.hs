@@ -42,7 +42,7 @@ testCustomHttpBackend = runApp $ do
           <&> setHttpBackend dummyHttpBackend
           <&> setRetryPolicy trivialRetryPolicy
   res0 <- runNakadiT conf $
-    try $ registryPartitionStrategies conf -- This should use httpLbs
+    try $ registryPartitionStrategies -- This should use httpLbs
   liftIO $ case res0 of
     Left (HttpExceptionRequest _ ResponseTimeout) -> return ()
     _ -> assertFailure "Expected ResponseTimeout exception from dummy HttpBackend"

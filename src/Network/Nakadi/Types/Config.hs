@@ -12,7 +12,7 @@ This module provides the Nakadi Config Types.
 
 module Network.Nakadi.Types.Config
   ( Config
-  , Config'
+  , ConfigIO
   , HttpBackend(..)
   , ConsumeParameters
   , StreamConnectCallback

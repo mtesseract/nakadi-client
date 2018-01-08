@@ -16,9 +16,7 @@ This module implements the
 
 module Network.Nakadi.EventTypes.CursorsLag
   ( cursorsLag'
-  , cursorsLagR'
   , cursorsLag
-  , cursorsLagR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -39,24 +37,12 @@ path eventTypeName =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. Low level
 -- interface.
 cursorsLag' ::
-  MonadNakadi b m
-  => Config' b     -- ^ Configuration
-  -> EventTypeName -- ^ Event Type
-  -> [Cursor]      -- ^ Cursors for which to compute the lag for
-  -> m [Partition] -- ^ Resulting partition information containing
-                   -- information about unconsumed events.
-cursorsLag' config eventTypeName cursors =
-  runNakadiT config $ cursorsLagR' eventTypeName cursors
-
--- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. Low level
--- interface, retrieving configuration from environment.
-cursorsLagR' ::
   MonadNakadiEnv b m
   => EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors for which to compute the lag for
   -> m [Partition] -- ^ Resulting partition information containing
                    -- information about unconsumed events.
-cursorsLagR' eventTypeName cursors =
+cursorsLag' eventTypeName cursors =
   httpJsonBody ok200 []
   (setRequestMethod "POST"
    . setRequestPath (path eventTypeName)
@@ -65,25 +51,13 @@ cursorsLagR' eventTypeName cursors =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. High level
 -- interface.
 cursorsLag ::
-  MonadNakadi b m
-  => Config' b                      -- ^ Configuration
-  -> EventTypeName                  -- ^ Event Type
-  -> Map PartitionName CursorOffset -- ^ Cursor offsets associated to
-                                    -- partitions.
-  -> m (Map PartitionName Int64)    -- ^ Cursor lags associated to partitions.
-cursorsLag config eventTypeName cursorsMap =
-  runNakadiT config $ cursorsLagR eventTypeName cursorsMap
-
--- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. High level
--- interface, retrieving configuration from environment.
-cursorsLagR ::
   MonadNakadiEnv b m
   => EventTypeName                  -- ^ Event Type
   -> Map PartitionName CursorOffset -- ^ Cursor offsets associated to
                                     -- partitions.
   -> m (Map PartitionName Int64)    -- ^ Cursor lags associated to partitions.
-cursorsLagR eventTypeName cursorsMap = do
-  partitionStats <- cursorsLagR' eventTypeName cursors
+cursorsLag eventTypeName cursorsMap = do
+  partitionStats <- cursorsLag' eventTypeName cursors
   return $ partitionStats & map ((view L.partition &&& view L.unconsumedEvents) >>> sequenceSnd)
                           & catMaybes
                           & Map.fromList

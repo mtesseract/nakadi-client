@@ -18,9 +18,7 @@ This module implements the
 
 module Network.Nakadi.EventTypes.Schemas
   ( eventTypeSchemasGet
-  , eventTypeSchemasGetR
   , eventTypeSchema
-  , eventTypeSchemaR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -39,24 +37,12 @@ path eventTypeName maybeSchemaVersion =
 -- | Retrieves schemas for the given 'EventTypeName' using low-level
 -- paging interface. @GET@ to @\/event-types\/NAME\/schemas@.
 eventTypeSchemasGet ::
-  MonadNakadi b m
-  => Config' b     -- ^ Configuration
-  -> EventTypeName -- ^ Name of Event Type
-  -> Maybe Offset
-  -> Maybe Limit
-  -> m EventTypeSchemasResponse
-eventTypeSchemasGet config eventTypeName offset limit =
-  runNakadiT config $ eventTypeSchemasGetR eventTypeName offset limit
-
--- | @GET@ to @\/event-types\/NAME\/schemas@. Uses the configuration
--- contained in the environment.
-eventTypeSchemasGetR ::
   MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> Maybe Offset
   -> Maybe Limit
   -> m EventTypeSchemasResponse
-eventTypeSchemasGetR eventTypeName offset limit =
+eventTypeSchemasGet eventTypeName offset limit =
   httpJsonBody ok200 []
   (setRequestMethod "GET"
    . setRequestPath (path eventTypeName Nothing)
@@ -71,23 +57,11 @@ eventTypeSchemasGetR eventTypeName offset limit =
 -- 'SchemaVersion'. @GET@ to
 -- @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
 eventTypeSchema ::
-  MonadNakadi b m
-  => Config' b
-  -> EventTypeName
-  -> SchemaVersion
-  -> m EventTypeSchema
-eventTypeSchema config eventTypeName schemaVersion =
-  runNakadiT config $ eventTypeSchemaR eventTypeName schemaVersion
-
--- | Look up the schema of an event type given its 'EventTypeName' and
--- 'SchemaVersion', using the configuration found in the environment.
--- @GET@ to @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
-eventTypeSchemaR ::
   MonadNakadiEnv b m
   => EventTypeName
   -> SchemaVersion
   -> m EventTypeSchema
-eventTypeSchemaR eventTypeName schemaVersion =
+eventTypeSchema eventTypeName schemaVersion =
   httpJsonBody ok200 []
   (setRequestMethod "GET"
    . setRequestPath (path eventTypeName (Just schemaVersion)))

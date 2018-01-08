@@ -17,9 +17,7 @@ This module implements the
 
 module Network.Nakadi.EventTypes.ShiftedCursors
   ( cursorsShift'
-  , cursorsShiftR'
   , cursorsShift
-  , cursorsShiftR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -35,22 +33,11 @@ path eventTypeName =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. Low level
 -- interface.
 cursorsShift' ::
-  MonadNakadi b m
-  => Config' b       -- ^ Configuration
-  -> EventTypeName   -- ^ Event Type
-  -> [ShiftedCursor] -- ^ Cursors with Shift Distances
-  -> m [Cursor]      -- ^ Resulting Cursors
-cursorsShift' config eventTypeName cursors =
-  runNakadiT config $ cursorsShiftR' eventTypeName cursors
-
--- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. Low level
--- interface. Retrieves the configuration from the environment.
-cursorsShiftR' ::
   MonadNakadiEnv b m
   => EventTypeName   -- ^ Event Type
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
-cursorsShiftR' eventTypeName cursors =
+cursorsShift' eventTypeName cursors =
   httpJsonBody ok200 []
   (setRequestMethod "POST"
    . setRequestPath (path eventTypeName)
@@ -59,25 +46,13 @@ cursorsShiftR' eventTypeName cursors =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface.
 cursorsShift ::
-  MonadNakadi b m
-  => Config' b     -- ^ Configuration
-  -> EventTypeName -- ^ Event Type
-  -> [Cursor]      -- ^ Cursors to shift
-  -> Int64         -- ^ Shift Distance
-  -> m [Cursor]    -- ^ Resulting Cursors
-cursorsShift config eventTypeName cursors n =
-  runNakadiT config $ cursorsShiftR eventTypeName cursors n
-
--- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
--- level interface. Retrieves the configuration from the environment.
-cursorsShiftR ::
   MonadNakadiEnv b m
   => EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors to shift
   -> Int64         -- ^ Shift Distance
   -> m [Cursor]    -- ^ Resulting Cursors
-cursorsShiftR eventTypeName cursors n = do
-  cursorsShiftR' eventTypeName (map makeShiftCursor cursors)
+cursorsShift eventTypeName cursors n = do
+  cursorsShift' eventTypeName (map makeShiftCursor cursors)
 
   where makeShiftCursor Cursor { .. } =
           ShiftedCursor { _partition = _partition

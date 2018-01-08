@@ -19,9 +19,7 @@ This module implements the
 
 module Network.Nakadi.EventTypes.Events
   ( eventSource
-  , eventSourceR
   , eventPublish
-  , eventPublishR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -40,26 +38,9 @@ path eventTypeName =
   <> encodeUtf8 (unEventTypeName eventTypeName)
   <> "/events"
 
--- -- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
+-- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
 -- for event batch consumption.
 eventSource ::
-  (MonadNakadi b m, MonadResource m, MonadBaseControl IO m, FromJSON a
-  , MonadNakadiEnv b n, MonadBaseControl IO n)
-  => Config' b               -- ^ Configuration parameter
-  -> Maybe ConsumeParameters -- ^ Optional parameters for event consumption
-  -> EventTypeName           -- ^ Name of the event type to consume
-  -> Maybe [Cursor]          -- ^ Optional list of cursors; by default
-                             -- consumption begins with the most
-                             -- recent event
-  -> m (ConduitM () (EventStreamBatch a)
-        n ())                -- ^ Returns a Conduit source.
-eventSource config maybeParams eventTypeName maybeCursors =
-  runNakadiT config $ eventSourceR maybeParams eventTypeName maybeCursors
-
--- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
--- for event batch consumption. Retrieves configuration from
--- environment.
-eventSourceR ::
   (MonadNakadiEnv b m, MonadResource m, FromJSON a, MonadBaseControl IO m
   , MonadSub b n, MonadIO n
   )
@@ -70,7 +51,7 @@ eventSourceR ::
                              -- recent event
   -> m (ConduitM () (EventStreamBatch a)
         n ())                -- ^ Returns a Conduit source.
-eventSourceR maybeParams eventTypeName maybeCursors = do
+eventSource maybeParams eventTypeName maybeCursors = do
   config <- nakadiAsk
   let consumeParams = fromMaybe (config^.L.consumeParameters) maybeParams
       queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
@@ -89,25 +70,12 @@ eventSourceR maybeParams eventTypeName maybeCursors = do
 -- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
 -- events for the specified event type.
 eventPublish ::
-  (MonadNakadi b m, ToJSON a)
-  => Config' b
-  -> EventTypeName
-  -> Maybe FlowId
-  -> [a]
-  -> m ()
-eventPublish config eventTypeName maybeFlowId eventBatch =
-  runNakadiT config $ eventPublishR eventTypeName maybeFlowId eventBatch
-
--- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
--- events for the specified event type. Uses the configuration from
--- the environment.
-eventPublishR ::
   (MonadNakadiEnv b m, ToJSON a)
   => EventTypeName
   -> Maybe FlowId
   -> [a]
   -> m ()
-eventPublishR eventTypeName maybeFlowId eventBatch =
+eventPublish eventTypeName maybeFlowId eventBatch =
   httpJsonNoBody status200
   [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
   , (status422, errorBatchNotSubmitted) ]

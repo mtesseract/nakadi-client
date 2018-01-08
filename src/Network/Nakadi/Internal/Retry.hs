@@ -30,7 +30,7 @@ import           Network.Nakadi.Internal.Types
 -- callback is set, this is no-op.
 invokeHttpErrorCallback ::
   (MonadIO b)
-  => Config' b
+  => Config b
   -> Request
   -> HttpException
   -> RetryStatus
@@ -53,7 +53,7 @@ invokeHttpErrorCallback config req exn retryStatus = liftSub $
 -- (depending on the retry policy).
 retryAction ::
   (MonadIO b, MonadMask b, MonadSub b m, MonadIO m)
-  => Config' b
+  => Config b
   -> Request
   -> (Request -> b a)
   -> m a

@@ -43,7 +43,7 @@ publishEvents :: Nakadi.MonadNakadiEnv IO m
               => Vector (Nakadi.DataChangeEvent Foo)
               -> Nakadi.EventTypeName -> m ()
 publishEvents events eventName = do
-  Nakadi.eventPublishR eventName Nothing (Vector.toList events)
+  Nakadi.eventPublish eventName Nothing (Vector.toList events)
   
 consumerMain :: (Nakadi.MonadNakadiEnv IO m, MonadBaseControl IO m)
              => Nakadi.EventTypeName
@@ -53,7 +53,7 @@ consumerMain eventName maxSize = runResourceT $ do
   let consumeParameters = Nakadi.defaultConsumeParameters
                           & L.batchFlushTimeout .~ Just 1
                           & L.streamLimit .~ Just (fromIntegral maxSize)
-  source <- Nakadi.eventSourceR (Just consumeParameters) eventName Nothing
+  source <- Nakadi.eventSource (Just consumeParameters) eventName Nothing
   events <- runConduit $
             source
             .| concatMapC (view L.events)
@@ -63,7 +63,7 @@ consumerMain eventName maxSize = runResourceT $ do
             .| sinkVector
   pure events
 
-testEcho :: Nakadi.Config' IO -> Assertion
+testEcho :: Nakadi.Config IO -> Assertion
 testEcho config = Nakadi.runNakadiT config $ do
   recreateEvent myEventTypeName myEventType
   recreateEvent myEventTypeNameCopy myEventTypeCopy

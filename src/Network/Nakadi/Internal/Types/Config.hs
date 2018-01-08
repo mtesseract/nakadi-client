@@ -30,9 +30,9 @@ type StreamConnectCallback m = Maybe (LogFunc' m) -> Response () -> m ()
 -- Errror propagation.
 type HttpErrorCallback m = Request -> HttpException -> RetryStatus -> Bool -> m ()
 
-type Config = Config' IO
+type ConfigIO = Config IO
 
-data Config' m = Config
+data Config m = Config
   { _requestTemplate                :: Request
   , _requestModifier                :: Request -> m Request
   , _manager                        :: Manager

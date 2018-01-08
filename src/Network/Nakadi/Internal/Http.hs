@@ -66,8 +66,8 @@ import           Network.Nakadi.Internal.Util
 
 conduitDecode ::
   (MonadSub b m, FromJSON a)
-  => Config' b -- ^ Configuration, containing the
-            -- deserialization-failure-callback.
+  => Config b -- ^ Configuration, containing the
+              -- deserialization-failure-callback.
   -> ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
                                 -- into custom values
 conduitDecode Config { .. } = awaitForever $ \a ->

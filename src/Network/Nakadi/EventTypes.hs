@@ -22,9 +22,7 @@ module Network.Nakadi.EventTypes
   , module Network.Nakadi.EventTypes.ShiftedCursors
   , module Network.Nakadi.EventTypes.Schemas
   , eventTypesList
-  , eventTypesListR
   , eventTypeCreate
-  , eventTypeCreateR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -44,37 +42,18 @@ path = "/event-types"
 -- | @GET@ to @\/event-types@. Retrieves a list of all registered
 -- event types.
 eventTypesList ::
-  MonadNakadi b m
-  => Config' b     -- ^ Configuration
-  -> m [EventType] -- ^ Registered Event Types
-eventTypesList config =
-  runNakadiT config $ eventTypesListR
-
--- | @GET@ to @\/event-types@. Retrieves a list of all registered
--- event types, using the configuration contained in the environment.
-eventTypesListR ::
   MonadNakadiEnv b m
   => m [EventType] -- ^ Registered Event Types
-eventTypesListR =
+eventTypesList =
   httpJsonBody status200 []
   (setRequestMethod "GET" . setRequestPath path)
 
 -- | @POST@ to @\/event-types@. Creates a new event type.
 eventTypeCreate ::
-  MonadNakadi b m
-  => Config' b -- ^ Configuration
-  -> EventType -- ^ Event Type to create
-  -> m ()
-eventTypeCreate config eventType =
-  runNakadiT config $ eventTypeCreateR eventType
-
--- | @POST@ to @\/event-types@. Creates a new event type. Uses the
--- configuration from the environment.
-eventTypeCreateR ::
   MonadNakadiEnv b m
   => EventType -- ^ Event Type to create
   -> m ()
-eventTypeCreateR eventType =
+eventTypeCreate eventType =
   httpJsonNoBody status201 []
   (setRequestMethod "POST"
    . setRequestPath path

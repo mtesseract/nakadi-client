@@ -20,12 +20,9 @@ API.
 
 module Network.Nakadi.Subscriptions.Cursors
   ( subscriptionCursorCommit'
-  , subscriptionCursorCommitR'
   , subscriptionCommit
   , subscriptionCursors
-  , subscriptionCursorsR
   , subscriptionCursorsReset
-  , subscriptionCursorsResetR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -50,25 +47,12 @@ path subscriptionId =
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION-ID\/cursors@. Commits
 -- cursors using low level interface.
 subscriptionCursorCommit' ::
-  MonadNakadi b m
-  => Config' b                -- ^ Configuration
-  -> SubscriptionId           -- ^ Subsciption ID
-  -> StreamId                 -- ^ Stream ID
-  -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
-  -> m ()
-subscriptionCursorCommit' config subscriptionId streamId cursors =
-  runNakadiT config $ subscriptionCursorCommitR' subscriptionId streamId cursors
-
--- | @POST@ to @\/subscriptions\/SUBSCRIPTION-ID\/cursors@. Commits
--- cursors using low level interface. Uses the configuration contained
--- in the environment.
-subscriptionCursorCommitR' ::
   MonadNakadiEnv b m
   => SubscriptionId           -- ^ Subsciption ID
   -> StreamId                 -- ^ Stream ID
   -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
   -> m ()
-subscriptionCursorCommitR' subscriptionId streamId cursors =
+subscriptionCursorCommit' subscriptionId streamId cursors =
   httpJsonNoBody status204 [(ok200, errorCursorAlreadyCommitted)]
   (setRequestMethod "POST"
    . addRequestHeader "X-Nakadi-StreamId" (encodeUtf8 (unStreamId streamId))
@@ -78,14 +62,14 @@ subscriptionCursorCommitR' subscriptionId streamId cursors =
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Commits
 -- cursors using high level interface.
 subscriptionCommit ::
-  (MonadNakadi b m, HasNakadiSubscriptionCursor a)
+  (MonadNakadiEnv b m, HasNakadiSubscriptionCursor a)
   => [a] -- ^ Values containing Subscription Cursors to commit
   -> ReaderT (SubscriptionEventStreamContext b) m ()
 subscriptionCommit as = do
   SubscriptionEventStreamContext { .. } <- ask
   Safe.catchJust
     exceptionPredicate
-    (lift (subscriptionCursorCommit' _ctxConfig _subscriptionId _streamId cursorsCommit))
+    (subscriptionCursorCommit' _subscriptionId _streamId cursorsCommit)
     (const (return ()))
 
   where exceptionPredicate = \case
@@ -98,44 +82,21 @@ subscriptionCommit as = do
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Retrieves
 -- subscriptions cursors.
 subscriptionCursors ::
-  MonadNakadi b m
-  => Config' b              -- ^ Configuration
-  -> SubscriptionId         -- ^ Subscription ID
-  -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
-subscriptionCursors config subscriptionId =
-  runNakadiT config $ subscriptionCursorsR subscriptionId
-
--- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Retrieves
--- subscriptions cursors, using the configuration from the
--- environment.
-subscriptionCursorsR ::
   MonadNakadiEnv b m
   => SubscriptionId         -- ^ Subscription ID
   -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
-subscriptionCursorsR subscriptionId =
+subscriptionCursors subscriptionId =
   httpJsonBody ok200 []
   (setRequestMethod "GET" . setRequestPath (path subscriptionId))
 
 -- | @PATCH@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Resets
 -- subscriptions cursors.
 subscriptionCursorsReset ::
-  MonadNakadi b m
-  => Config' b                        -- ^ Configuration
-  -> SubscriptionId                   -- ^ Subscription ID
-  -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
-  -> m ()
-subscriptionCursorsReset config subscriptionId cursors =
-  runNakadiT config $ subscriptionCursorsResetR subscriptionId cursors
-
--- | @PATCH@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Resets
--- subscriptions cursors, using the configuration from the
--- environment.
-subscriptionCursorsResetR ::
   MonadNakadiEnv b m
   => SubscriptionId                   -- ^ Subscription ID
   -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
   -> m ()
-subscriptionCursorsResetR subscriptionId cursors =
+subscriptionCursorsReset subscriptionId cursors =
   httpJsonNoBody status204 [ (status404, errorSubscriptionNotFound)
                            , (status409, errorCursorResetInProgress) ]
   (setRequestMethod "PATCH"

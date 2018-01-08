@@ -26,7 +26,7 @@ runEcho eventNameInput eventNameOutput =
   waitEither_ consumer publisher
 
   where consumeEvents eventName channel = do
-          source <- eventSourceR (Just consumeParameters) eventName Nothing
+          source <- eventSource (Just consumeParameters) eventName Nothing
           source
             .| concatMapC (view L.events)
             .| mapC (fmap (toJSON :: DataChangeEvent Value -> Value))
@@ -35,6 +35,6 @@ runEcho eventNameInput eventNameOutput =
         publishEvents eventName channel =
           sourceTBQueue channel
             .| mapC toList
-            $$ mapM_C (eventPublishR eventName Nothing)
+            $$ mapM_C (eventPublish eventName Nothing)
 
         consumeParameters = defaultConsumeParameters & L.batchFlushTimeout .~ Just 1

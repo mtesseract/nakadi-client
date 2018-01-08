@@ -16,9 +16,7 @@ API.
 
 module Network.Nakadi.EventTypes.Partitions
   ( eventTypePartitions
-  , eventTypePartitionsR
   , eventTypePartition
-  , eventTypePartitionR
   ) where
 
 import           Network.Nakadi.Internal.Http
@@ -36,43 +34,20 @@ path eventTypeName maybePartitionName =
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions@. Retrieves
 -- information about all partitions.
 eventTypePartitions ::
-  MonadNakadi b m
-  => Config' b     -- ^ Configuration
-  -> EventTypeName -- ^ Name of Event Type
-  -> m [Partition] -- ^ Partition Information
-eventTypePartitions config eventTypeName =
-  runNakadiT config $ eventTypePartitionsR eventTypeName
-
--- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions@. Retrieves
--- information about all partitions, using the configuration contained
--- in the environment.
-eventTypePartitionsR ::
   MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> m [Partition] -- ^ Partition Information
-eventTypePartitionsR eventTypeName =
+eventTypePartitions eventTypeName =
   httpJsonBody ok200 [(status404, errorEventTypeNotFound)]
   (setRequestPath (path eventTypeName Nothing))
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions\/PARTITION@.
 -- Retrieves information about a single partition.
 eventTypePartition ::
-  MonadNakadi b m
-  => Config' b     -- ^ Configuration
-  -> EventTypeName -- ^ Name of Event Type
-  -> PartitionName -- ^ Name of Partition to look up
-  -> m Partition   -- ^ Partition Information
-eventTypePartition config eventTypeName partitionName =
-  runNakadiT config $ eventTypePartitionR eventTypeName partitionName
-
--- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions\/PARTITION@.
--- Retrieves information about a single partition, using the
--- configuration contained in the environment.
-eventTypePartitionR ::
   MonadNakadiEnv b m
   => EventTypeName -- ^ Name of Event Type
   -> PartitionName -- ^ Name of Partition to look up
   -> m Partition   -- ^ Partition Information
-eventTypePartitionR eventTypeName partitionName =
+eventTypePartition eventTypeName partitionName =
   httpJsonBody ok200 []
   (setRequestPath (path eventTypeName (Just partitionName)))

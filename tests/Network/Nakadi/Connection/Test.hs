@@ -68,9 +68,9 @@ testServerResponseTimeoutApp req respond =
 
 testSimpleRetry :: Assertion
 testSimpleRetry = do
-  conf :: Config' IO <- newConfig Nothing testServerRequest { port = testServerRetryPort }
+  conf :: ConfigIO <- newConfig Nothing testServerRequest { port = testServerRetryPort }
   withAsync (run testServerRetryPort (testServerRetryApp 1)) $ \_serverHandle -> do
-    events <- eventTypesList conf
+    events <- runNakadiT conf eventTypesList
     [] @=? events
 
 testResponseTimeoutSuccess :: Assertion
@@ -78,9 +78,9 @@ testResponseTimeoutSuccess = do
   let timeout = responseTimeoutMicro (5 * 10^6) -- Accept delay of 5s
       request = testServerRequest { port = testServerResponseTimeoutPort
                                   , responseTimeout = timeout }
-  conf :: Config' IO <- newConfig Nothing request
+  conf :: ConfigIO <- newConfig Nothing request
   withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle -> do
-    events <- eventTypesList conf
+    events <- runNakadiT conf eventTypesList
     [] @=? events
 
 testResponseTimeoutFail :: Assertion
@@ -89,9 +89,9 @@ testResponseTimeoutFail = do
     let timeout = responseTimeoutMicro (3 * 10^6) -- Accept delay of 3s
         request = testServerRequest { port = testServerResponseTimeoutPort
                                     , responseTimeout = timeout }
-    conf :: Config' IO <- newConfig Nothing request
-    withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle -> do
-      eventTypesList conf
+    conf :: ConfigIO <- newConfig Nothing request
+    withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle ->
+      runNakadiT conf eventTypesList
   case res of
     Left (HttpExceptionRequest _request ResponseTimeout) -> return ()
     _ -> assertFailure "Expected HttpExceptionRequest with content ResponseTimeout"

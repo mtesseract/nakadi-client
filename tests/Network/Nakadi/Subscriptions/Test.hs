@@ -17,26 +17,26 @@ import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-testSubscriptions :: Config' App -> TestTree
+testSubscriptions :: Config App -> TestTree
 testSubscriptions conf = testGroup "Subscriptions"
   [ testCase "SubscriptionsList" (testSubscriptionsList conf)
   , testCase "SubscriptionsCreateDelete" (testSubscriptionsCreateDelete conf)
   , testCase "SubscriptionDoubleDeleteFailure" (testSubscriptionsDoubleDeleteFailure conf)
   ]
 
-testSubscriptionsList :: Config' App -> Assertion
+testSubscriptionsList :: Config App -> Assertion
 testSubscriptionsList conf = runApp . runNakadiT conf $ do
   -- Cleanup
   deleteSubscriptionsByAppPrefix prefix
   -- Create new Subscriptions
   maybeSubscriptionIds <- forM [1..n] $ \i -> do
     let owningApp = ApplicationName (prefix <> tshow i)
-    subscription <- subscriptionCreate conf (mySubscription (Just owningApp))
+    subscription <- subscriptionCreate (mySubscription (Just owningApp))
     return (subscription^.L.id)
   let subscriptionIds = catMaybes maybeSubscriptionIds
   liftIO $ n @=? length subscriptionIds
   -- Retrieve list of all Subscriptions
-  subscriptions' <- subscriptionsList conf Nothing Nothing
+  subscriptions' <- subscriptionsList Nothing Nothing
   -- Filter for the subscriptions we have created above
   let subscriptionsFiltered = filter (subscriptionAppHasPrefix prefix) subscriptions'
       subscriptionIdsFiltered = catMaybes . map (view L.id) $ subscriptionsFiltered
@@ -48,10 +48,10 @@ testSubscriptionsList conf = runApp . runNakadiT conf $ do
 
 deleteSubscriptionsByAppPrefix :: MonadNakadiEnv b m => Text -> m ()
 deleteSubscriptionsByAppPrefix prefix = do
-  subscriptions <- subscriptionsListR Nothing Nothing
+  subscriptions <- subscriptionsList Nothing Nothing
   let subscriptionsFiltered = filter (subscriptionAppHasPrefix prefix) subscriptions
       subscriptionIdsFiltered = catMaybes . map (view L.id) $ subscriptionsFiltered
-  forM_ subscriptionIdsFiltered subscriptionDeleteR
+  forM_ subscriptionIdsFiltered subscriptionDelete
 
 subscriptionAppHasPrefix :: Text -> Subscription -> Bool
 subscriptionAppHasPrefix prefix subscription =
@@ -69,21 +69,21 @@ mySubscription maybeOwningApp = Subscription
   , _initialCursors = Nothing
   }
 
-testSubscriptionsCreateDelete :: Config' App -> Assertion
+testSubscriptionsCreateDelete :: Config App -> Assertion
 testSubscriptionsCreateDelete conf = runApp . runNakadiT conf $ do
-  subscription <- subscriptionCreateR (mySubscription Nothing)
+  subscription <- subscriptionCreate (mySubscription Nothing)
   liftIO $ True @=? isJust (subscription^.L.id)
   let (Just subscriptionId) = subscription^.L.id
-  subscriptionDeleteR subscriptionId
+  subscriptionDelete subscriptionId
   return ()
 
-testSubscriptionsDoubleDeleteFailure :: Config' App -> Assertion
+testSubscriptionsDoubleDeleteFailure :: Config App -> Assertion
 testSubscriptionsDoubleDeleteFailure conf = runApp . runNakadiT conf $ do
-  subscription <- subscriptionCreateR (mySubscription Nothing)
+  subscription <- subscriptionCreate (mySubscription Nothing)
   liftIO $ True @=? isJust (subscription^.L.id)
   let (Just subscriptionId) = subscription^.L.id
-  subscriptionDeleteR subscriptionId
-  res <- try (subscriptionDeleteR subscriptionId)
+  subscriptionDelete subscriptionId
+  res <- try (subscriptionDelete subscriptionId)
   case res of
     Left (SubscriptionNotFound _) -> return ()
     _ -> liftIO $ assertFailure "Expected SubscriptionNotFound exception"

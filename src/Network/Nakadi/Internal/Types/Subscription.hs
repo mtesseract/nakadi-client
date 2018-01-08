@@ -24,5 +24,5 @@ import           Network.Nakadi.Internal.Types.Service
 data SubscriptionEventStreamContext b = SubscriptionEventStreamContext
   { _streamId       :: StreamId
   , _subscriptionId :: SubscriptionId
-  , _ctxConfig      :: Config' b
+  , _ctxConfig      :: Config b
   }

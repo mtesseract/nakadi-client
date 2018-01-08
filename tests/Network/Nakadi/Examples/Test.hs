@@ -8,6 +8,6 @@ import           Network.Nakadi.Examples.Echo.Test
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-testExamples :: Nakadi.Config' IO -> TestTree
+testExamples :: Nakadi.Config IO -> TestTree
 testExamples conf = testGroup "Examples"
   [ testCase "Echo" (testEcho conf) ]

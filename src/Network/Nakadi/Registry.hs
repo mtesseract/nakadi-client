@@ -14,7 +14,6 @@ This module implements the @\/registry@ API.
 
 module Network.Nakadi.Registry
   ( registryPartitionStrategies
-  , registryPartitionStrategiesR
   ) where
 
 import           Network.Nakadi.Internal.Http
@@ -26,17 +25,8 @@ path = "/registry"
 -- | Retrieves supported partitioning strategies from Nakadi. @GET@ to
 -- @\/registry\/partition-strategies@.
 registryPartitionStrategies ::
-  MonadNakadi b m
-  => Config' b
-  -> m [PartitionStrategy]
-registryPartitionStrategies config =
-  runNakadiT config $ registryPartitionStrategiesR
-
--- | Retrieves supported partitioning strategies from Nakadi,
--- obtaining configuration from environment.
-registryPartitionStrategiesR ::
   MonadNakadiEnv r m
   => m [PartitionStrategy]
-registryPartitionStrategiesR =
+registryPartitionStrategies =
   httpJsonBody status200 []
   (setRequestMethod "GET" . setRequestPath (path <> "/partition-strategies"))

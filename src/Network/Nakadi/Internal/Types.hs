@@ -58,14 +58,14 @@ type MonadNakadi b m = (MonadIO m, MonadIO b, MonadCatch m, MonadSub b m, MonadM
 
 class MonadNakadi b m => MonadNakadiEnv b m | m -> b where
   -- {-# MINIMAL (nakadiAsk | nakadiReader) #-}
-  nakadiAsk :: m (Config' b)
+  nakadiAsk :: m (Config b)
   nakadiAsk = nakadiReader identity
-  nakadiLocal :: (Config' b -> Config' b) -> m a -> m a
-  nakadiReader :: (Config' b -> a) -> m a
+  nakadiLocal :: (Config b -> Config b) -> m a -> m a
+  nakadiReader :: (Config b -> a) -> m a
   nakadiReader f = nakadiAsk >>= (return . f)
 
 instance (MonadIO m, MonadIO b, MonadCatch m, MonadMask b, MonadSub b m)
-      => MonadNakadiEnv b (ReaderT (Config' b) m) where
+      => MonadNakadiEnv b (ReaderT (Config b) m) where
   nakadiAsk = Reader.ask
   nakadiLocal = Reader.local
   nakadiReader = Reader.reader
@@ -79,10 +79,10 @@ instance Monad b => MonadSub b b where
 instance (Monad m, Monad b, Monad (t m), MonadSub b m, MonadTrans t) => MonadSub b (t m) where
   liftSub = lift . liftSub
 
-runNakadiT :: Config' b -> NakadiT b m a -> m a
+runNakadiT :: Config b -> NakadiT b m a -> m a
 runNakadiT = flip _runNakadiT
 
-newtype NakadiT b m a = NakadiT { _runNakadiT :: Config' b -> m a }
+newtype NakadiT b m a = NakadiT { _runNakadiT :: Config b -> m a }
 
 instance Functor m => Functor (NakadiT b m) where
   fmap f (NakadiT n) = NakadiT (\c -> fmap f (n c))

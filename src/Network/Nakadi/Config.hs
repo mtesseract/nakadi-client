@@ -35,7 +35,7 @@ newConfig' ::
   => Manager           -- ^ Manager Settings
   -> ConsumeParameters -- ^ Consumption Parameters
   -> Request           -- ^ Request Template
-  -> m (Config' b)     -- ^ Resulting Configuration
+  -> m (Config b)     -- ^ Resulting Configuration
 newConfig' manager consumeParameters request = do
   return Config { _consumeParameters              = consumeParameters
                 , _manager                        = manager
@@ -55,7 +55,7 @@ newConfig ::
   MonadNakadi b m
   => Maybe ManagerSettings -- ^ Optional 'ManagerSettings'
   -> Request               -- ^ Request template for Nakadi requests
-  -> m (Config' b)         -- ^ Resulting Configuration
+  -> m (Config b)         -- ^ Resulting Configuration
 newConfig mngrSettings request = do
   manager <- newTlsManagerWith (fromMaybe tlsManagerSettings mngrSettings)
   newConfig' manager defaultConsumeParameters request
@@ -65,16 +65,16 @@ newConfig mngrSettings request = do
 -- Nakadi.
 setRequestModifier ::
   (Request -> m Request)
-  -> Config' m
-  -> Config' m
+  -> Config m
+  -> Config m
 setRequestModifier = (L.requestModifier .~)
 
 -- | Install a callback in the provided configuration to use in case
 -- of deserialization failures when consuming events.
 setDeserializationFailureCallback ::
   (ByteString -> Text -> m ())
-  -> Config' m
-  -> Config' m
+  -> Config m
+  -> Config m
 setDeserializationFailureCallback cb = L.deserializationFailureCallback .~ Just cb
 
 -- | Install a callback in the provided configuration which is used
@@ -82,8 +82,8 @@ setDeserializationFailureCallback cb = L.deserializationFailureCallback .~ Just 
 -- connection.
 setStreamConnectCallback ::
   StreamConnectCallback m
-  -> Config' m
-  -> Config' m
+  -> Config m
+  -> Config m
 setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
 
 -- | Install a callback in the provided configuration which is called
@@ -93,30 +93,30 @@ setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
 -- callback delays potential retry attempts.
 setHttpErrorCallback ::
   HttpErrorCallback m
-  -> Config' m
-  -> Config' m
+  -> Config m
+  -> Config m
 setHttpErrorCallback cb = L.httpErrorCallback .~ Just cb
 
 -- | Install a logger callback in the provided configuration.
 setLogFunc ::
   LogFunc' m
-  -> Config' m
-  -> Config' m
+  -> Config m
+  -> Config m
 setLogFunc logFunc = L.logFunc .~ Just logFunc
 
 -- | Set a custom retry policy in the provided configuration.
 setRetryPolicy ::
   RetryPolicyM m
-  -> Config' m
-  -> Config' m
+  -> Config m
+  -> Config m
 setRetryPolicy = (L.retryPolicy .~)
 
 -- | Set a custom HTTP Backend in the provided configuration. Can be
 -- used for testing.
 setHttpBackend ::
   HttpBackend
-  -> Config' m
-  -> Config' m
+  -> Config m
+  -> Config m
 setHttpBackend = (L.http .~)
 
 -- | Default parameters for event consumption.

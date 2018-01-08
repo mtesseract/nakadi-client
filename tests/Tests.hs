@@ -53,7 +53,7 @@ main = do
       case parseRequest nakadiEndpoint of
         Just request -> do
           conf <- runApp $ newConfig Nothing request
-          confIO :: Config' IO <- liftIO $ newConfig Nothing request
+          confIO :: ConfigIO <- liftIO $ newConfig Nothing request
           return ("nakadi-client Test Suite",
                   integrationTests conf confIO ++ unitTests)
         Nothing -> do
@@ -70,7 +70,7 @@ unitTests =
   , testConnection
   ]
 
-integrationTests :: Config' App -> Config' IO -> [TestTree]
+integrationTests :: Config App -> ConfigIO -> [TestTree]
 integrationTests conf confIO =
   [ testExamples confIO
   , testEventTypes conf
