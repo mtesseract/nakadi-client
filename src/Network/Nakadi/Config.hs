@@ -36,18 +36,18 @@ newConfig' ::
   -> ConsumeParameters -- ^ Consumption Parameters
   -> Request           -- ^ Request Template
   -> m (Config b)     -- ^ Resulting Configuration
-newConfig' manager consumeParameters request = do
-  return Config { _consumeParameters              = consumeParameters
-                , _manager                        = manager
-                , _requestTemplate                = request
-                , _requestModifier                = return
-                , _deserializationFailureCallback = Nothing
-                , _streamConnectCallback          = Nothing
-                , _logFunc                        = Nothing
-                , _retryPolicy                    = defaultRetryPolicy
-                , _http                           = backendIO manager
-                , _httpErrorCallback              = Nothing
-                }
+newConfig' manager consumeParameters request =
+  pure Config { _consumeParameters              = consumeParameters
+              , _manager                        = manager
+              , _requestTemplate                = request
+              , _requestModifier                = return
+              , _deserializationFailureCallback = Nothing
+              , _streamConnectCallback          = Nothing
+              , _logFunc                        = Nothing
+              , _retryPolicy                    = defaultRetryPolicy
+              , _http                           = backendIO manager
+              , _httpErrorCallback              = Nothing
+              }
 
 -- | Produce a new configuration, with optional HTTP manager settings
 -- and mandatory HTTP request template.
