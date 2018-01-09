@@ -25,7 +25,7 @@ path = "/registry"
 -- | Retrieves supported partitioning strategies from Nakadi. @GET@ to
 -- @\/registry\/partition-strategies@.
 registryPartitionStrategies ::
-  MonadNakadiEnv r m
+  MonadNakadi r m
   => m [PartitionStrategy]
 registryPartitionStrategies =
   httpJsonBody status200 []

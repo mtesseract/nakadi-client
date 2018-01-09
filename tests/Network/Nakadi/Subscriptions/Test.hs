@@ -46,7 +46,7 @@ testSubscriptionsList conf = runApp . runNakadiT conf $ do
   where n = 100
         prefix = "test-suite-list-"
 
-deleteSubscriptionsByAppPrefix :: MonadNakadiEnv b m => Text -> m ()
+deleteSubscriptionsByAppPrefix :: MonadNakadi b m => Text -> m ()
 deleteSubscriptionsByAppPrefix prefix = do
   subscriptions <- subscriptionsList Nothing Nothing
   let subscriptionsFiltered = filter (subscriptionAppHasPrefix prefix) subscriptions

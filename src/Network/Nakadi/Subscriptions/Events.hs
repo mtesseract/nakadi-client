@@ -41,7 +41,7 @@ import           Network.Nakadi.Subscriptions.Cursors
 -- | GET to @\/subscriptions\/SUBSCRIPTION\/events@. Creates a Conduit
 -- Source producing events from a Subscription's event stream.
 subscriptionSource ::
-  (MonadNakadiEnv b m, MonadResource m, MonadBaseControl IO m, FromJSON a
+  (MonadNakadi b m, MonadResource m, MonadBaseControl IO m, FromJSON a
   , MonadSub b n, MonadIO n)
   => Maybe ConsumeParameters -- ^ Optional Consumption Parameters
   -> SubscriptionId          -- ^ Subscription ID
@@ -79,7 +79,7 @@ subscriptionSource maybeParams subscriptionId = do
 
 -- | Run a Subscription processing Conduit.
 runSubscription ::
-  (MonadNakadiEnv b m, MonadBaseControl IO m, MonadResource m)
+  (MonadNakadi b m, MonadBaseControl IO m, MonadResource m)
   => SubscriptionEventStream -- ^ Connection information for the Subscription
   -> ConduitM ()
               Void
@@ -98,6 +98,6 @@ runSubscription SubscriptionEventStream { .. } conduit = do
 -- subscriptions events. This sink takes care of committing events. It
 -- can consume any values which contain Subscription Cursors.
 subscriptionSink ::
-  (MonadNakadiEnv b m, L.HasNakadiSubscriptionCursor a )
+  (MonadNakadi b m, L.HasNakadiSubscriptionCursor a )
   => ConduitM a Void (ReaderT (SubscriptionEventStreamContext b) m) ()
 subscriptionSink = awaitForever $ lift . subscriptionCommit . (: [])

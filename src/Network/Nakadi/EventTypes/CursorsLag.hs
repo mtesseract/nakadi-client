@@ -37,7 +37,7 @@ path eventTypeName =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. Low level
 -- interface.
 cursorsLag' ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors for which to compute the lag for
   -> m [Partition] -- ^ Resulting partition information containing
@@ -51,7 +51,7 @@ cursorsLag' eventTypeName cursors =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. High level
 -- interface.
 cursorsLag ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName                  -- ^ Event Type
   -> Map PartitionName CursorOffset -- ^ Cursor offsets associated to
                                     -- partitions.

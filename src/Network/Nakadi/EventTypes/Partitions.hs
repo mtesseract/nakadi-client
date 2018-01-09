@@ -34,7 +34,7 @@ path eventTypeName maybePartitionName =
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions@. Retrieves
 -- information about all partitions.
 eventTypePartitions ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> m [Partition] -- ^ Partition Information
 eventTypePartitions eventTypeName =
@@ -44,7 +44,7 @@ eventTypePartitions eventTypeName =
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions\/PARTITION@.
 -- Retrieves information about a single partition.
 eventTypePartition ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> PartitionName -- ^ Name of Partition to look up
   -> m Partition   -- ^ Partition Information

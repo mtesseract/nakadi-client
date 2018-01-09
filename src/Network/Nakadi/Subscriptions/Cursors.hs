@@ -47,7 +47,7 @@ path subscriptionId =
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION-ID\/cursors@. Commits
 -- cursors using low level interface.
 subscriptionCursorCommit' ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => SubscriptionId           -- ^ Subsciption ID
   -> StreamId                 -- ^ Stream ID
   -> SubscriptionCursorCommit -- ^ Subscription Cursor to commit
@@ -62,7 +62,7 @@ subscriptionCursorCommit' subscriptionId streamId cursors =
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Commits
 -- cursors using high level interface.
 subscriptionCommit ::
-  (MonadNakadiEnv b m, HasNakadiSubscriptionCursor a)
+  (MonadNakadi b m, HasNakadiSubscriptionCursor a)
   => [a] -- ^ Values containing Subscription Cursors to commit
   -> ReaderT (SubscriptionEventStreamContext b) m ()
 subscriptionCommit as = do
@@ -82,7 +82,7 @@ subscriptionCommit as = do
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Retrieves
 -- subscriptions cursors.
 subscriptionCursors ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => SubscriptionId         -- ^ Subscription ID
   -> m [SubscriptionCursor] -- ^ Subscription Cursors for the specified Subscription
 subscriptionCursors subscriptionId =
@@ -92,7 +92,7 @@ subscriptionCursors subscriptionId =
 -- | @PATCH@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Resets
 -- subscriptions cursors.
 subscriptionCursorsReset ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => SubscriptionId                   -- ^ Subscription ID
   -> [SubscriptionCursorWithoutToken] -- ^ Subscription Cursors to reset
   -> m ()

@@ -46,7 +46,7 @@ path = "/subscriptions"
 -- | @POST@ to @\/subscriptions@. Creates a new subscription. Low
 -- level interface.
 subscriptionCreate' ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => Subscription
   -> m Subscription
 subscriptionCreate' subscription =
@@ -58,7 +58,7 @@ subscriptionCreate' subscription =
 -- | @POST@ to @\/subscriptions@. Creates a new subscription. Does not
 -- fail if the requested subscription does already exist.
 subscriptionCreate ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => Subscription
   -> m Subscription
 subscriptionCreate subscription = do
@@ -69,7 +69,7 @@ subscriptionCreate subscription = do
 
 -- | @GET@ to @\/subscriptions@. Internal low-level interface.
 subscriptionsGet ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => [(ByteString, ByteString)]
   -> m SubscriptionsListResponse
 subscriptionsGet queryParameters =
@@ -95,7 +95,7 @@ buildQueryParameters maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset =
 -- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
 -- the provided filter criteria. Low-level interface using pagination.
 subscriptionsList' ::
-  (MonadNakadiEnv b m)
+  (MonadNakadi b m)
   => Maybe ApplicationName
   -> Maybe [EventTypeName]
   -> Maybe Limit
@@ -108,8 +108,8 @@ subscriptionsList' maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset = d
 
 -- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
 -- the provided filter criteria. High-level Conduit interface.
-subscriptionsSource :: ( MonadNakadiEnv b m, MonadIO n, MonadSub b n, MonadCatch n
-                       , MonadNakadiEnv b n)
+subscriptionsSource :: ( MonadNakadi b m, MonadIO n, MonadSub b n, MonadCatch n
+                       , MonadNakadi b n)
                     => Maybe ApplicationName
                     -> Maybe [EventTypeName]
                     -> m (ConduitM () [Subscription] n ())
@@ -132,7 +132,7 @@ subscriptionsSource maybeOwningApp maybeEventTypeNames =
 -- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
 -- the provided filter criteria. High-level list interface.
 subscriptionsList ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => Maybe ApplicationName
   -> Maybe [EventTypeName]
   -> m [Subscription]

@@ -28,8 +28,7 @@ module Network.Nakadi.Internal.Types
   , module Network.Nakadi.Internal.Types.Service
   , module Network.Nakadi.Internal.Types.Subscription
   , module Network.Nakadi.Internal.Types.Util
-  , MonadNakadi
-  , MonadNakadiEnv(..)
+  , MonadNakadi(..)
   , MonadSub(..)
   , NakadiT
   , runNakadiT
@@ -52,11 +51,8 @@ import           Control.Monad.Base
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 
--- | type constraint synonym for encapsulating the monad constraints
--- required by most funtions in this package.
-type MonadNakadi b m = (MonadIO m, MonadIO b, MonadCatch m, MonadSub b m, MonadMask b)
-
-class MonadNakadi b m => MonadNakadiEnv b m | m -> b where
+class (MonadIO m, MonadIO b, MonadCatch m, MonadSub b m, MonadMask b)
+   => MonadNakadi b m | m -> b where
   -- {-# MINIMAL (nakadiAsk | nakadiReader) #-}
   nakadiAsk :: m (Config b)
   nakadiAsk = nakadiReader identity
@@ -65,7 +61,7 @@ class MonadNakadi b m => MonadNakadiEnv b m | m -> b where
   nakadiReader f = nakadiAsk >>= (return . f)
 
 instance (MonadIO m, MonadIO b, MonadCatch m, MonadMask b, MonadSub b m)
-      => MonadNakadiEnv b (ReaderT (Config b) m) where
+      => MonadNakadi b (ReaderT (Config b) m) where
   nakadiAsk = Reader.ask
   nakadiLocal = Reader.local
   nakadiReader = Reader.reader
@@ -121,17 +117,17 @@ instance (MonadIO m) => MonadIO (NakadiT b m) where
     {-# INLINE liftIO #-}
 
 instance (MonadIO m, MonadIO b, MonadCatch m, MonadMask b, MonadSub b m)
-      => MonadNakadiEnv b (NakadiT b m) where
+      => MonadNakadi b (NakadiT b m) where
   nakadiAsk = NakadiT return
   nakadiReader f = NakadiT (return . f)
   nakadiLocal f (NakadiT m) = NakadiT (\ c -> m (f c))
 
-instance (MonadNakadiEnv b m) => MonadNakadiEnv b (ReaderT r m) where
+instance (MonadNakadi b m) => MonadNakadi b (ReaderT r m) where
   nakadiAsk = lift nakadiAsk
   nakadiReader = lift . nakadiReader
   nakadiLocal f (Reader.ReaderT m) = Reader.ReaderT (\ r -> nakadiLocal f (m r))
 
-instance (MonadNakadiEnv b m) => MonadNakadiEnv b (ResourceT m) where
+instance (MonadNakadi b m) => MonadNakadi b (ResourceT m) where
   nakadiAsk = lift nakadiAsk
   nakadiReader = lift . nakadiReader
   nakadiLocal f m = transResourceT (nakadiLocal f) m

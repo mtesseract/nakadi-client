@@ -37,7 +37,7 @@ path subscriptionId =
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Low level
 -- interface for Subscriptions Statistics retrieval.
 subscriptionStats' ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => SubscriptionId                     -- ^ Subscription ID
   -> m SubscriptionEventTypeStatsResult -- ^ Subscription Statistics
 subscriptionStats' subscriptionId =
@@ -47,7 +47,7 @@ subscriptionStats' subscriptionId =
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. High level
 -- interface for Subscription Statistics retrieval.
 subscriptionStats ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => SubscriptionId                        -- ^ Subscription ID
   -> m (Map EventTypeName [PartitionStat]) -- ^ Subscription
                                            -- Statistics as a 'Map'.

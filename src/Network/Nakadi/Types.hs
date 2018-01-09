@@ -17,8 +17,7 @@ module Network.Nakadi.Types
   , module Network.Nakadi.Types.Problem
   , module Network.Nakadi.Types.Service
   , module Network.Nakadi.Types.Subscription
-  , MonadNakadi
-  , MonadNakadiEnv(..)
+  , MonadNakadi(..)
   , HasNakadiConfig(..)
   , NakadiT
   , runNakadiT

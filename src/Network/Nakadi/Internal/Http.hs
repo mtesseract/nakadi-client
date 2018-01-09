@@ -85,7 +85,7 @@ checkNakadiResponse request response =
   throwIO $ HttpExceptionRequest request (StatusCodeException (void response) mempty)
 
 httpBuildRequest ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => (Request -> Request) -- ^ Pure request modifier
   -> m Request -- ^ Resulting request to execute
 httpBuildRequest requestDef = do
@@ -98,7 +98,7 @@ httpBuildRequest requestDef = do
 
 -- | Modify the Request based on a user function in the configuration.
 modifyRequest ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => (Request -> b Request)
   -> Request
   -> m Request
@@ -110,7 +110,7 @@ modifyRequest rm request =
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier.
 httpExecRequest ::
-  (MonadNakadiEnv b m, MonadIO b, MonadSub b m)
+  (MonadNakadi b m, MonadIO b, MonadSub b m)
   => (Request -> Request)
   -> m (Response ByteString.Lazy.ByteString)
 httpExecRequest requestDef = do
@@ -122,14 +122,14 @@ httpExecRequest requestDef = do
 -- pure request modifier. Returns the HTTP response and separately the
 -- response status.
 httpExecRequestWithStatus ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => (Request -> Request) -- ^ Pure request modifier
   -> m (Response ByteString.Lazy.ByteString, Status)
 httpExecRequestWithStatus requestDef =
   (identity &&& getResponseStatus) <$> httpExecRequest requestDef
 
 httpJsonBody ::
-  (MonadNakadiEnv b m, FromJSON a)
+  (MonadNakadi b m, FromJSON a)
   => Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
@@ -145,7 +145,7 @@ httpJsonBody successStatus exceptionMap requestDef = do
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonNoBody ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
@@ -161,7 +161,7 @@ httpJsonNoBody successStatus exceptionMap requestDef = do
 
 httpJsonBodyStream ::
   forall b m n a c r.
-  (MonadNakadiEnv b m, MonadResource m, FromJSON a
+  (MonadNakadi b m, MonadResource m, FromJSON a
   , MonadSub b n, MonadIO n)
   => Status
   -> (Response () -> Either Text c)

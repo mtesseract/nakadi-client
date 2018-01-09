@@ -29,7 +29,7 @@ path eventTypeName = "/event-types/" <> encodeUtf8 (unEventTypeName eventTypeNam
 -- | Retrieves an 'EventType' by its 'EventTypeName'. @GET@ to
 -- @\/event-types\/EVENT-TYPE@.
 eventTypeGet ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> m EventType   -- ^ Event Type information
 eventTypeGet eventTypeName =
@@ -40,7 +40,7 @@ eventTypeGet eventTypeName =
 -- | Updates an event type given its 'EventTypeName' and its new
 -- 'EventType' description. @PUT@ to @\/event-types\/EVENT-TYPE@.
 eventTypeUpdate ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> EventType     -- ^ Event Type Settings
   -> m ()
@@ -53,7 +53,7 @@ eventTypeUpdate eventTypeName eventType =
 -- | Deletes an event type given its 'EventTypeName'. @DELETE@ to
 -- @\/event-types\/EVENT-TYPE@.
 eventTypeDelete ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> m ()
 eventTypeDelete eventTypeName =

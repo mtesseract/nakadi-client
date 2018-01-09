@@ -39,13 +39,13 @@ genEvents :: MonadIO m => m (Vector (Nakadi.DataChangeEvent Foo))
 genEvents =
   Vector.fromList <$> sequence (replicate 10 genEvent)
 
-publishEvents :: Nakadi.MonadNakadiEnv IO m
+publishEvents :: Nakadi.MonadNakadi IO m
               => Vector (Nakadi.DataChangeEvent Foo)
               -> Nakadi.EventTypeName -> m ()
 publishEvents events eventName = do
   Nakadi.eventPublish eventName Nothing (Vector.toList events)
   
-consumerMain :: (Nakadi.MonadNakadiEnv IO m, MonadBaseControl IO m)
+consumerMain :: (Nakadi.MonadNakadi IO m, MonadBaseControl IO m)
              => Nakadi.EventTypeName
              -> Int
              -> m (Vector Foo)

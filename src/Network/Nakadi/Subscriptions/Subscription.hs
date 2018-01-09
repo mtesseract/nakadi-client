@@ -31,7 +31,7 @@ path subscriptionId =
 -- | @GET@ to @\/subscriptions\/SUBSCRIPTION@. Looks up subscription
 -- information for a subscription ID.
 subscriptionGet ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => SubscriptionId -- ^ Subscription ID
   -> m Subscription -- ^ Resulting Subscription Information
 subscriptionGet subscriptionId =
@@ -41,7 +41,7 @@ subscriptionGet subscriptionId =
 -- | @DELETE@ to @\/subscriptions\/SUBSCRIPTION@. Deletes a
 -- subscription by subscription ID.
 subscriptionDelete ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => SubscriptionId -- ^ ID of the Subcription to delete
   -> m ()
 subscriptionDelete subscriptionId =

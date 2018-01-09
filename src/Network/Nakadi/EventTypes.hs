@@ -42,7 +42,7 @@ path = "/event-types"
 -- | @GET@ to @\/event-types@. Retrieves a list of all registered
 -- event types.
 eventTypesList ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => m [EventType] -- ^ Registered Event Types
 eventTypesList =
   httpJsonBody status200 []
@@ -50,7 +50,7 @@ eventTypesList =
 
 -- | @POST@ to @\/event-types@. Creates a new event type.
 eventTypeCreate ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventType -- ^ Event Type to create
   -> m ()
 eventTypeCreate eventType =

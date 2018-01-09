@@ -78,7 +78,7 @@ myDataChangeEvent eid now =  DataChangeEvent
 genRandomUUID :: MonadIO m => m UUID
 genRandomUUID = liftIO randomIO
 
-recreateEvent :: MonadNakadiEnv b m => EventTypeName -> EventType -> m ()
+recreateEvent :: MonadNakadi b m => EventTypeName -> EventType -> m ()
 recreateEvent eventTypeName eventType = do
   subscriptionIds <- subscriptionsList Nothing (Just [eventTypeName])
     <&> catMaybes . map (view L.id)
@@ -86,7 +86,7 @@ recreateEvent eventTypeName eventType = do
   eventTypeDelete eventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate eventType
 
-delayedPublish :: (MonadNakadiEnv b m, ToJSON a) => Maybe FlowId -> [a] -> m ()
+delayedPublish :: (MonadNakadi b m, ToJSON a) => Maybe FlowId -> [a] -> m ()
 delayedPublish flowId events  = do
   liftIO $ threadDelay (10^6)
   eventPublish myEventTypeName flowId events

@@ -33,7 +33,7 @@ path eventTypeName =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. Low level
 -- interface.
 cursorsShift' ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName   -- ^ Event Type
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
@@ -46,7 +46,7 @@ cursorsShift' eventTypeName cursors =
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface.
 cursorsShift ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Event Type
   -> [Cursor]      -- ^ Cursors to shift
   -> Int64         -- ^ Shift Distance

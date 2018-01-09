@@ -37,7 +37,7 @@ path eventTypeName maybeSchemaVersion =
 -- | Retrieves schemas for the given 'EventTypeName' using low-level
 -- paging interface. @GET@ to @\/event-types\/NAME\/schemas@.
 eventTypeSchemasGet ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> Maybe Offset
   -> Maybe Limit
@@ -57,7 +57,7 @@ eventTypeSchemasGet eventTypeName offset limit =
 -- 'SchemaVersion'. @GET@ to
 -- @\/event-types\/EVENT-TYPE\/schemas\/SCHEMA@.
 eventTypeSchema ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName
   -> SchemaVersion
   -> m EventTypeSchema

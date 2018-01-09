@@ -31,7 +31,7 @@ defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
 newConfig' ::
-  MonadNakadi b m
+  (MonadIO m, MonadIO b, MonadCatch m, MonadSub b m, MonadMask b)
   => Manager           -- ^ Manager Settings
   -> ConsumeParameters -- ^ Consumption Parameters
   -> Request           -- ^ Request Template
@@ -52,7 +52,7 @@ newConfig' manager consumeParameters request =
 -- | Produce a new configuration, with optional HTTP manager settings
 -- and mandatory HTTP request template.
 newConfig ::
-  MonadNakadi b m
+  (MonadIO m, MonadIO b, MonadCatch m, MonadSub b m, MonadMask b)
   => Maybe ManagerSettings -- ^ Optional 'ManagerSettings'
   -> Request               -- ^ Request template for Nakadi requests
   -> m (Config b)         -- ^ Resulting Configuration

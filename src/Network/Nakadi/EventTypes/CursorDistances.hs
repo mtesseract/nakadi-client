@@ -34,7 +34,7 @@ path eventTypeName =
 
 -- | Query for distance between cursors. Low level call.
 cursorsDistance' ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName            -- ^ Event Type
   -> [CursorDistanceQuery]    -- ^ List of cursor-distance-queries
   -> m [CursorDistanceResult] -- ^ List of cursor-distance-results
@@ -46,7 +46,7 @@ cursorsDistance' eventTypeName cursorDistanceQuery =
 
 -- | Given two cursors, compute the distance between these cursors.
 cursorDistance ::
-  MonadNakadiEnv b m
+  MonadNakadi b m
   => EventTypeName -- ^ Event Type
   -> Cursor        -- ^ First cursor
   -> Cursor        -- ^ Second cursor

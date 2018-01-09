@@ -41,7 +41,7 @@ path eventTypeName =
 -- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
 -- for event batch consumption.
 eventSource ::
-  (MonadNakadiEnv b m, MonadResource m, FromJSON a, MonadBaseControl IO m
+  (MonadNakadi b m, MonadResource m, FromJSON a, MonadBaseControl IO m
   , MonadSub b n, MonadIO n
   )
   => Maybe ConsumeParameters -- ^ Optional parameters for event consumption
@@ -70,7 +70,7 @@ eventSource maybeParams eventTypeName maybeCursors = do
 -- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
 -- events for the specified event type.
 eventPublish ::
-  (MonadNakadiEnv b m, ToJSON a)
+  (MonadNakadi b m, ToJSON a)
   => EventTypeName
   -> Maybe FlowId
   -> [a]
