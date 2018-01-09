@@ -12,6 +12,7 @@ This module provides the Nakadi Logger Types.
 
 module Network.Nakadi.Types.Logger
   ( LogFunc
+  , LogFuncIO
   ) where
 
 import           Network.Nakadi.Internal.Types.Logger

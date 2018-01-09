@@ -99,7 +99,7 @@ setHttpErrorCallback cb = L.httpErrorCallback .~ Just cb
 
 -- | Install a logger callback in the provided configuration.
 setLogFunc ::
-  LogFunc' m
+  LogFunc m
   -> Config m
   -> Config m
 setLogFunc logFunc = L.logFunc .~ Just logFunc

@@ -24,7 +24,7 @@ import           Network.Nakadi.Internal.Types.Logger
 
 -- | Config
 
-type StreamConnectCallback m = Maybe (LogFunc' m) -> Response () -> m ()
+type StreamConnectCallback m = Maybe (LogFunc m) -> Response () -> m ()
 
 -- | Type synonym for user-provided callbacks which are used for HTTP
 -- Errror propagation.
@@ -39,7 +39,7 @@ data Config m = Config
   , _consumeParameters              :: ConsumeParameters
   , _deserializationFailureCallback :: Maybe (ByteString -> Text -> m ())
   , _streamConnectCallback          :: Maybe (StreamConnectCallback m)
-  , _logFunc                        :: Maybe (LogFunc' m)
+  , _logFunc                        :: Maybe (LogFunc m)
   , _retryPolicy                    :: RetryPolicyM m
   , _http                           :: HttpBackend
   , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
