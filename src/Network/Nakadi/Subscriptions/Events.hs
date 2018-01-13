@@ -18,7 +18,6 @@ This module implements a high level interface for the
 
 module Network.Nakadi.Subscriptions.Events
   ( subscriptionSource
-  , runSubscription
   , subscriptionSink
   ) where
 
@@ -41,14 +40,13 @@ import           Network.Nakadi.Subscriptions.Cursors
 -- | GET to @\/subscriptions\/SUBSCRIPTION\/events@. Creates a Conduit
 -- Source producing events from a Subscription's event stream.
 subscriptionSource ::
-  (MonadNakadi b m, MonadResource m, MonadBaseControl IO m, FromJSON a
-  , MonadSub b n, MonadIO n)
+  (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m, MonadResource m, MonadBaseControl IO m, FromJSON a)
   => Maybe ConsumeParameters -- ^ Optional Consumption Parameters
   -> SubscriptionId          -- ^ Subscription ID
   -> m ( SubscriptionEventStream
        , ConduitM ()
          (SubscriptionEventStreamBatch a)
-         (ReaderT (SubscriptionEventStreamContext b) n)
+         m
          () )                -- ^ Returns a Pair consisting of subscription
                              -- connection information ('SubscriptionEventStream')
                              -- and a Conduit source.
@@ -76,23 +74,6 @@ subscriptionSource maybeParams subscriptionId = do
         path = "/subscriptions/"
                <> subscriptionIdToByteString subscriptionId
                <> "/events"
-
--- | Run a Subscription processing Conduit.
-runSubscription ::
-  (MonadNakadi b m, MonadBaseControl IO m, MonadResource m)
-  => SubscriptionEventStream -- ^ Connection information for the Subscription
-  -> ConduitM ()
-              Void
-              (ReaderT (SubscriptionEventStreamContext b) m)
-              s              -- ^ Subscription Conduit to run
-  -> m s                     -- ^ Result of the Conduit
-runSubscription SubscriptionEventStream { .. } conduit = do
-  config <- nakadiAsk
-  let subscriptionStreamContext = SubscriptionEventStreamContext
-                                  { _streamId       = _streamId
-                                  , _subscriptionId = _subscriptionId
-                                  , _ctxConfig      = config }
-  runConduit . runReaderC subscriptionStreamContext $ conduit
 
 -- | Sink which can be used as sink for Conduits processing
 -- subscriptions events. This sink takes care of committing events. It

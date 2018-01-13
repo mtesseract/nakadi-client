@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-|
 Module      : Network.Nakadi.Internal.Retry
 Description : Nakadi Client Retry Mechanism
@@ -35,7 +36,7 @@ invokeHttpErrorCallback ::
   -> HttpException
   -> RetryStatus
   -> b ()
-invokeHttpErrorCallback config req exn retryStatus = liftSub $
+invokeHttpErrorCallback config req exn retryStatus =
   case config^.L.httpErrorCallback of
     Just cb -> do
       finalFailure <- isFinalFailure
@@ -52,7 +53,7 @@ invokeHttpErrorCallback config req exn retryStatus = liftSub $
 -- type 'HttpException', the action will be potentially retried
 -- (depending on the retry policy).
 retryAction ::
-  (MonadIO b, MonadMask b, MonadSub b m, MonadIO m)
+  (MonadIO b, MonadMask b, MonadIO m, MonadNakadi b m)
   => Config b
   -> Request
   -> (Request -> b a)

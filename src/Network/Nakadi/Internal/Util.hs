@@ -10,7 +10,8 @@ Portability : POSIX
 Internal utility functions.
 -}
 
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 
 module Network.Nakadi.Internal.Util
   ( conduitDrainToLazyByteString
@@ -28,14 +29,13 @@ import           Data.Conduit
 import           Data.Conduit.Combinators        hiding (decodeUtf8, map)
 import           Network.HTTP.Simple
 
-import           Network.Nakadi.Types
 import           Network.Nakadi.Internal.Types
 
 conduitDrainToLazyByteString ::
-  MonadSub b m
+  Monad b
   => ConduitM () ByteString b ()
-  -> m ByteString.Lazy.ByteString
-conduitDrainToLazyByteString conduit = liftSub $
+  -> b ByteString.Lazy.ByteString
+conduitDrainToLazyByteString conduit =
   toLazyByteString <$> (conduit $$ sinkBuilder)
 
 decodeThrow :: (FromJSON a, MonadThrow m) => ByteString.Lazy.ByteString -> m a

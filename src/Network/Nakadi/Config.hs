@@ -17,11 +17,10 @@ import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
 import           Control.Retry
-import           Network.HTTP.Client               (Manager, ManagerSettings)
-import           Network.HTTP.Client.TLS           (newTlsManagerWith,
-                                                    tlsManagerSettings)
-import           Network.Nakadi.Internal.BackendIO
-import qualified Network.Nakadi.Internal.Lenses    as L
+import           Network.HTTP.Client             (Manager, ManagerSettings)
+import           Network.HTTP.Client.TLS         (newTlsManagerWith,
+                                                  tlsManagerSettings)
+import qualified Network.Nakadi.Internal.Lenses  as L
 import           Network.Nakadi.Internal.Types
 
 -- | Default retry policy.
@@ -31,7 +30,7 @@ defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
 newConfig' ::
-  (MonadIO m, MonadIO b, MonadCatch m, MonadSub b m, MonadMask b)
+  (MonadIO m, MonadIO b, MonadCatch m)
   => Manager           -- ^ Manager Settings
   -> ConsumeParameters -- ^ Consumption Parameters
   -> Request           -- ^ Request Template
@@ -45,14 +44,13 @@ newConfig' manager consumeParameters request =
               , _streamConnectCallback          = Nothing
               , _logFunc                        = Nothing
               , _retryPolicy                    = defaultRetryPolicy
-              , _http                           = backendIO manager
               , _httpErrorCallback              = Nothing
               }
 
 -- | Produce a new configuration, with optional HTTP manager settings
 -- and mandatory HTTP request template.
 newConfig ::
-  (MonadIO m, MonadIO b, MonadCatch m, MonadSub b m, MonadMask b)
+  (MonadIO m, MonadIO b, MonadCatch m)
   => Maybe ManagerSettings -- ^ Optional 'ManagerSettings'
   -> Request               -- ^ Request template for Nakadi requests
   -> m (Config b)         -- ^ Resulting Configuration
@@ -110,14 +108,6 @@ setRetryPolicy ::
   -> Config m
   -> Config m
 setRetryPolicy = (L.retryPolicy .~)
-
--- | Set a custom HTTP Backend in the provided configuration. Can be
--- used for testing.
-setHttpBackend ::
-  HttpBackend
-  -> Config m
-  -> Config m
-setHttpBackend = (L.http .~)
 
 -- | Default parameters for event consumption.
 defaultConsumeParameters :: ConsumeParameters

@@ -41,21 +41,19 @@ path eventTypeName =
 -- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
 -- for event batch consumption.
 eventSource ::
-  (MonadNakadi b m, MonadResource m, FromJSON a, MonadBaseControl IO m
-  , MonadSub b n, MonadIO n
-  )
+  (MonadNakadi b m, MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m, FromJSON a)
   => Maybe ConsumeParameters -- ^ Optional parameters for event consumption
   -> EventTypeName           -- ^ Name of the event type to consume
   -> Maybe [Cursor]          -- ^ Optional list of cursors; by default
                              -- consumption begins with the most
                              -- recent event
   -> m (ConduitM () (EventStreamBatch a)
-        n ())                -- ^ Returns a Conduit source.
+        m ())                -- ^ Returns a Conduit source.
 eventSource maybeParams eventTypeName maybeCursors = do
   config <- nakadiAsk
   let consumeParams = fromMaybe (config^.L.consumeParameters) maybeParams
       queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
-  runReaderC () . snd <$>
+  snd <$>
     httpJsonBodyStream ok200 (const (Right ())) [ (status429, errorTooManyRequests)
                                                 , (status429, errorEventTypeNotFound) ]
     (setRequestPath (path eventTypeName)

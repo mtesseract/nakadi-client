@@ -108,11 +108,10 @@ subscriptionsList' maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset = d
 
 -- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
 -- the provided filter criteria. High-level Conduit interface.
-subscriptionsSource :: ( MonadNakadi b m, MonadIO n, MonadSub b n, MonadCatch n
-                       , MonadNakadi b n)
+subscriptionsSource :: ( MonadNakadi b m)
                     => Maybe ApplicationName
                     -> Maybe [EventTypeName]
-                    -> m (ConduitM () [Subscription] n ())
+                    -> m (ConduitM () [Subscription] m ())
 subscriptionsSource maybeOwningApp maybeEventTypeNames =
   pure $ nextPage initialQueryParameters
 

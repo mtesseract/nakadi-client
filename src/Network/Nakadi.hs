@@ -16,10 +16,8 @@ module Network.Nakadi
   , module Network.Nakadi.Subscriptions
   , module Network.Nakadi.Config
   , module Network.Nakadi.Registry
-  , module Network.Nakadi.BackendIO
   ) where
 
-import           Network.Nakadi.BackendIO
 import           Network.Nakadi.Config
 import           Network.Nakadi.EventTypes
 import           Network.Nakadi.Internal.Lenses
