@@ -7,11 +7,8 @@ module Network.Nakadi.Internal.Http.Test
   ) where
 
 import           ClassyPrelude
-import           Conduit
+import           Control.Lens
 import           Network.HTTP.Client
-import           Network.HTTP.Client.Internal (CookieJar (..), Request (..),
-                                               Response (..),
-                                               ResponseClose (..))
 import           Network.HTTP.Types
 import           Network.Nakadi
 import           Network.Nakadi.Internal.Http
@@ -23,39 +20,15 @@ testHttp = testGroup "Http"
   [ testCase "HttpRequestModifier" testHttpRequestModifier
   ]
 
-resp :: Response (IO ByteString)
-resp = Response
-    { responseStatus = status200
-    , responseVersion = http11
-    , responseHeaders = []
-    , responseBody = pure ""
-    , responseCookieJar = CJ []
-    , responseClose' = ResponseClose (pure ())
-    }
-
 headers :: RequestHeaders
 headers = [("test-header", "header-value")]
-
-dummyResponseOpen :: Request -> IO (Response (IO ByteString))
-dummyResponseOpen Request { .. } = do
-  requestHeaders @=? headers
-  pure resp
-
-dummyHttpBackend :: MonadIO m => m HttpBackend
-dummyHttpBackend = do
-  mngr <- liftIO $ newManager defaultManagerSettings
-  let backend = backendIO mngr
-  pure $ backend { _responseOpen = dummyResponseOpen }
 
 dummyRequestModifier :: Request -> IO Request
 dummyRequestModifier request = pure (request { requestHeaders = headers })
 
 testHttpRequestModifier :: Assertion
 testHttpRequestModifier = do
-    conf <- newConfig Nothing defaultRequest
-    backend <- dummyHttpBackend
-    let config = conf {_http = backend, _requestModifier = dummyRequestModifier }
-    runNakadiT config . runResourceT $ do
-      (_, source) <- httpJsonBodyStream ok200 (const (Right ())) [] id
-      (_ :: Maybe Text) <- runReaderT (runConduit $ source .| headC) ()
-      return ()
+  conf <- newConfig Nothing defaultRequest
+          <&> setRequestModifier dummyRequestModifier
+  request <- runNakadiT conf $ httpBuildRequest id
+  requestHeaders request @=? headers

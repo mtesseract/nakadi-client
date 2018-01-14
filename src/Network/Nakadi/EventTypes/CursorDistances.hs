@@ -57,4 +57,4 @@ cursorDistance eventTypeName cursor cursor' =
                                                 , _finalCursor   = cursor' }
   in cursorsDistance' eventTypeName [cursorDistanceQuery] >>= \case
     distanceResult:_ -> return $ distanceResult^.L.distance
-    _                -> throwIO CursorDistanceNoResult
+    _                -> throwM CursorDistanceNoResult

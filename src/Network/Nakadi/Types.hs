@@ -18,6 +18,8 @@ module Network.Nakadi.Types
   , module Network.Nakadi.Types.Service
   , module Network.Nakadi.Types.Subscription
   , MonadNakadi(..)
+  , MonadNakadiHttp(..)
+  , MonadNakadiHttpStream(..)
   , HasNakadiConfig(..)
   , NakadiT
   , runNakadiT

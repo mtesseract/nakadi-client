@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 {-|
 Module      : Network.Nakadi.Internal.Types.Config
 Description : Nakadi Client Configuration Types (Internal)
@@ -11,14 +10,13 @@ Portability : POSIX
 Internal configuration specific types.
 -}
 
-{-# LANGUAGE GADTs           #-}
-{-# LANGUAGE RankNTypes      #-}
-{-# LANGUAGE StrictData      #-}
+{-# LANGUAGE GADTs      #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StrictData #-}
 
 module Network.Nakadi.Internal.Types.Config where
 
 import           Control.Retry
-import qualified Data.ByteString.Lazy                 as LB (ByteString)
 import           Network.HTTP.Client
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Types.Logger
@@ -45,22 +43,6 @@ data Config m where
             , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
             } -> Config m
 
-configChangeBase :: (forall a. m a -> n a) -> Config m -> Config n
-configChangeBase f Config { .. } =
-  Config { _requestTemplate = _requestTemplate
-         , _requestModifier = f . _requestModifier
-         , _manager = _manager
-         , _consumeParameters = _consumeParameters
-         , _deserializationFailureCallback =
-             (\cb -> (\bs t -> f (cb bs t))) <$> _deserializationFailureCallback
-         , _streamConnectCallback =
-             (\cb -> \ lf rsp -> f (cb undefined rsp)) <$> _streamConnectCallback
-         , _logFunc =
-             (\cb -> \a b c d -> f (cb a b c d)) <$> _logFunc
-         , _retryPolicy = RetryPolicyM (\rs -> f (getRetryPolicyM _retryPolicy rs))
-         , _httpErrorCallback =
-             (\cb -> \r e rs b -> f (cb r e rs b)) <$> _httpErrorCallback
-         }
 -- | ConsumeParameters
 
 data ConsumeParameters = ConsumeParameters

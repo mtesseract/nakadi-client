@@ -66,30 +66,21 @@ httpErrorCallback tvCounter _request _exn _retryStatus finalFailure = do
      then True @=? finalFailure
      else False @=? finalFailure
 
-mockHttpBackend :: Int -> IO HttpBackend
-mockHttpBackend numFailures = do
-  responder <- prepareMockResponse numFailures
-  return HttpBackend
-    { _httpLbs       = mockHttpLbs responder
-    , _responseOpen  = (\_req -> error "Not Implemented")
-    , _responseClose = (\_res -> error "Not Implemented")
-    }
-
-    where mockHttpLbs responder _request = responder
-
 -- | Tests that the callback is called exactly numFailures times
 -- before the request succeeds — depending on the retry policy.
 testHttpErrorCallbackN :: Int -> Assertion
 testHttpErrorCallbackN numFailures = do
-  httpBackend <- mockHttpBackend numFailures
   counter <- newTVarIO 0
+  responder <- prepareMockResponse numFailures
   conf <- newConfig Nothing defaultRequest
           <&> setHttpErrorCallback (httpErrorCallback counter)
           <&> setRetryPolicy (fullJitterBackoff 2 ++ limitRetries maxRetries)
   _response :: Either HttpException (Response LB.ByteString) <- try $
-    retryAction conf defaultRequest (_httpLbs httpBackend)
+    retryAction conf defaultRequest (mockHttpLbs responder)
   current <- readTVarIO counter
   numFailures @=? current
+
+  where mockHttpLbs responder _request = responder
 
 testHttpErrorCallback0 :: Assertion
 testHttpErrorCallback0 = testHttpErrorCallbackN 0

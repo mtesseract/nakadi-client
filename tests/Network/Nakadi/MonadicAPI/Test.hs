@@ -3,13 +3,13 @@
 module Network.Nakadi.MonadicAPI.Test where
 
 import           ClassyPrelude
-import           Control.Monad.Trans.Resource
 import           Control.Retry
 import           Network.HTTP.Client
-import qualified Network.Nakadi               as Nakadi
+import qualified Network.Nakadi              as Nakadi
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import           UnliftIO.Resource
 
 httpErrorCallback :: Request -> HttpException -> RetryStatus -> Bool -> App ()
 httpErrorCallback _req exn _retryStatus _isFinalFailure =

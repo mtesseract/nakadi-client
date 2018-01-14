@@ -23,6 +23,7 @@ module Network.Nakadi.Internal.Http
   , httpJsonBody
   , httpJsonNoBody
   , httpJsonBodyStream
+  , httpBuildRequest
   , errorClientNotAuthenticated
   , errorUnprocessableEntity
   , errorAccessForbidden
@@ -106,13 +107,13 @@ modifyRequest rm request =
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier.
 httpExecRequest ::
-  (MonadNakadi b m)
+  MonadNakadi b m
   => (Request -> Request)
   -> m (Response ByteString.Lazy.ByteString)
 httpExecRequest requestDef = do
   config <- nakadiAsk
   req <- httpBuildRequest requestDef
-  nakadiHttpLbs req (config^.L.manager)
+  nakadiHttpLbs config req (config^.L.manager)
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier. Returns the HTTP response and separately the

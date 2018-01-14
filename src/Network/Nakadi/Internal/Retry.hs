@@ -11,7 +11,7 @@ Portability : POSIX
 This module provides the basic retry mechanism via the retry package.
 -}
 
-{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE LambdaCase       #-}
 
 module Network.Nakadi.Internal.Retry
   ( retryAction
@@ -23,8 +23,8 @@ import           Control.Lens
 import           Control.Retry
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
-import qualified Network.Nakadi.Internal.Lenses  as L
-import           Network.Nakadi.Internal.Types
+import qualified Network.Nakadi.Internal.Lenses       as L
+import           Network.Nakadi.Internal.Types.Config
 
 -- | Invokes the HTTP Error Callback set in the configuration for the
 -- provided 'Request', 'HttpException' and 'RetryStatus'. If no
@@ -53,17 +53,16 @@ invokeHttpErrorCallback config req exn retryStatus =
 -- type 'HttpException', the action will be potentially retried
 -- (depending on the retry policy).
 retryAction ::
-  (MonadIO b, MonadMask b, MonadIO m, MonadNakadi b m)
+  (MonadIO b, MonadMask b)
   => Config b
   -> Request
   -> (Request -> b a)
-  -> m a
+  -> b a
 retryAction config req ma =
   let policy = config^.L.retryPolicy
       nakadiRetryPolicy = RetryPolicyM $ \retryStatus ->
         (getRetryPolicyM policy retryStatus)
-  in liftSub $
-     recovering nakadiRetryPolicy [handlerHttp] (\_retryStatus -> ma req)
+  in recovering nakadiRetryPolicy [handlerHttp] (\_retryStatus -> ma req)
 
   where handlerHttp retryStatus = Handler $ \exn -> do
           invokeHttpErrorCallback config req exn retryStatus

@@ -5,9 +5,9 @@ module Network.Nakadi.Examples.Echo.Test (testEcho) where
 
 import           ClassyPrelude
 import           Conduit
-import           Control.Concurrent.Async.Lifted          (wait)
 import           Control.Lens
 import qualified Network.Nakadi                    as Nakadi
+import Control.Concurrent.Async.Lifted (wait)
 import           Network.Nakadi.Examples.Echo.Echo
 import qualified Network.Nakadi.Lenses             as L
 import qualified Data.Vector as Vector
@@ -45,7 +45,7 @@ publishEvents :: Nakadi.MonadNakadi IO m
 publishEvents events eventName = do
   Nakadi.eventPublish eventName Nothing (Vector.toList events)
   
-consumerMain :: (Nakadi.MonadNakadi IO m, MonadBaseControl IO m)
+consumerMain :: (Nakadi.MonadNakadi b m, MonadIO m, MonadBaseControl IO m)
              => Nakadi.EventTypeName
              -> Int
              -> m (Vector Foo)

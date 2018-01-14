@@ -62,7 +62,7 @@ subscriptionCursorCommit' subscriptionId streamId cursors =
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Commits
 -- cursors using high level interface.
 subscriptionCommit ::
-  (MonadNakadi b m, HasNakadiSubscriptionCursor a)
+  (MonadNakadi b m, MonadCatch m, HasNakadiSubscriptionCursor a)
   => [a] -- ^ Values containing Subscription Cursors to commit
   -> ReaderT (SubscriptionEventStreamContext b) m ()
 subscriptionCommit as = do

@@ -8,10 +8,11 @@
 
 module Network.Nakadi.EventTypes.Test where
 
-import           ClassyPrelude
+import           ClassyPrelude                                 hiding
+                                                                (withAsync)
 
-import           Conduit
-import           Control.Concurrent.Async                      (link)
+import           Conduit                                       hiding
+                                                                (runResourceT)
 import           Control.Lens
 import           Data.Function                                 ((&))
 import           Network.Nakadi
@@ -22,6 +23,8 @@ import           Network.Nakadi.Tests.Common
 import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import           UnliftIO.Async
+import           UnliftIO.Resource
 
 testEventTypes :: Config App -> TestTree
 testEventTypes conf = testGroup "EventTypes"

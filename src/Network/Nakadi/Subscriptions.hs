@@ -58,7 +58,7 @@ subscriptionCreate' subscription =
 -- | @POST@ to @\/subscriptions@. Creates a new subscription. Does not
 -- fail if the requested subscription does already exist.
 subscriptionCreate ::
-  MonadNakadi b m
+  (MonadNakadi b m, MonadCatch m)
   => Subscription
   -> m Subscription
 subscriptionCreate subscription = do
