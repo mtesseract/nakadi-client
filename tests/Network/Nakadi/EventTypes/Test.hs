@@ -24,7 +24,6 @@ import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           UnliftIO.Async
-import           UnliftIO.Resource
 
 testEventTypes :: Config App -> TestTree
 testEventTypes conf = testGroup "EventTypes"
@@ -89,7 +88,7 @@ testEventTypeCursorDistances10 conf = runApp . runNakadiT conf $ do
   forM_ [1..10] $ \_ -> do
     now <- liftIO getCurrentTime
     eid <- EventId <$> genRandomUUID
-    eventPublish myEventTypeName Nothing [myDataChangeEvent eid now]
+    eventsPublish myEventTypeName Nothing [myDataChangeEvent eid now]
 
   cursorPairs <- forM cursors $ \cursor@Cursor { .. } -> do
     part <- eventTypePartition myEventTypeName _partition
@@ -124,9 +123,8 @@ testEventTypePublishData conf = runApp . runNakadiT conf $ do
                               }
   withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
-      source <- eventSource (Just consumeParametersSingle) myEventTypeName Nothing
-      runConduit $ source .| headC
+    eventConsumed :: Maybe (EventStreamBatch Foo) <-
+      eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
     liftIO $ isJust eventConsumed @=? True
 
 testEventTypeParseFlowId :: Config App -> Assertion
@@ -147,9 +145,8 @@ testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
       expectedFlowId = Just $ FlowId "12345"
   withAsync (delayedPublish expectedFlowId [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    eventConsumed :: Maybe (EventStreamBatch (EventEnriched Foo)) <- runResourceT $ do
-      source <- eventSource (Just consumeParametersSingle) myEventTypeName Nothing
-      runConduit $ source .| headC
+    eventConsumed :: Maybe (EventStreamBatch (EventEnriched Foo)) <-
+      eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
     liftIO $ isJust eventConsumed @=? True
     let events = eventConsumed >>= (\batch -> batch^.L.events)
     liftIO $ isJust events @=? True
@@ -178,9 +175,8 @@ testEventTypeDeserializationFailure conf' = runApp . runNakadiT conf $ do
                               }
   withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    eventConsumed :: Maybe (EventStreamBatch WrongFoo) <- runResourceT $ do
-      source <- eventSource (Just consumeParametersSingle) myEventTypeName Nothing
-      runConduit $ source .| headC
+    eventConsumed :: Maybe (EventStreamBatch WrongFoo) <-
+      eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
     liftIO $ isJust eventConsumed @=? True
 
   counter <- atomically $ readTVar deserializationFailureCounter

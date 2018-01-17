@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableSuperClasses    #-}
 {-|
 Module      : Network.Nakadi.Internal.Types
 Description : Nakadi Client Types (Internal)
@@ -23,6 +22,7 @@ Exports all types for internal usage.
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE UndecidableSuperClasses    #-}
 
 module Network.Nakadi.Internal.Types
   ( module Network.Nakadi.Internal.Types.Config
@@ -33,14 +33,15 @@ module Network.Nakadi.Internal.Types
   , module Network.Nakadi.Internal.Types.Subscription
   , module Network.Nakadi.Internal.Types.Util
   , MonadNakadi(..)
-  , MonadNakadiHttp(..)
   , MonadNakadiHttpStream(..)
+  , MonadNakadiHttp(..)
   , NakadiT(..)
   , runNakadiT
   , liftSub
   )
 where
 
+import           Control.Lens                               ((<&>))
 import           Control.Monad.Base
 import           Control.Monad.Catch
 import           Control.Monad.Logger
@@ -48,13 +49,12 @@ import           Control.Monad.State.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Reader                 (ReaderT (..))
-import           Control.Monad.Trans.Resource               (MonadResource (..),
-                                                             allocate,
-                                                             transResourceT)
+import           Control.Monad.Trans.Resource.Internal      (transResourceT)
 import qualified Data.ByteString.Lazy                       as LB
-import           Data.Conduit                               (transPipe)
 import           Data.Conduit.Internal                      (ConduitM (..),
                                                              Pipe (..))
+-- import           Data.Proxy                                 (Proxy (..))
+import           Data.Conduit                               (transPipe)
 import           GHC.Exts                                   (Constraint)
 import           Network.HTTP.Client                        (Manager, httpLbs,
                                                              responseClose,
@@ -69,7 +69,8 @@ import           Network.Nakadi.Internal.Types.Problem
 import           Network.Nakadi.Internal.Types.Service
 import           Network.Nakadi.Internal.Types.Subscription
 import           Network.Nakadi.Internal.Types.Util
-import           UnliftIO
+import           UnliftIO                                   hiding (mask,
+                                                             uninterruptibleMask)
 
 -- * Define Typeclasses
 
@@ -82,10 +83,16 @@ import           UnliftIO
 -- (`NakadiHttpConstraint`) of kind `Constraint`, this typeclass can
 -- announce a typeclass constraint which it requires to run.
 
-class (Monad b, Monad m) => MonadNakadiHttp b m where
+class (Monad b, Monad m) => MonadNakadiHttp b m | m -> b where
   type NakadiHttpConstraint m :: Constraint
-  nakadiHttpLbs :: NakadiHttpConstraint m
-                => Config b -> Request -> Manager -> m (Response LB.ByteString)
+  nakadiHttpLbs :: Config b -> Request -> Manager -> m (Response LB.ByteString)
+
+class (Monad b, MonadMask m) => MonadNakadiHttpStream b m | m -> b where
+  type NakadiHttpStreamConstraint m :: Constraint
+  nakadiHttpResponseOpen :: NakadiHttpStreamConstraint m
+                         => Request -> Manager -> m (Response (ConduitM () ByteString m ()))
+  nakadiHttpResponseClose :: NakadiHttpStreamConstraint m
+                          => Response a -> m ()
 
 -- | The `MonadNakadi` typeclass is implemented by monads in which
 -- Nakadi can be called. The first parameter (`b`) denotes the `base
@@ -97,7 +104,7 @@ class (Monad b, Monad m) => MonadNakadiHttp b m where
 -- * extracting specific Nakadi configuration values
 -- * lifting actions from the
 -- The `MonadNakadi` typeclass is modelled closely after `MonadReader`.
-class (MonadNakadiHttp b m, MonadThrow m, MonadCatch m, NakadiHttpConstraint m)
+class (MonadNakadiHttp b m, MonadThrow b, MonadThrow m, MonadCatch m, NakadiHttpConstraint m)
    => MonadNakadi b m | m -> b where
   -- {-# MINIMAL (nakadiAsk | nakadiReader), local #-}
   nakadiAsk :: m (Config b)
@@ -106,20 +113,6 @@ class (MonadNakadiHttp b m, MonadThrow m, MonadCatch m, NakadiHttpConstraint m)
   nakadiReader :: (Config b -> a) -> m a
   nakadiReader f = nakadiAsk >>= (return . f)
   nakadiLift :: b a -> m a -- nakadiLift = lift
-
--- | The `MonadNakadiHttpStream` typeclass is to be implemented on top
--- of `MonadNakadi`. It provides additional functionality for
--- streaming HTTP requests. Using the associated type family
--- `NakadiHttpStreamConstraint` implementations of this typeclass can
--- announce additional constraints required by the provided
--- `nakadiHttpStream` method.
-class (MonadNakadi b m) => MonadNakadiHttpStream b m where
-  type NakadiHttpStreamConstraint m :: Constraint
-  nakadiHttpStream :: NakadiHttpStreamConstraint m
-                   => Config b
-                   -> Request
-                   -> Manager
-                   -> m (Response (ConduitM () ByteString m ()))
 
 -- * Define Types
 
@@ -164,9 +157,20 @@ instance MonadTrans (NakadiT b) where
 instance (Monad b, MonadThrow m) => MonadThrow (NakadiT b m) where
   throwM e = lift $ Control.Monad.Catch.throwM e
 
+
 instance (Monad b, MonadCatch m) => MonadCatch (NakadiT b m) where
   catch (NakadiT b) h =
     NakadiT $ \ c -> b c `Control.Monad.Catch.catch` \e -> _runNakadiT (h e) c
+
+
+instance (Monad b, MonadMask m) => MonadMask (NakadiT b m) where
+  mask a = NakadiT $ \e -> mask $ \u -> _runNakadiT (a $ q u) e
+    where q :: (m a -> m a) -> NakadiT e m a -> NakadiT e m a
+          q u (NakadiT b) = NakadiT (u . b)
+  uninterruptibleMask a =
+    NakadiT $ \e -> uninterruptibleMask $ \u -> _runNakadiT (a $ q u) e
+      where q :: (m a -> m a) -> NakadiT e m a -> NakadiT e m a
+            q u (NakadiT b) = NakadiT (u . b)
 
 instance (Monad b, MonadIO m) => MonadIO (NakadiT b m) where
   liftIO = lift . liftIO
@@ -196,6 +200,7 @@ instance MonadTransControl (NakadiT b) where
   {-# INLINABLE liftWith #-}
   {-# INLINABLE restoreT #-}
 
+-- Is this correct? Could not deduce (MonadBaseControl IO (NakadiT b b))
 instance MonadBaseControl b m => MonadBaseControl b (NakadiT b m) where
   type StM (NakadiT b m) a = ComposeSt (NakadiT b) m a
   liftBaseWith = defaultLiftBaseWith
@@ -204,16 +209,54 @@ instance MonadBaseControl b m => MonadBaseControl b (NakadiT b m) where
 -- ** Implementations for `MonadNakadiHttp`.
 
 -- | `IO`-based implementation of `MonadNakadiHttp` for `NakadiT`
--- using retries and `httpLbs`.
-instance (MonadIO b) => MonadNakadiHttp b (NakadiT b b) where
-  type NakadiHttpConstraint (NakadiT b b) = MonadMask b
+-- using retries.
+instance ( MonadIO b
+         , MonadUnliftIO b
+         , MonadMask b
+         , MonadBase IO b
+         -- , MonadIO (NakadiHttpStreamTransformer (NakadiT b b) b)
+         ) => MonadNakadiHttp b (NakadiT b b) where
+  type NakadiHttpConstraint (NakadiT b b) = MonadMask (NakadiT b b)
   nakadiHttpLbs config req mngr = lift $
     retryAction config req (\r -> liftIO $ httpLbs r mngr)
+
+instance (m ~ NakadiT b b, MonadIO m, MonadMask m, MonadBase IO b)
+      => MonadNakadiHttpStream b (NakadiT b b) where
+  type NakadiHttpStreamConstraint (NakadiT b b) = MonadMask (NakadiT b b)
+  nakadiHttpResponseOpen req mngr =
+    liftIO (responseOpen req mngr)
+    <&> fmap (transPipe liftIO . bodyReaderSource)
+  nakadiHttpResponseClose = liftIO . responseClose
 
 -- | Inherit `MonadNakadiHttp` implementation to `ReaderT`.
 instance MonadNakadiHttp b m => MonadNakadiHttp b (ReaderT r m) where
   type NakadiHttpConstraint (ReaderT r m) = NakadiHttpConstraint m
   nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
+
+instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m)
+      => MonadNakadiHttpStream b (ReaderT r m) where
+  type NakadiHttpStreamConstraint (ReaderT r m) = NakadiHttpStreamConstraint m
+  nakadiHttpResponseOpen req mngr =
+    lift (nakadiHttpResponseOpen req mngr)
+    <&> fmap (transPipe lift)
+  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
+
+instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m)
+      => MonadNakadiHttpStream b (ResourceT m) where
+  type NakadiHttpStreamConstraint (ResourceT m) = NakadiHttpStreamConstraint m
+  nakadiHttpResponseOpen req mngr =
+    lift (nakadiHttpResponseOpen req mngr)
+    <&> fmap (transPipe lift)
+  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
+
+-- instance (m ~ NakadiT b b, MonadIO m, MonadMask m, MonadBase IO b)
+--       => MonadNakadiHttpStream b (NakadiT b b) where
+--   type NakadiHttpStreamConstraint (NakadiT b b) = MonadMask (NakadiT b b)
+--   nakadiHttpResponseOpen req mngr =
+--     liftIO (responseOpen req mngr)
+--     <&> fmap (transPipe liftIO . bodyReaderSource)
+--   nakadiHttpResponseClose = liftIO . responseClose
+
 
 -- | Inherit `MonadNakadiHttp` implementation to `ResourceT`.
 instance MonadNakadiHttp b m => MonadNakadiHttp b (ResourceT m) where
@@ -221,7 +264,7 @@ instance MonadNakadiHttp b m => MonadNakadiHttp b (ResourceT m) where
   nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
 
 -- | Inherit `MonadNakadiHttp` implementation to `ConduitM`.
-instance MonadNakadiHttp b m => MonadNakadiHttp b (ConduitM i o m) where
+instance (MonadNakadiHttp b m, NakadiHttpConstraint m) => MonadNakadiHttp b (ConduitM i o m) where
   type NakadiHttpConstraint (ConduitM i o m) = NakadiHttpConstraint m
   nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
 
@@ -229,6 +272,25 @@ instance MonadNakadiHttp b m => MonadNakadiHttp b (ConduitM i o m) where
 instance MonadNakadiHttp b m => MonadNakadiHttp b (LoggingT m) where
   type NakadiHttpConstraint (LoggingT m) = NakadiHttpConstraint m
   nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
+
+instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m) => MonadNakadiHttpStream b (LoggingT m) where
+  type NakadiHttpStreamConstraint (LoggingT m) = NakadiHttpConstraint m
+  nakadiHttpResponseOpen req mngr =
+    lift (nakadiHttpResponseOpen req mngr)
+    <&> fmap (transPipe lift)
+  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
+
+-- | Inherit `MonadNakadiHttp` implementation to `NoLoggingT`.
+instance MonadNakadiHttp b m => MonadNakadiHttp b (NoLoggingT m) where
+  type NakadiHttpConstraint (NoLoggingT m) = NakadiHttpConstraint m
+  nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
+
+instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m) => MonadNakadiHttpStream b (NoLoggingT m) where
+  type NakadiHttpStreamConstraint (NoLoggingT m) = NakadiHttpConstraint m
+  nakadiHttpResponseOpen req mngr =
+    lift (nakadiHttpResponseOpen req mngr)
+    <&> fmap (transPipe lift)
+  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
 
 -- ** Implementations for `MonadNakadi`.
 
@@ -272,34 +334,6 @@ instance MonadNakadi b m => MonadNakadi b (ConduitM i o m) where
         go (Leftover p i)     = Leftover (go p) i
     in go (c0 Done)
   nakadiLift = lift . nakadiLift
-
--- * ....
-
-instance (MonadNakadi b m) => MonadNakadiHttpStream b (ResourceT m) where
-  type NakadiHttpStreamConstraint (ResourceT b) = MonadResource (ResourceT b)
-  nakadiHttpStream _config req mngr = do
-    (_, rsp) <- allocate (responseOpen req mngr) responseClose
-    pure $ bodyReaderSource <$> rsp
-
-instance MonadNakadiHttpStream b m => MonadNakadiHttpStream b (ReaderT r m) where
-  type NakadiHttpStreamConstraint (ReaderT r m) = NakadiHttpStreamConstraint m
-  nakadiHttpStream config req mngr = lift $ do
-    rsp <- nakadiHttpStream config req mngr
-    pure $ transPipe lift <$> rsp
-
-instance MonadNakadiHttpStream b m => MonadNakadiHttpStream b (LoggingT m) where
-  type NakadiHttpStreamConstraint (LoggingT m) = NakadiHttpStreamConstraint m
-  nakadiHttpStream config req mngr = lift $ do
-    rsp <- nakadiHttpStream config req mngr
-    pure $ transPipe lift <$> rsp
-
-instance MonadNakadiHttpStream b m => MonadNakadiHttpStream b (ConduitM i o m) where
-  type NakadiHttpStreamConstraint (ConduitM i o m) = NakadiHttpStreamConstraint m
-  nakadiHttpStream config req mngr = lift $ do
-    rsp <- nakadiHttpStream config req mngr
-    pure $ transPipe lift <$> rsp
-
---------------------------------------------------------------------------------
 
 -- * Convenient Functions
 

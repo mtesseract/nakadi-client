@@ -67,7 +67,6 @@ retryAction config req ma =
   where handlerHttp retryStatus = Handler $ \exn -> do
           invokeHttpErrorCallback config req exn retryStatus
           pure $ shouldRetry exn
-
         shouldRetry (HttpExceptionRequest _ exceptionContent) =
           case exceptionContent of
             StatusCodeException response _ ->

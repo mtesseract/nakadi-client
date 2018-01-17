@@ -1,4 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Network.Nakadi.Examples.Echo.Echo (runEcho) where
 
@@ -18,23 +21,22 @@ import qualified Network.Nakadi.Lenses           as L
 runEcho :: EventTypeName -> EventTypeName -> NakadiT IO IO ()
 runEcho eventNameInput eventNameOutput =
   runResourceT $ do
-  channel   <- atomically $ newTBQueue 1024
+  channel :: TBQueue (Vector Value) <- atomically $ newTBQueue 1024
   consumer  <- async $ consumeEvents eventNameInput channel
   publisher <- async $ publishEvents eventNameOutput channel
   link consumer
   link publisher
   waitEither_ consumer publisher
 
-  where consumeEvents eventName channel = do
-          source <- eventSource (Just consumeParameters) eventName Nothing
-          source
-            .| concatMapC (view L.events)
-            .| mapC (fmap (toJSON :: DataChangeEvent Value -> Value))
-            $$ sinkTBQueue channel
+  where consumeEvents eventName channel =
+          eventsProcessConduit (Just consumeParameters) eventName Nothing $
+          concatMapC (view L.events)
+          .| mapC (fmap (toJSON :: DataChangeEvent Value -> Value))
+          .| sinkTBQueue channel
 
         publishEvents eventName channel =
           sourceTBQueue channel
             .| mapC toList
-            $$ mapM_C (eventPublish eventName Nothing)
+            $$ mapM_C (eventsPublish eventName Nothing)
 
         consumeParameters = defaultConsumeParameters & L.batchFlushTimeout .~ Just 1

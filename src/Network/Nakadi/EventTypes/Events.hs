@@ -16,10 +16,12 @@ This module implements the
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Network.Nakadi.EventTypes.Events
-  ( eventSource
-  , eventPublish
+  ( eventsProcessConduit
+  , eventsProcess
+  , eventsPublish
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -28,6 +30,8 @@ import           Conduit
 import           Control.Lens
 import           Data.Aeson
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
+import           Data.Void
+import           Network.HTTP.Client             (responseBody)
 import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.Http
 import qualified Network.Nakadi.Internal.Lenses  as L
@@ -38,42 +42,65 @@ path eventTypeName =
   <> encodeUtf8 (unEventTypeName eventTypeName)
   <> "/events"
 
--- | @GET@ to @\/event-types\/NAME\/events@. Returns Conduit source
--- for event batch consumption.
-eventSource ::
-  (MonadNakadi b m, MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m, FromJSON a)
-  => Maybe ConsumeParameters -- ^ Optional parameters for event consumption
-  -> EventTypeName           -- ^ Name of the event type to consume
-  -> Maybe [Cursor]          -- ^ Optional list of cursors; by default
-                             -- consumption begins with the most
-                             -- recent event
-  -> m (ConduitM () (EventStreamBatch a)
-        m ())                -- ^ Returns a Conduit source.
-eventSource maybeParams eventTypeName maybeCursors = do
+eventsProcess
+  :: forall a b m r.
+     ( MonadNakadi b m
+     , FromJSON a
+     , MonadNakadiHttpStream b m
+     , NakadiHttpStreamConstraint m
+     )
+  => Maybe ConsumeParameters
+  -> EventTypeName
+  -> Maybe [Cursor]
+  -> (EventStreamBatch a -> m r)
+  -> m r
+eventsProcess maybeConsumeParameters eventTypeName maybeCursors processor =
+  eventsProcess maybeConsumeParameters eventTypeName maybeCursors processor
+
+eventsProcessConduit
+  :: forall a b m r.
+     ( MonadNakadi b m
+     , FromJSON a
+     , MonadNakadiHttpStream b m
+     , NakadiHttpStreamConstraint m
+     )
+  => Maybe ConsumeParameters
+  -> EventTypeName
+  -> Maybe [Cursor]
+  -> ConduitM (EventStreamBatch a) Void m r
+  -> m r
+eventsProcessConduit maybeConsumeParameters eventTypeName maybeCursors consumer = do
   config <- nakadiAsk
-  let consumeParams = fromMaybe (config^.L.consumeParameters) maybeParams
+  let consumeParams = fromMaybe (config^.L.consumeParameters) maybeConsumeParameters
       queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
-  snd <$>
-    httpJsonBodyStream ok200 (const (Right ())) [ (status429, errorTooManyRequests)
-                                                , (status429, errorEventTypeNotFound) ]
+  httpJsonBodyStream ok200 [ (status429, errorTooManyRequests)
+                           , (status429, errorEventTypeNotFound) ]
     (setRequestPath (path eventTypeName)
      . setRequestQueryParameters queryParams
-     . addCursors)
+     . addCursors) $
+    handler config
 
-    where addCursors = case maybeCursors of
-            Just cursors -> let cursors' = ByteString.Lazy.toStrict (encode cursors)
-                            in addRequestHeader "X-Nakadi-Cursors" cursors'
-            Nothing      -> identity
+  where addCursors = case maybeCursors of
+          Just cursors -> let cursors' = ByteString.Lazy.toStrict (encode cursors)
+                          in addRequestHeader "X-Nakadi-Cursors" cursors'
+          Nothing      -> identity
+
+        handler :: Config b -> Response (ConduitM () ByteString m ()) -> m r
+        handler config response =
+          responseBody response
+          .| linesUnboundedAsciiC
+          .| conduitDecode config
+          $$ consumer
 
 -- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
 -- events for the specified event type.
-eventPublish ::
+eventsPublish ::
   (MonadNakadi b m, ToJSON a)
   => EventTypeName
   -> Maybe FlowId
   -> [a]
   -> m ()
-eventPublish eventTypeName maybeFlowId eventBatch =
+eventsPublish eventTypeName maybeFlowId eventBatch =
   httpJsonNoBody status200
   [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
   , (status422, errorBatchNotSubmitted) ]

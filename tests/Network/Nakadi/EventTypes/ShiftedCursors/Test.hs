@@ -40,7 +40,7 @@ testShiftedCursorsN conf n = runApp . runNakadiT conf $ do
   let cursors = map extractCursor partitions
   liftIO $ length cursors > 0 @=? True
   forM_ [1..n] $ \_ -> do
-    eventPublish myEventTypeName Nothing [myDataChangeEvent eid now]
+    eventsPublish myEventTypeName Nothing [myDataChangeEvent eid now]
   cursors' <- cursorsShift myEventTypeName cursors n
   liftIO $ length cursors' @=? length cursors
   forM_ (zip cursors cursors') $ \(c, c') -> do

@@ -39,6 +39,7 @@ data NakadiException = BatchPartiallySubmitted [BatchItemResponse]
                      | SubscriptionExistsAlready Subscription
                      | RequestModificationException SomeException
                      | CursorDistanceNoResult
+                     | StreamIdMissing
                      deriving (Show, Typeable)
 
 instance Exception NakadiException

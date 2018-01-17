@@ -20,7 +20,7 @@ API.
 
 module Network.Nakadi.Subscriptions.Cursors
   ( subscriptionCursorCommit'
-  , subscriptionCommit
+  , subscriptionCursorCommit
   , subscriptionCursors
   , subscriptionCursorsReset
   ) where
@@ -31,7 +31,6 @@ import           Data.Aeson
 
 import qualified Control.Exception.Safe              as Safe
 import           Control.Lens
-import           Control.Monad.Reader
 import qualified Data.HashMap.Lazy                   as HashMap
 import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
@@ -61,12 +60,12 @@ subscriptionCursorCommit' subscriptionId streamId cursors =
 
 -- | @POST@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Commits
 -- cursors using high level interface.
-subscriptionCommit ::
+subscriptionCursorCommit ::
   (MonadNakadi b m, MonadCatch m, HasNakadiSubscriptionCursor a)
-  => [a] -- ^ Values containing Subscription Cursors to commit
-  -> ReaderT (SubscriptionEventStreamContext b) m ()
-subscriptionCommit as = do
-  SubscriptionEventStreamContext { .. } <- ask
+  => SubscriptionEventStream
+  -> [a] -- ^ Values containing Subscription Cursors to commit
+  -> m ()
+subscriptionCursorCommit SubscriptionEventStream { .. } as  = do
   Safe.catchJust
     exceptionPredicate
     (subscriptionCursorCommit' _subscriptionId _streamId cursorsCommit)

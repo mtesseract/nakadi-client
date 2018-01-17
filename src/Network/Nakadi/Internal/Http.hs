@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Http
 Description : Nakadi Client HTTP (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -11,10 +11,12 @@ Internal module containing HTTP client relevant code.
 -}
 
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Network.Nakadi.Internal.Http
   ( module Network.HTTP.Simple
@@ -24,6 +26,7 @@ module Network.Nakadi.Internal.Http
   , httpJsonNoBody
   , httpJsonBodyStream
   , httpBuildRequest
+  , conduitDecode
   , errorClientNotAuthenticated
   , errorUnprocessableEntity
   , errorAccessForbidden
@@ -47,14 +50,13 @@ import           Control.Lens
 import           Control.Monad                   (void)
 import           Data.Aeson
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
-import qualified Data.Conduit.Binary             as Conduit
 import qualified Data.Text                       as Text
 import           Network.HTTP.Client             (BodyReader,
                                                   HttpException (..),
                                                   HttpExceptionContent (..),
                                                   checkResponse, responseBody,
                                                   responseStatus)
-import           Network.HTTP.Simple
+import           Network.HTTP.Simple             hiding (Proxy)
 import           Network.HTTP.Types
 import           Network.HTTP.Types.Status
 import qualified Network.Nakadi.Internal.Lenses  as L
@@ -157,38 +159,39 @@ httpJsonNoBody successStatus exceptionMap requestDef = do
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonBodyStream ::
-  ( MonadNakadi b m, MonadNakadiHttpStream b m,
-    NakadiHttpStreamConstraint m, FromJSON a)
+  forall b m r. (MonadNakadi b m, MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m, MonadMask m)
   => Status
-  -> (Response () -> Either Text c)
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
-  -> m (c, ConduitM () a m ())
-httpJsonBodyStream successStatus f exceptionMap requestDef = do
+  -> (Response (ConduitM () ByteString m ()) -> m r)
+  -> m r
+httpJsonBodyStream successStatus exceptionMap requestDef handler = do
   config <- nakadiAsk
   request <- httpBuildRequest requestDef
-  response <- nakadiHttpStream config request (config^.L.manager)
-  let bodySource = responseBody response
-      response_  = void response
-      status     = responseStatus response_
-  if status == successStatus
-    then do liftSub (connectCallback config (config^.L.logFunc) response_)
-            let conduit = -- transPipe liftSub $
-                          (bodySource
-                           .| Conduit.lines
-                           .| conduitDecode config)
-            case f response_ of
-              Left errMsg -> throwString (Text.unpack errMsg)
-              Right b     -> return (b, conduit)
-    else case lookup status exceptionMap' of
-           Just mkExn -> conduitDrainToLazyByteString bodySource >>= mkExn >>= throwIO
-           Nothing    -> throwIO (UnexpectedResponse response_)
+  bracket (nakadiHttpResponseOpen request (config^.L.manager))
+          nakadiHttpResponseClose $ \ response ->
+                                      wrappedHandler config response
 
-  where exceptionMap' = exceptionMap ++ defaultExceptionMap
+  where wrappedHandler config response = do
+          let response_  = void response
+              status     = responseStatus response_
+              bodySource = responseBody response
+          if status == successStatus
+            then do connectCallback config response_
+                    handler response
+            else case lookup status exceptionMap' of
+                   Just mkExn -> do
+                     conduitDrainToLazyByteString bodySource
+                     >>= mkExn
+                     >>= throwM
+                   Nothing -> throwM (UnexpectedResponse response_)
 
-        connectCallback config = case config^.L.streamConnectCallback of
-          Just cb -> \logFunc response -> cb logFunc response
-          Nothing -> \_ _ -> return ()
+        exceptionMap' = exceptionMap ++ defaultExceptionMap
+
+        connectCallback config response = nakadiLift $
+          case config^.L.streamConnectCallback of
+          Just cb -> cb response
+          Nothing -> pure ()
 
 setRequestQueryParameters ::
   [(ByteString, ByteString)]

@@ -89,4 +89,4 @@ recreateEvent eventTypeName eventType = do
 delayedPublish :: (MonadNakadi b m, MonadIO m, ToJSON a) => Maybe FlowId -> [a] -> m ()
 delayedPublish flowId events  = do
   liftIO $ threadDelay (10^6)
-  eventPublish myEventTypeName flowId events
+  eventsPublish myEventTypeName flowId events
