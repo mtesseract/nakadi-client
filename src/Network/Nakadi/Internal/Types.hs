@@ -222,8 +222,8 @@ instance MonadTransControl (NakadiT b) where
   {-# INLINABLE liftWith #-}
   {-# INLINABLE restoreT #-}
 
--- Is this correct? Could not deduce (MonadBaseControl IO (NakadiT b b))
-instance MonadBaseControl b m => MonadBaseControl b (NakadiT b m) where
+-- | Inherit `MonadBaseControl` for `NakadiT`.
+instance MonadBaseControl b' m => MonadBaseControl b' (NakadiT b m) where
   type StM (NakadiT b m) a = ComposeSt (NakadiT b) m a
   liftBaseWith = defaultLiftBaseWith
   restoreM     = defaultRestoreM

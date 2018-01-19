@@ -72,9 +72,9 @@ unitTests =
 
 integrationTests :: Config App -> ConfigIO -> [TestTree]
 integrationTests conf confIO =
-  [ testExamples confIO
+  [ testSubscriptions conf
+  , testExamples confIO
   , testEventTypes conf
   , testRegistry conf
-  , testSubscriptions conf
   , testMonadicAPI conf
   ]

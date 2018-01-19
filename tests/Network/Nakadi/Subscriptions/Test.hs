@@ -16,10 +16,12 @@ import qualified Network.Nakadi.Lenses       as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import Network.Nakadi.Subscriptions.Processing.Test
 
 testSubscriptions :: Config App -> TestTree
 testSubscriptions conf = testGroup "Subscriptions"
-  [ testCase "SubscriptionsList" (testSubscriptionsList conf)
+  [ testSubscriptionsProcessing conf
+  , testCase "SubscriptionsList" (testSubscriptionsList conf)
   , testCase "SubscriptionsCreateDelete" (testSubscriptionsCreateDelete conf)
   , testCase "SubscriptionDoubleDeleteFailure" (testSubscriptionsDoubleDeleteFailure conf)
   ]
@@ -28,6 +30,7 @@ testSubscriptionsList :: Config App -> Assertion
 testSubscriptionsList conf = runApp . runNakadiT conf $ do
   -- Cleanup
   deleteSubscriptionsByAppPrefix prefix
+  recreateEvent myEventTypeName myEventType
   -- Create new Subscriptions
   maybeSubscriptionIds <- forM [1..n] $ \i -> do
     let owningApp = ApplicationName (prefix <> tshow i)
@@ -71,6 +74,7 @@ mySubscription maybeOwningApp = Subscription
 
 testSubscriptionsCreateDelete :: Config App -> Assertion
 testSubscriptionsCreateDelete conf = runApp . runNakadiT conf $ do
+  recreateEvent myEventTypeName myEventType
   subscription <- subscriptionCreate (mySubscription Nothing)
   liftIO $ True @=? isJust (subscription^.L.id)
   let (Just subscriptionId) = subscription^.L.id
@@ -79,6 +83,7 @@ testSubscriptionsCreateDelete conf = runApp . runNakadiT conf $ do
 
 testSubscriptionsDoubleDeleteFailure :: Config App -> Assertion
 testSubscriptionsDoubleDeleteFailure conf = runApp . runNakadiT conf $ do
+  recreateEvent myEventTypeName myEventType
   subscription <- subscriptionCreate (mySubscription Nothing)
   liftIO $ True @=? isJust (subscription^.L.id)
   let (Just subscriptionId) = subscription^.L.id

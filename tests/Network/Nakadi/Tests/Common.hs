@@ -75,6 +75,22 @@ myDataChangeEvent eid now =  DataChangeEvent
   , _dataOp = DataOpUpdate
   }
 
+
+genMyDataChangeEvent :: MonadIO m => m (DataChangeEvent Foo)
+genMyDataChangeEvent = do
+  eid <- genRandomUUID
+  now <- liftIO getCurrentTime
+  pure DataChangeEvent
+    { _payload = Foo "Hello!"
+    , _metadata = Metadata { _eid        = EventId eid
+                           , _occurredAt = Timestamp now
+                           , _parentEids = Nothing
+                           , _partition  = Nothing
+                           }
+    , _dataType = "test.FOO"
+    , _dataOp = DataOpUpdate
+    }
+
 genRandomUUID :: MonadIO m => m UUID
 genRandomUUID = liftIO randomIO
 
