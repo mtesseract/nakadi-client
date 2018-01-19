@@ -34,12 +34,12 @@ type ConfigIO = Config IO
 data Config m where
   Config :: { _requestTemplate                :: Request
             , _requestModifier                :: Request -> m Request
-            , _manager                        :: Manager
-            , _consumeParameters              :: ConsumeParameters
+            , _manager                        :: Maybe Manager
+            , _consumeParameters              :: Maybe ConsumeParameters
             , _deserializationFailureCallback :: Maybe (ByteString -> Text -> m ())
             , _streamConnectCallback          :: Maybe (StreamConnectCallback m)
             , _logFunc                        :: Maybe (LogFunc m)
-            , _retryPolicy                    :: RetryPolicyM m
+            , _retryPolicy                    :: RetryPolicyM IO
             , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
             } -> Config m
 

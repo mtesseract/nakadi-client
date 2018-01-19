@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Config
 Description : Nakadi Client Configuration
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -11,15 +11,33 @@ This module implements support for creating and manipulating Nakadi
 client configurations.
 -}
 
-module Network.Nakadi.Config where
+module Network.Nakadi.Config
+  ( newConfig
+  , newConfigWithDedicatedManager
+  , setHttpManager
+  , setRequestModifier
+  , setDeserializationFailureCallback
+  , setStreamConnectCallback
+  , setHttpErrorCallback
+  , setLogFunc
+  , setRetryPolicy
+  , setMaxUncommittedEvents
+  , setBatchLimit
+  , setStreamLimit
+  , setBatchFlushTimeout
+  , setStreamTimeout
+  , setStreamKeepAliveLimit
+  , setFlowId
+  , defaultConsumeParameters
+  ) where
 
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
 import           Control.Retry
 import           Network.HTTP.Client             (Manager, ManagerSettings)
-import           Network.HTTP.Client.TLS         (newTlsManagerWith,
-                                                  tlsManagerSettings)
+import           Network.HTTP.Client.TLS         (newTlsManagerWith)
+import           Network.Nakadi.Internal.Config
 import qualified Network.Nakadi.Internal.Lenses  as L
 import           Network.Nakadi.Internal.Types
 
@@ -29,34 +47,40 @@ defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
-newConfig' ::
-  (MonadIO m, MonadIO b, MonadCatch m)
-  => Manager           -- ^ Manager Settings
-  -> ConsumeParameters -- ^ Consumption Parameters
-  -> Request           -- ^ Request Template
-  -> m (Config b)     -- ^ Resulting Configuration
-newConfig' manager consumeParameters request =
-  pure Config { _consumeParameters              = consumeParameters
-              , _manager                        = manager
-              , _requestTemplate                = request
-              , _requestModifier                = pure
-              , _deserializationFailureCallback = Nothing
-              , _streamConnectCallback          = Nothing
-              , _logFunc                        = Nothing
-              , _retryPolicy                    = defaultRetryPolicy
-              , _httpErrorCallback              = Nothing
-              }
+newConfig
+  :: Monad b
+  => Request           -- ^ Request Template
+  -> Config b          -- ^ Resulting Configuration
+newConfig request =
+  Config { _consumeParameters              = Nothing
+         , _manager                        = Nothing
+         , _requestTemplate                = request
+         , _requestModifier                = pure
+         , _deserializationFailureCallback = Nothing
+         , _streamConnectCallback          = Nothing
+         , _logFunc                        = Nothing
+         , _retryPolicy                    = defaultRetryPolicy
+         , _httpErrorCallback              = Nothing
+         }
 
 -- | Produce a new configuration, with optional HTTP manager settings
 -- and mandatory HTTP request template.
-newConfig ::
-  (MonadIO m, MonadIO b, MonadCatch m)
-  => Maybe ManagerSettings -- ^ Optional 'ManagerSettings'
-  -> Request               -- ^ Request template for Nakadi requests
-  -> m (Config b)         -- ^ Resulting Configuration
-newConfig mngrSettings request = do
-  manager <- newTlsManagerWith (fromMaybe tlsManagerSettings mngrSettings)
-  newConfig' manager defaultConsumeParameters request
+newConfigWithDedicatedManager ::
+  (MonadIO b, MonadIO m)
+  => ManagerSettings -- ^ Optional 'ManagerSettings'
+  -> Request         -- ^ Request template for Nakadi requests
+  -> m (Config b)    -- ^ Resulting Configuration
+newConfigWithDedicatedManager mngrSettings request = do
+  manager <- newTlsManagerWith mngrSettings
+  pure $ newConfig request & setHttpManager manager
+
+-- | Install an HTTP Manager in the provided configuration. If not
+-- set, HTTP requests will use a global default manager.
+setHttpManager
+  :: Manager
+  -> Config m
+  -> Config m
+setHttpManager mngr = L.manager .~ Just mngr
 
 -- | Install a request modifier in the provided configuration. This
 -- can be used for e.g. including access tokens in HTTP requests to
@@ -104,22 +128,10 @@ setLogFunc logFunc = L.logFunc .~ Just logFunc
 
 -- | Set a custom retry policy in the provided configuration.
 setRetryPolicy ::
-  RetryPolicyM m
+  RetryPolicyM IO
   -> Config m
   -> Config m
 setRetryPolicy = (L.retryPolicy .~)
-
--- | Default parameters for event consumption.
-defaultConsumeParameters :: ConsumeParameters
-defaultConsumeParameters = ConsumeParameters
-  { _maxUncommittedEvents = Nothing
-  , _batchLimit           = Nothing
-  , _streamLimit          = Nothing
-  , _batchFlushTimeout    = Nothing
-  , _streamTimeout        = Nothing
-  , _streamKeepAliveLimit = Nothing
-  , _flowId               = Nothing
-  }
 
 -- | Set maximum number of uncommitted events in the provided value of
 -- consumption parameters.

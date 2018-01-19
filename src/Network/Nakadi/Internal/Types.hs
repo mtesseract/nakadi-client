@@ -37,29 +37,29 @@ module Network.Nakadi.Internal.Types
   , MonadNakadiHttp(..)
   , NakadiT(..)
   , runNakadiT
-  , liftSub
-  )
-where
+  ) where
 
 import           Control.Lens                               ((<&>))
 import           Control.Monad.Base
 import           Control.Monad.Catch
 import           Control.Monad.Logger
 import           Control.Monad.State.Class
+import qualified Control.Monad.State.Lazy                   as State.Lazy
+import qualified Control.Monad.State.Strict                 as State.Strict
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Reader                 (ReaderT (..))
 import           Control.Monad.Trans.Resource.Internal      (transResourceT)
 import qualified Data.ByteString.Lazy                       as LB
+import           Data.Conduit                               (transPipe)
 import           Data.Conduit.Internal                      (ConduitM (..),
                                                              Pipe (..))
--- import           Data.Proxy                                 (Proxy (..))
-import           Data.Conduit                               (transPipe)
 import           GHC.Exts                                   (Constraint)
 import           Network.HTTP.Client                        (Manager, httpLbs,
                                                              responseClose,
                                                              responseOpen)
 import           Network.HTTP.Client.Conduit                (bodyReaderSource)
+import           Network.HTTP.Client.TLS                    (getGlobalManager)
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Retry
 import           Network.Nakadi.Internal.Types.Config
@@ -84,15 +84,27 @@ import           UnliftIO                                   hiding (mask,
 -- announce a typeclass constraint which it requires to run.
 
 class (Monad b, Monad m) => MonadNakadiHttp b m | m -> b where
+  -- | Retrying via Control.Retry requires the `MonadMask` constraint.
+  -- But pure monad transformer stacks are tricky with MonadMask, thus
+  -- we let the `MonadNakadiHttp` instances specify their own
+  -- constraint.
   type NakadiHttpConstraint m :: Constraint
-  nakadiHttpLbs :: Config b -> Request -> Manager -> m (Response LB.ByteString)
+  nakadiHttpLbs :: Config b
+                -> Request
+                -> Maybe Manager
+                -> m (Response LB.ByteString)
 
-class (Monad b, MonadMask m) => MonadNakadiHttpStream b m | m -> b where
+class (Monad b, Monad m) => MonadNakadiHttpStream b m | m -> b where
+  -- | Retrying via Control.Retry requires the `MonadMask` constraint.
+  -- But pure monad transformer stacks are tricky with MonadMask, thus
+  -- we let the `MonadNakadiHttp` instances specify their own
+  -- constraint.
   type NakadiHttpStreamConstraint m :: Constraint
-  nakadiHttpResponseOpen :: NakadiHttpStreamConstraint m
-                         => Request -> Manager -> m (Response (ConduitM () ByteString m ()))
-  nakadiHttpResponseClose :: NakadiHttpStreamConstraint m
-                          => Response a -> m ()
+  nakadiHttpResponseOpen :: Request
+                         -> Maybe Manager
+                         -> m (Response (ConduitM () ByteString m ()))
+  nakadiHttpResponseClose :: Response a
+                          -> m ()
 
 -- | The `MonadNakadi` typeclass is implemented by monads in which
 -- Nakadi can be called. The first parameter (`b`) denotes the `base
@@ -104,15 +116,15 @@ class (Monad b, MonadMask m) => MonadNakadiHttpStream b m | m -> b where
 -- * extracting specific Nakadi configuration values
 -- * lifting actions from the
 -- The `MonadNakadi` typeclass is modelled closely after `MonadReader`.
-class (MonadNakadiHttp b m, MonadThrow b, MonadThrow m, MonadCatch m, NakadiHttpConstraint m)
+class (MonadNakadiHttp b m, MonadThrow b, MonadThrow m, MonadCatch m)
    => MonadNakadi b m | m -> b where
-  -- {-# MINIMAL (nakadiAsk | nakadiReader), local #-}
+  -- {-# MINIMAL (nakadiAsk | nakadiReader), nakadiLocal #-}
   nakadiAsk :: m (Config b)
   nakadiAsk = nakadiReader identity
   nakadiLocal :: (Config b -> Config b) -> m a -> m a
   nakadiReader :: (Config b -> a) -> m a
   nakadiReader f = nakadiAsk >>= (return . f)
-  nakadiLift :: b a -> m a -- nakadiLift = lift
+  nakadiLift :: b a -> m a
 
 -- * Define Types
 
@@ -121,11 +133,11 @@ newtype NakadiT b m a = NakadiT
   { _runNakadiT :: Config b -> m a
   }
 
-
 -- * Provide Typeclass Implemenations
 
 -- ** Implement general typeclass instances for `NakadiT`.
 
+-- | `Applicative` for `NakadiT`.
 instance (Applicative m) => Applicative (NakadiT b m) where
   pure a  = NakadiT $ \_conf -> pure a
   {-# INLINE pure #-}
@@ -136,9 +148,11 @@ instance (Applicative m) => Applicative (NakadiT b m) where
   u <* v = NakadiT $ \ c -> _runNakadiT u c <* _runNakadiT v c
   {-# INLINE (<*) #-}
 
+-- | `Functor` for `NakadiT`.
 instance Functor m => Functor (NakadiT b m) where
   fmap f (NakadiT n) = NakadiT (\c -> fmap f (n c))
 
+-- | `Monad` for `NakadiT`.
 instance (Monad m) => Monad (NakadiT b m) where
   return   = lift . return
   m >>= k  = NakadiT $ \ c -> do
@@ -150,19 +164,21 @@ instance (Monad m) => Monad (NakadiT b m) where
   fail msg = lift (fail msg)
   {-# INLINE fail #-}
 
+-- | `MonadTrans` for `NakadiT`.
 instance MonadTrans (NakadiT b) where
     lift a = NakadiT (const a)
     {-# INLINE lift #-}
 
+-- | `MonadThrow` for `NakadiT`.
 instance (Monad b, MonadThrow m) => MonadThrow (NakadiT b m) where
   throwM e = lift $ Control.Monad.Catch.throwM e
 
-
+-- | `MonadCatch` for `NakadiT`.
 instance (Monad b, MonadCatch m) => MonadCatch (NakadiT b m) where
   catch (NakadiT b) h =
     NakadiT $ \ c -> b c `Control.Monad.Catch.catch` \e -> _runNakadiT (h e) c
 
-
+-- | `MonadMask` for `NakadiT`.
 instance (Monad b, MonadMask m) => MonadMask (NakadiT b m) where
   mask a = NakadiT $ \e -> mask $ \u -> _runNakadiT (a $ q u) e
     where q :: (m a -> m a) -> NakadiT e m a -> NakadiT e m a
@@ -172,20 +188,25 @@ instance (Monad b, MonadMask m) => MonadMask (NakadiT b m) where
       where q :: (m a -> m a) -> NakadiT e m a -> NakadiT e m a
             q u (NakadiT b) = NakadiT (u . b)
 
+-- | `MonadIO` for `NakadiT`.
 instance (Monad b, MonadIO m) => MonadIO (NakadiT b m) where
   liftIO = lift . liftIO
 
+-- | `MonadBase` for `NakadiT`.
 instance (Monad m, MonadBase b' m) => MonadBase b' (NakadiT b m) where
   liftBase = liftBaseDefault
 
+-- | `MonadReader` for `NakadiT`.
 instance (Monad b, MonadReader r m) => MonadReader r (NakadiT b m) where
   ask = lift ask
   local = mapNakadiT . local
 
+-- | `MonadState` for `NakadiT`.
 instance (Monad b, MonadState s m) => MonadState s (NakadiT b m) where
   get = lift get
   put = lift . put
 
+-- | `MonadState` for `NakadiT`.
 instance (Monad b, MonadUnliftIO m) => MonadUnliftIO (NakadiT b m) where
   {-# INLINE askUnliftIO #-}
   askUnliftIO =
@@ -193,6 +214,7 @@ instance (Monad b, MonadUnliftIO m) => MonadUnliftIO (NakadiT b m) where
     withUnliftIO $ \u ->
     return (UnliftIO (unliftIO u . runNakadiT r))
 
+-- | `MonadTransControl` for `NakadiT`.
 instance MonadTransControl (NakadiT b) where
   type StT (NakadiT b) a = a
   liftWith f = NakadiT $ \r -> f $ \t -> _runNakadiT t r
@@ -208,64 +230,40 @@ instance MonadBaseControl b m => MonadBaseControl b (NakadiT b m) where
 
 -- ** Implementations for `MonadNakadiHttp`.
 
+getHttpManager :: MonadIO m => Maybe Manager -> m Manager
+getHttpManager Nothing        = liftIO getGlobalManager
+getHttpManager (Just manager) = pure manager
+
 -- | `IO`-based implementation of `MonadNakadiHttp` for `NakadiT`
 -- using retries.
 instance ( MonadIO b
          , MonadUnliftIO b
          , MonadMask b
          , MonadBase IO b
-         -- , MonadIO (NakadiHttpStreamTransformer (NakadiT b b) b)
          ) => MonadNakadiHttp b (NakadiT b b) where
   type NakadiHttpConstraint (NakadiT b b) = MonadMask (NakadiT b b)
-  nakadiHttpLbs config req mngr = lift $
+  nakadiHttpLbs config req maybeMngr = lift $ do
+    mngr <- getHttpManager maybeMngr
     retryAction config req (\r -> liftIO $ httpLbs r mngr)
-
-instance (m ~ NakadiT b b, MonadIO m, MonadMask m, MonadBase IO b)
-      => MonadNakadiHttpStream b (NakadiT b b) where
-  type NakadiHttpStreamConstraint (NakadiT b b) = MonadMask (NakadiT b b)
-  nakadiHttpResponseOpen req mngr =
-    liftIO (responseOpen req mngr)
-    <&> fmap (transPipe liftIO . bodyReaderSource)
-  nakadiHttpResponseClose = liftIO . responseClose
 
 -- | Inherit `MonadNakadiHttp` implementation to `ReaderT`.
 instance MonadNakadiHttp b m => MonadNakadiHttp b (ReaderT r m) where
   type NakadiHttpConstraint (ReaderT r m) = NakadiHttpConstraint m
   nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
 
-instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m)
-      => MonadNakadiHttpStream b (ReaderT r m) where
-  type NakadiHttpStreamConstraint (ReaderT r m) = NakadiHttpStreamConstraint m
-  nakadiHttpResponseOpen req mngr =
-    lift (nakadiHttpResponseOpen req mngr)
-    <&> fmap (transPipe lift)
-  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
+-- | Inherit `MonadNakadiHttp` implementation to `StateT` (strict version).
+instance MonadNakadiHttp b m => MonadNakadiHttp b (State.Strict.StateT s m) where
+  type NakadiHttpConstraint (State.Strict.StateT s m) = NakadiHttpConstraint m
+  nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
 
-instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m)
-      => MonadNakadiHttpStream b (ResourceT m) where
-  type NakadiHttpStreamConstraint (ResourceT m) = NakadiHttpStreamConstraint m
-  nakadiHttpResponseOpen req mngr =
-    lift (nakadiHttpResponseOpen req mngr)
-    <&> fmap (transPipe lift)
-  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
-
--- instance (m ~ NakadiT b b, MonadIO m, MonadMask m, MonadBase IO b)
---       => MonadNakadiHttpStream b (NakadiT b b) where
---   type NakadiHttpStreamConstraint (NakadiT b b) = MonadMask (NakadiT b b)
---   nakadiHttpResponseOpen req mngr =
---     liftIO (responseOpen req mngr)
---     <&> fmap (transPipe liftIO . bodyReaderSource)
---   nakadiHttpResponseClose = liftIO . responseClose
-
+-- | Inherit `MonadNakadiHttp` implementation to `StateT` (lazy version).
+instance MonadNakadiHttp b m => MonadNakadiHttp b (State.Lazy.StateT s m) where
+  type NakadiHttpConstraint (State.Lazy.StateT s m) = NakadiHttpConstraint m
+  nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
 
 -- | Inherit `MonadNakadiHttp` implementation to `ResourceT`.
 instance MonadNakadiHttp b m => MonadNakadiHttp b (ResourceT m) where
   type NakadiHttpConstraint (ResourceT m) = NakadiHttpConstraint m
-  nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
-
--- | Inherit `MonadNakadiHttp` implementation to `ConduitM`.
-instance (MonadNakadiHttp b m, NakadiHttpConstraint m) => MonadNakadiHttp b (ConduitM i o m) where
-  type NakadiHttpConstraint (ConduitM i o m) = NakadiHttpConstraint m
   nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
 
 -- | Inherit `MonadNakadiHttp` implementation to `LoggingT`.
@@ -273,20 +271,77 @@ instance MonadNakadiHttp b m => MonadNakadiHttp b (LoggingT m) where
   type NakadiHttpConstraint (LoggingT m) = NakadiHttpConstraint m
   nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
 
-instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m) => MonadNakadiHttpStream b (LoggingT m) where
-  type NakadiHttpStreamConstraint (LoggingT m) = NakadiHttpConstraint m
+-- | Inherit `MonadNakadiHttp` implementation to `NoLoggingT`.
+instance MonadNakadiHttp b m => MonadNakadiHttp b (NoLoggingT m) where
+  type NakadiHttpConstraint (NoLoggingT m) = NakadiHttpConstraint m
+  nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
+
+-- | Inherit `MonadNakadiHttp` implementation to `ConduitM`.
+instance (MonadNakadiHttp b m) => MonadNakadiHttp b (ConduitM i o m) where
+  type NakadiHttpConstraint (ConduitM i o m) = MonadMask m
+  nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
+
+-- ** Implementations for `MonadNakadiHttpStream`.
+
+-- | `IO`-based implementation of `MonadNakadiHttpStream` for
+-- `NakadiT` using retries.
+instance (m ~ NakadiT b b, MonadIO m, MonadMask m, MonadBase IO b)
+      => MonadNakadiHttpStream b (NakadiT b b) where
+  type NakadiHttpStreamConstraint (NakadiT b b) = MonadMask (NakadiT b b)
+  nakadiHttpResponseOpen req maybeMngr = do
+    mngr <- getHttpManager maybeMngr
+    liftIO $ responseOpen req mngr <&> fmap (transPipe liftIO . bodyReaderSource)
+  nakadiHttpResponseClose = liftIO . responseClose
+
+-- | Inherit `MonadNakadiHttpStream` implementation to `ReaderT`.
+instance (MonadNakadiHttpStream b m)
+      => MonadNakadiHttpStream b (ReaderT r m) where
+  type NakadiHttpStreamConstraint (ReaderT r m) = MonadMask m
+  nakadiHttpResponseOpen req mngr =
+    lift (nakadiHttpResponseOpen req mngr)
+    <&> fmap (transPipe lift)
+  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
+
+-- | Inherit `MonadNakadiHttpStream` implementation to `StateT`
+-- (strict).
+instance (MonadNakadiHttpStream b m)
+      => MonadNakadiHttpStream b (State.Strict.StateT s m) where
+  type NakadiHttpStreamConstraint (State.Strict.StateT s m) = MonadMask m
+  nakadiHttpResponseOpen req mngr =
+    lift (nakadiHttpResponseOpen req mngr)
+    <&> fmap (transPipe lift)
+  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
+
+-- | Inherit `MonadNakadiHttpStream` implementation to `StateT`
+-- (lazy).
+instance (MonadNakadiHttpStream b m)
+      => MonadNakadiHttpStream b (State.Lazy.StateT s m) where
+  type NakadiHttpStreamConstraint (State.Lazy.StateT s m) = MonadMask m
+  nakadiHttpResponseOpen req mngr =
+    lift (nakadiHttpResponseOpen req mngr)
+    <&> fmap (transPipe lift)
+  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
+
+-- | Inherit `MonadNakadiHttpStream` implementation to `ResourceT`.
+instance (MonadNakadiHttpStream b m)
+      => MonadNakadiHttpStream b (ResourceT m) where
+  type NakadiHttpStreamConstraint (ResourceT m) = MonadMask m
+  nakadiHttpResponseOpen req mngr =
+    lift (nakadiHttpResponseOpen req mngr)
+    <&> fmap (transPipe lift)
+  nakadiHttpResponseClose = lift . nakadiHttpResponseClose
+
+-- | Inherit `MonadNakadiHttp` implementation to `LoggingT`.
+instance (MonadNakadiHttpStream b m) => MonadNakadiHttpStream b (LoggingT m) where
+  type NakadiHttpStreamConstraint (LoggingT m) = MonadMask m
   nakadiHttpResponseOpen req mngr =
     lift (nakadiHttpResponseOpen req mngr)
     <&> fmap (transPipe lift)
   nakadiHttpResponseClose = lift . nakadiHttpResponseClose
 
 -- | Inherit `MonadNakadiHttp` implementation to `NoLoggingT`.
-instance MonadNakadiHttp b m => MonadNakadiHttp b (NoLoggingT m) where
-  type NakadiHttpConstraint (NoLoggingT m) = NakadiHttpConstraint m
-  nakadiHttpLbs conf req mngr = lift $ nakadiHttpLbs conf req mngr
-
-instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m) => MonadNakadiHttpStream b (NoLoggingT m) where
-  type NakadiHttpStreamConstraint (NoLoggingT m) = NakadiHttpConstraint m
+instance (MonadNakadiHttpStream b m) => MonadNakadiHttpStream b (NoLoggingT m) where
+  type NakadiHttpStreamConstraint (NoLoggingT m) = MonadMask m
   nakadiHttpResponseOpen req mngr =
     lift (nakadiHttpResponseOpen req mngr)
     <&> fmap (transPipe lift)
@@ -295,30 +350,50 @@ instance (MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m) => MonadNakad
 -- ** Implementations for `MonadNakadi`.
 
 -- | Implementation of `MonadNakadi` for `NakadiT`.
-instance (MonadNakadiHttp b (NakadiT b b), MonadBase IO b, MonadIO b, MonadMask b)
+instance ( MonadNakadiHttp b (NakadiT b b)
+         , MonadBase IO b
+         , MonadIO b
+         , MonadCatch b )
       => MonadNakadi b (NakadiT b b) where
   nakadiAsk = NakadiT return
-  nakadiReader f = NakadiT (return . f)
   nakadiLocal f (NakadiT m) = NakadiT (\ c -> m (f c))
   nakadiLift = NakadiT . const
 
 -- | Inherit `MonadNakadi` implementation to `ReaderT`.
 instance (MonadNakadi b m) => MonadNakadi b (ReaderT r m) where
   nakadiAsk = lift nakadiAsk
-  nakadiReader = lift . nakadiReader
   nakadiLocal f (ReaderT m) = ReaderT (\ r -> nakadiLocal f (m r))
+  nakadiLift = lift . nakadiLift
+
+-- | Inherit `MonadNakadi` implementation to `StateT` (strict).
+instance (MonadNakadi b m) => MonadNakadi b (State.Strict.StateT s m) where
+  nakadiAsk = lift nakadiAsk
+  nakadiLocal f (State.Strict.StateT g) =
+    State.Strict.StateT $ \ s -> nakadiLocal f (g s)
+  nakadiLift = lift . nakadiLift
+
+-- | Inherit `MonadNakadi` implementation to `StateT` (lazy).
+instance (MonadNakadi b m) => MonadNakadi b (State.Lazy.StateT s m) where
+  nakadiAsk = lift nakadiAsk
+  nakadiLocal f (State.Lazy.StateT g) =
+    State.Lazy.StateT $ \ s -> nakadiLocal f (g s)
   nakadiLift = lift . nakadiLift
 
 -- | Inherit `MonadNakadi` implementation to `LoggingT`.
 instance (MonadNakadi b m) => MonadNakadi b (LoggingT m) where
   nakadiAsk = lift nakadiAsk
-  nakadiLocal = mapLoggingT . nakadiLocal
+  nakadiLocal f = LoggingT . (nakadiLocal f .) . runLoggingT
+  nakadiLift = lift . nakadiLift
+
+-- | Inherit `MonadNakadi` implementation to `NoLoggingT`.
+instance (MonadNakadi b m) => MonadNakadi b (NoLoggingT m) where
+  nakadiAsk = lift nakadiAsk
+  nakadiLocal f = NoLoggingT . (nakadiLocal f) . runNoLoggingT
   nakadiLift = lift . nakadiLift
 
 -- | Inherit `MonadNakadi` implementation to `ResourceT`.
 instance (MonadNakadi b m) => MonadNakadi b (ResourceT m) where
   nakadiAsk = lift nakadiAsk
-  nakadiReader = lift . nakadiReader
   nakadiLocal f m = transResourceT (nakadiLocal f) m
   nakadiLift = lift . nakadiLift
 
@@ -340,11 +415,5 @@ instance MonadNakadi b m => MonadNakadi b (ConduitM i o m) where
 runNakadiT :: Config b -> NakadiT b m a -> m a
 runNakadiT config a = _runNakadiT a config
 
-mapLoggingT :: (m a -> n b) -> LoggingT m a -> LoggingT n b
-mapLoggingT f = LoggingT . (f .) . runLoggingT
-
 mapNakadiT :: (m a -> m a) -> NakadiT b m a -> NakadiT b m a
 mapNakadiT f n = NakadiT $ \ c -> f (_runNakadiT n c)
-
-liftSub :: MonadNakadi b m => b a -> m a
-liftSub = nakadiLift

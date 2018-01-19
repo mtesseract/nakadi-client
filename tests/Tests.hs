@@ -52,8 +52,8 @@ main = do
       let nakadiEndpointT = pack nakadiEndpoint
       case parseRequest nakadiEndpoint of
         Just request -> do
-          conf <- runApp $ newConfig Nothing request
-          confIO :: ConfigIO <- liftIO $ newConfig Nothing request
+          let conf   = newConfig request
+              confIO = newConfig request :: ConfigIO
           return ("nakadi-client Test Suite",
                   integrationTests conf confIO ++ unitTests)
         Nothing -> do

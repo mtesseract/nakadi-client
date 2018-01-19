@@ -72,7 +72,7 @@ conduitDecode ::
 conduitDecode Config { .. } = awaitForever $ \a ->
   case eitherDecodeStrict a of
     Right v  -> yield v
-    Left err -> liftSub $ callback a (Text.pack err)
+    Left err -> lift . nakadiLift $ callback a (Text.pack err)
 
     where callback = fromMaybe dummyCallback _deserializationFailureCallback
           dummyCallback _ _ = return ()
@@ -88,12 +88,10 @@ httpBuildRequest ::
   => (Request -> Request) -- ^ Pure request modifier
   -> m Request -- ^ Resulting request to execute
 httpBuildRequest requestDef = do
-  Config { .. } <- nakadiAsk
-  let manager = _manager
-      request = requestDef _requestTemplate
-                   & setRequestManager manager
-                   & (\req -> req { checkResponse = checkNakadiResponse })
-  modifyRequest _requestModifier request
+  config <- nakadiAsk
+  let request = requestDef (config^.L.requestTemplate)
+                   & \req -> req { checkResponse = checkNakadiResponse }
+  modifyRequest (config^.L.requestModifier) request
 
 -- | Modify the Request based on a user function in the configuration.
 modifyRequest ::
@@ -102,7 +100,7 @@ modifyRequest ::
   -> Request
   -> m Request
 modifyRequest rm request =
-  tryAny (liftSub (rm request)) >>= \case
+  tryAny (nakadiLift (rm request)) >>= \case
     Right modifiedRequest -> return $ modifiedRequest
     Left  exn             -> throwIO $ RequestModificationException exn
 
@@ -159,7 +157,7 @@ httpJsonNoBody successStatus exceptionMap requestDef = do
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonBodyStream ::
-  forall b m r. (MonadNakadi b m, MonadNakadiHttpStream b m, NakadiHttpStreamConstraint m, MonadMask m)
+  forall b m r. (MonadNakadi b m, MonadNakadiHttpStream b m, MonadMask m, NakadiHttpStreamConstraint m)
   => Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)

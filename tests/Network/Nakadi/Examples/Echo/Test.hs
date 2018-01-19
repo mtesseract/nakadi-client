@@ -45,7 +45,12 @@ publishEvents :: Nakadi.MonadNakadi IO m
 publishEvents events eventName = do
   Nakadi.eventsPublish eventName Nothing (Vector.toList events)
   
-consumerMain :: (Nakadi.MonadNakadi b m, Nakadi.MonadNakadiHttpStream b m, MonadIO m, MonadBaseControl IO m, Nakadi.NakadiHttpStreamConstraint m)
+consumerMain
+  :: ( Nakadi.MonadNakadi b m
+     , Nakadi.MonadNakadiHttpStream b m
+     , MonadIO m
+     , MonadMask m
+     , MonadBaseControl IO m )
              => Nakadi.EventTypeName
              -> Int
              -> m (Vector Foo)
@@ -54,7 +59,6 @@ consumerMain eventName maxSize = runResourceT $ do
                           & L.batchFlushTimeout .~ Just 1
                           & L.streamLimit .~ Just (fromIntegral maxSize)
   Nakadi.eventsProcessConduit (Just consumeParameters) eventName Nothing $ 
-    -- mapC (id :: Nakadi.EventStreamBatch Foo -> Nakadi.EventStreamBatch Foo)
     concatMapC (view L.events)
     .| concatC
     .| mapC (id :: Nakadi.EventEnriched Foo -> Nakadi.EventEnriched Foo)

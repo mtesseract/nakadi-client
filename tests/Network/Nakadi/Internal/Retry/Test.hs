@@ -6,9 +6,9 @@ module Network.Nakadi.Internal.Retry.Test
   ) where
 
 import           ClassyPrelude
-import           Control.Lens
 import           Control.Retry
 import qualified Data.ByteString.Lazy          as LB
+import           Data.Function                 ((&))
 import           Network.HTTP.Client
 import           Network.HTTP.Client.Internal  (CookieJar (..), Request (..),
                                                 Response (..),
@@ -72,9 +72,9 @@ testHttpErrorCallbackN :: Int -> Assertion
 testHttpErrorCallbackN numFailures = do
   counter <- newTVarIO 0
   responder <- prepareMockResponse numFailures
-  conf <- newConfig Nothing defaultRequest
-          <&> setHttpErrorCallback (httpErrorCallback counter)
-          <&> setRetryPolicy (fullJitterBackoff 2 ++ limitRetries maxRetries)
+  let conf = newConfig defaultRequest
+             & setHttpErrorCallback (httpErrorCallback counter)
+             & setRetryPolicy (fullJitterBackoff 2 ++ limitRetries maxRetries)
   _response :: Either HttpException (Response LB.ByteString) <- try $
     retryAction conf defaultRequest (mockHttpLbs responder)
   current <- readTVarIO counter

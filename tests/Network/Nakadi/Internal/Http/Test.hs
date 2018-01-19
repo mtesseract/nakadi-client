@@ -28,7 +28,7 @@ dummyRequestModifier request = pure (request { requestHeaders = headers })
 
 testHttpRequestModifier :: Assertion
 testHttpRequestModifier = do
-  conf <- newConfig Nothing defaultRequest
-          <&> setRequestModifier dummyRequestModifier
+  let conf = newConfig defaultRequest
+             & setRequestModifier dummyRequestModifier
   request <- runNakadiT conf $ httpBuildRequest id
   requestHeaders request @=? headers

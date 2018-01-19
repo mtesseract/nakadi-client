@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Subscriptions.Events
 Description : Implementation of Nakadi Subscription Events API
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -43,6 +43,7 @@ subscriptionProcess
      , FromJSON a
      , MonadNakadiHttpStream b m
      , NakadiHttpStreamConstraint m
+     , MonadMask m
      )
   => Maybe ConsumeParameters
   -> SubscriptionId
@@ -56,8 +57,9 @@ subscriptionProcessConduit
   :: ( MonadNakadi b m
      , FromJSON a
      , MonadNakadiHttpStream b m
-     , NakadiHttpStreamConstraint m
      , L.HasNakadiSubscriptionCursor c
+     , NakadiHttpStreamConstraint m
+     , MonadMask m
      )
   => Maybe ConsumeParameters
   -> SubscriptionId
@@ -65,7 +67,7 @@ subscriptionProcessConduit
   -> m ()
 subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
   config <- nakadiAsk
-  let consumeParams = fromMaybe (config^.L.consumeParameters) maybeConsumeParameters
+  let consumeParams = fromMaybe defaultConsumeParameters maybeConsumeParameters
       queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
       addFlowId     = case consumeParams^.L.flowId of
                         Just flowId -> setRequestHeader "X-Flow-Id" [encodeUtf8 flowId]

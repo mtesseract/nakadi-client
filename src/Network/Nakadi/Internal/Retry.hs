@@ -43,10 +43,15 @@ invokeHttpErrorCallback config req exn retryStatus =
       cb req exn retryStatus finalFailure
     Nothing -> pure ()
 
-  where isFinalFailure =
-          applyPolicy (config^.L.retryPolicy) retryStatus >>= \case
-          Just _  -> pure False
-          Nothing -> pure True
+  where isFinalFailure = do
+          let policy = liftIORetryPolicy (config^.L.retryPolicy)
+          applyPolicy policy retryStatus >>= \case
+            Just _  -> pure False
+            Nothing -> pure True
+
+
+liftIORetryPolicy :: MonadIO b => RetryPolicyM IO -> RetryPolicyM b
+liftIORetryPolicy rp = RetryPolicyM $ liftIO . getRetryPolicyM rp
 
 -- | Try to execute the provided IO action using the provided retry
 -- policy. If executing the IO action raises specific exceptions of
@@ -59,10 +64,8 @@ retryAction ::
   -> (Request -> b a)
   -> b a
 retryAction config req ma =
-  let policy = config^.L.retryPolicy
-      nakadiRetryPolicy = RetryPolicyM $ \retryStatus ->
-        (getRetryPolicyM policy retryStatus)
-  in recovering nakadiRetryPolicy [handlerHttp] (\_retryStatus -> ma req)
+  let policy = liftIORetryPolicy (config^.L.retryPolicy)
+  in recovering policy [handlerHttp] (\_retryStatus -> ma req)
 
   where handlerHttp retryStatus = Handler $ \exn -> do
           invokeHttpErrorCallback config req exn retryStatus

@@ -50,7 +50,7 @@ instance MonadNakadi App (MockNakadiT App) where
   nakadiLift = lift
 
 mockConfig :: Config App
-mockConfig = unsafePerformIO $ newConfig Nothing defaultRequest
+mockConfig = newConfig defaultRequest
 
 testCustomHttpBackend :: Assertion
 testCustomHttpBackend = runApp $ do

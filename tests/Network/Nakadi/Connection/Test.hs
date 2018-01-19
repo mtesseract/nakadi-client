@@ -68,7 +68,7 @@ testServerResponseTimeoutApp req respond =
 
 testSimpleRetry :: Assertion
 testSimpleRetry = do
-  conf :: ConfigIO <- newConfig Nothing testServerRequest { port = testServerRetryPort }
+  let conf = newConfig testServerRequest { port = testServerRetryPort } :: ConfigIO
   withAsync (run testServerRetryPort (testServerRetryApp 1)) $ \_serverHandle -> do
     events <- runNakadiT conf eventTypesList
     [] @=? events
@@ -78,7 +78,7 @@ testResponseTimeoutSuccess = do
   let timeout = responseTimeoutMicro (5 * 10^6) -- Accept delay of 5s
       request = testServerRequest { port = testServerResponseTimeoutPort
                                   , responseTimeout = timeout }
-  conf :: ConfigIO <- newConfig Nothing request
+      conf    = newConfig request :: ConfigIO
   withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle -> do
     events <- runNakadiT conf eventTypesList
     [] @=? events
@@ -89,7 +89,7 @@ testResponseTimeoutFail = do
     let timeout = responseTimeoutMicro (3 * 10^6) -- Accept delay of 3s
         request = testServerRequest { port = testServerResponseTimeoutPort
                                     , responseTimeout = timeout }
-    conf :: ConfigIO <- newConfig Nothing request
+        conf    = newConfig request :: ConfigIO
     withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle ->
       runNakadiT conf eventTypesList
   case res of
