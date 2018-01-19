@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Http
 Description : Nakadi Client HTTP (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -11,10 +11,12 @@ Internal module containing HTTP client relevant code.
 -}
 
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Network.Nakadi.Internal.Http
   ( module Network.HTTP.Simple
@@ -23,6 +25,8 @@ module Network.Nakadi.Internal.Http
   , httpJsonBody
   , httpJsonNoBody
   , httpJsonBodyStream
+  , httpBuildRequest
+  , conduitDecode
   , errorClientNotAuthenticated
   , errorUnprocessableEntity
   , errorAccessForbidden
@@ -40,39 +44,35 @@ module Network.Nakadi.Internal.Http
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Conduit
+import           Conduit                         hiding (throwM)
 import           Control.Arrow
 import           Control.Lens
 import           Control.Monad                   (void)
-import           Control.Monad.Reader
-import           Control.Monad.Trans.Resource
 import           Data.Aeson
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
-import qualified Data.Conduit.Binary             as Conduit
 import qualified Data.Text                       as Text
 import           Network.HTTP.Client             (BodyReader,
                                                   HttpException (..),
                                                   HttpExceptionContent (..),
-                                                  checkResponse, responseStatus)
-import           Network.HTTP.Client.Conduit     (bodyReaderSource)
-import           Network.HTTP.Simple
+                                                  checkResponse, responseBody,
+                                                  responseStatus)
+import           Network.HTTP.Simple             hiding (Proxy)
 import           Network.HTTP.Types
 import           Network.HTTP.Types.Status
 import qualified Network.Nakadi.Internal.Lenses  as L
-import           Network.Nakadi.Internal.Retry
 import           Network.Nakadi.Internal.Types
 import           Network.Nakadi.Internal.Util
 
 conduitDecode ::
-  (MonadIO m, FromJSON a)
-  => Config -- ^ Configuration, containing the
-            -- deserialization-failure-callback.
+  (FromJSON a, MonadNakadi b m)
+  => Config b -- ^ Configuration, containing the
+              -- deserialization-failure-callback.
   -> ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
                                 -- into custom values
 conduitDecode Config { .. } = awaitForever $ \a ->
   case eitherDecodeStrict a of
     Right v  -> yield v
-    Left err -> liftIO $ callback a (Text.pack err)
+    Left err -> lift . nakadiLift $ callback a (Text.pack err)
 
     where callback = fromMaybe dummyCallback _deserializationFailureCallback
           dummyCallback _ _ = return ()
@@ -84,73 +84,71 @@ checkNakadiResponse request response =
   throwIO $ HttpExceptionRequest request (StatusCodeException (void response) mempty)
 
 httpBuildRequest ::
-  (MonadIO m, MonadCatch m)
-  => Config -- ^ Configuration, contains the impure request modifier
-  -> (Request -> Request) -- ^ Pure request modifier
+  MonadNakadi b m
+  => (Request -> Request) -- ^ Pure request modifier
   -> m Request -- ^ Resulting request to execute
-httpBuildRequest Config { .. } requestDef =
-  let manager = _manager
-      request = requestDef _requestTemplate
-                   & setRequestManager manager
-                   & (\req -> req { checkResponse = checkNakadiResponse })
-  in modifyRequest _requestModifier request
-
+httpBuildRequest requestDef = do
+  config <- nakadiAsk
+  let request = requestDef (config^.L.requestTemplate)
+                   & \req -> req { checkResponse = checkNakadiResponse }
+  modifyRequest (config^.L.requestModifier) request
 
 -- | Modify the Request based on a user function in the configuration.
-modifyRequest :: (MonadIO m, MonadCatch m) => (Request -> IO Request) -> Request -> m Request
+modifyRequest ::
+  MonadNakadi b m
+  => (Request -> b Request)
+  -> Request
+  -> m Request
 modifyRequest rm request =
-  tryAny (liftIO (rm request)) >>= \case
-    Right modifiedRequest -> return modifiedRequest
+  tryAny (nakadiLift (rm request)) >>= \case
+    Right modifiedRequest -> return $ modifiedRequest
     Left  exn             -> throwIO $ RequestModificationException exn
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier.
 httpExecRequest ::
-  (MonadIO m, MonadMask m)
-  => Config
-  -> (Request -> Request)
+  MonadNakadi b m
+  => (Request -> Request)
   -> m (Response ByteString.Lazy.ByteString)
-httpExecRequest config requestDef = do
-  req <- httpBuildRequest config requestDef
-  retryAction config req (liftIO . (config^.L.http.L.httpLbs))
+httpExecRequest requestDef = do
+  config <- nakadiAsk
+  req <- httpBuildRequest requestDef
+  nakadiHttpLbs config req (config^.L.manager)
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier. Returns the HTTP response and separately the
 -- response status.
 httpExecRequestWithStatus ::
-  (MonadIO m, MonadMask m)
-  => Config -- ^ Configuration
-  -> (Request -> Request) -- ^ Pure request modifier
+  MonadNakadi b m
+  => (Request -> Request) -- ^ Pure request modifier
   -> m (Response ByteString.Lazy.ByteString, Status)
-httpExecRequestWithStatus config requestDef =
-  (identity &&& getResponseStatus) <$> httpExecRequest config requestDef
+httpExecRequestWithStatus requestDef =
+  (identity &&& getResponseStatus) <$> httpExecRequest requestDef
 
 httpJsonBody ::
-  (MonadMask m, MonadIO m, FromJSON a)
-  => Config
-  -> Status
+  (MonadNakadi b m, FromJSON a)
+  => Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
   -> m a
-httpJsonBody config successStatus exceptionMap requestDef = do
-  (response, status) <- httpExecRequestWithStatus config requestDef
+httpJsonBody successStatus exceptionMap requestDef = do
+  (response, status) <- httpExecRequestWithStatus requestDef
   if status == successStatus
     then decodeThrow (getResponseBody response)
     else case lookup status exceptionMap' of
-           Just mkExn -> mkExn (getResponseBody response) >>= throwIO
-           Nothing    -> throwIO (UnexpectedResponse (void response))
+           Just mkExn -> mkExn (getResponseBody response) >>= throwM
+           Nothing    -> throwM (UnexpectedResponse (void response))
 
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonNoBody ::
-  (MonadMask m, MonadIO m)
-  => Config
-  -> Status
+  MonadNakadi b m
+  => Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
   -> m ()
-httpJsonNoBody config successStatus exceptionMap requestDef = do
-  (response, status) <- httpExecRequestWithStatus config requestDef
+httpJsonNoBody successStatus exceptionMap requestDef = do
+  (response, status) <- httpExecRequestWithStatus requestDef
   unless (status == successStatus) $
     case lookup status exceptionMap' of
       Just mkExn -> mkExn (getResponseBody response) >>= throwIO
@@ -159,40 +157,39 @@ httpJsonNoBody config successStatus exceptionMap requestDef = do
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
 httpJsonBodyStream ::
-  (MonadMask m, MonadIO m, FromJSON a, MonadBaseControl IO m, MonadResource m)
-  => Config
-  -> Status
-  -> (Response () -> Either Text b)
+  forall b m r. (MonadNakadi b m, MonadNakadiHttpStream b m, MonadMask m, NakadiHttpStreamConstraint m)
+  => Status
   -> [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
   -> (Request -> Request)
-  -> m (b, ConduitM () a (ReaderT r m) ())
-httpJsonBodyStream config successStatus f exceptionMap requestDef = do
-  request <- httpBuildRequest config requestDef
-  let manager           = config^.L.manager
-      responseOpen      = config^.L.http.L.responseOpen
-      responseClose     = config^.L.http.L.responseClose
-      responseOpenRetry = retryAction config request (flip responseOpen manager)
-  (_, response) <- allocate responseOpenRetry responseClose
-  let response_  = void response
-      bodySource = bodyReaderSource (getResponseBody response)
-      status     = getResponseStatus response
-  if status == successStatus
-    then do connectCallback (config^.L.logFunc) response_
-            let conduit = bodySource
-                          .| Conduit.lines
-                          .| conduitDecode config
-            case f response_ of
-              Left errMsg -> throwString (Text.unpack errMsg)
-              Right b     -> return (b, readerC (const conduit))
-    else case lookup status exceptionMap' of
-           Just mkExn -> conduitDrainToLazyByteString bodySource >>= mkExn >>= throwIO
-           Nothing    -> throwIO (UnexpectedResponse response_)
+  -> (Response (ConduitM () ByteString m ()) -> m r)
+  -> m r
+httpJsonBodyStream successStatus exceptionMap requestDef handler = do
+  config <- nakadiAsk
+  request <- httpBuildRequest requestDef
+  bracket (nakadiHttpResponseOpen request (config^.L.manager))
+          nakadiHttpResponseClose $ \ response ->
+                                      wrappedHandler config response
 
-  where exceptionMap' = exceptionMap ++ defaultExceptionMap
+  where wrappedHandler config response = do
+          let response_  = void response
+              status     = responseStatus response_
+              bodySource = responseBody response
+          if status == successStatus
+            then do connectCallback config response_
+                    handler response
+            else case lookup status exceptionMap' of
+                   Just mkExn -> do
+                     conduitDrainToLazyByteString bodySource
+                     >>= mkExn
+                     >>= throwM
+                   Nothing -> throwM (UnexpectedResponse response_)
 
-        connectCallback = case config^.L.streamConnectCallback of
-          Just cb -> \logFunc response -> liftIO $ cb logFunc response
-          Nothing -> \_ _ -> return ()
+        exceptionMap' = exceptionMap ++ defaultExceptionMap
+
+        connectCallback config response = nakadiLift $
+          case config^.L.streamConnectCallback of
+          Just cb -> cb response
+          Nothing -> pure ()
 
 setRequestQueryParameters ::
   [(ByteString, ByteString)]

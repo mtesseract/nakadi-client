@@ -10,47 +10,38 @@ Portability : POSIX
 Internal configuration specific types.
 -}
 
+{-# LANGUAGE GADTs      #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StrictData #-}
 
 module Network.Nakadi.Internal.Types.Config where
 
-import           Network.Nakadi.Internal.Prelude
-
 import           Control.Retry
 import           Network.HTTP.Client
-
-import qualified Data.ByteString.Lazy            as LB (ByteString)
-import           Network.Nakadi.Types.Logger
+import           Network.Nakadi.Internal.Prelude
+import           Network.Nakadi.Internal.Types.Logger
 
 -- | Config
 
-type StreamConnectCallback = Maybe LogFunc -> Response () -> IO ()
+type StreamConnectCallback m = Response () -> m ()
 
 -- | Type synonym for user-provided callbacks which are used for HTTP
 -- Errror propagation.
-type HttpErrorCallback = Request -> HttpException -> RetryStatus -> Bool -> IO ()
+type HttpErrorCallback m = Request -> HttpException -> RetryStatus -> Bool -> m ()
 
-data Config = Config
-  { _requestTemplate                :: Request
-  , _requestModifier                :: Request -> IO Request
-  , _manager                        :: Manager
-  , _consumeParameters              :: ConsumeParameters
-  , _deserializationFailureCallback :: Maybe (ByteString -> Text -> IO ())
-  , _streamConnectCallback          :: Maybe StreamConnectCallback
-  , _logFunc                        :: Maybe LogFunc
-  , _retryPolicy                    :: RetryPolicyM IO
-  , _http                           :: HttpBackend
-  , _httpErrorCallback              :: Maybe HttpErrorCallback
-  }
+type ConfigIO = Config IO
 
--- | Type encapsulating the HTTP backend functions used by this
--- package. By default the corresponding functions from the
--- http-client package are used. Useful, for e.g., testing.
-data HttpBackend = HttpBackend
-  { _httpLbs       :: Request -> IO (Response LB.ByteString)
-  , _responseOpen  :: Request -> Manager -> IO (Response BodyReader)
-  , _responseClose :: Response BodyReader -> IO ()
-  }
+data Config m where
+  Config :: { _requestTemplate                :: Request
+            , _requestModifier                :: Request -> m Request
+            , _manager                        :: Maybe Manager
+            , _consumeParameters              :: Maybe ConsumeParameters
+            , _deserializationFailureCallback :: Maybe (ByteString -> Text -> m ())
+            , _streamConnectCallback          :: Maybe (StreamConnectCallback m)
+            , _logFunc                        :: Maybe (LogFunc m)
+            , _retryPolicy                    :: RetryPolicyM IO
+            , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
+            } -> Config m
 
 -- | ConsumeParameters
 

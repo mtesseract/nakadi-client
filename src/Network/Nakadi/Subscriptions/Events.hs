@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Subscriptions.Events
 Description : Implementation of Nakadi Subscription Events API
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -15,123 +15,97 @@ This module implements a high level interface for the
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Network.Nakadi.Subscriptions.Events
-  ( subscriptionSource
-  , subscriptionSourceR
-  , runSubscription
-  , runSubscriptionR
-  , subscriptionSink
+  ( subscriptionProcessConduit
+  , subscriptionProcess
   ) where
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Conduit
+import           Conduit                              hiding (throwM)
 import           Control.Lens
-import           Control.Monad.Reader
 import           Data.Aeson
+import           Data.Void
+import           Network.HTTP.Client                  (responseBody)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
 
-import           Data.Void
 import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
-import           Network.Nakadi.Internal.Lenses       (HasNakadiSubscriptionCursor)
 import qualified Network.Nakadi.Internal.Lenses       as L
 import           Network.Nakadi.Subscriptions.Cursors
 
--- | GET to @\/subscriptions\/SUBSCRIPTION\/events@. Creates a Conduit
--- Source producing events from a Subscription's event stream.
-subscriptionSource ::
-  (MonadNakadi m, MonadResource m, MonadBaseControl IO m, MonadMask m, FromJSON a)
-  => Config                  -- ^ Configuration
-  -> Maybe ConsumeParameters -- ^ Optional Consumption Parameters
-  -> SubscriptionId          -- ^ Subscription ID
-  -> m ( SubscriptionEventStream
-       , ConduitM ()
-         (SubscriptionEventStreamBatch a)
-         (ReaderT SubscriptionEventStreamContext m)
-         () )                -- ^ Returns a Pair consisting of subscription
-                             -- connection information ('SubscriptionEventStream')
-                             -- and a Conduit source.
-subscriptionSource config maybeParams subscriptionId = do
-  let consumeParams = fromMaybe (config^.L.consumeParameters) maybeParams
-      queryParams = buildSubscriptionConsumeQueryParameters consumeParams
+subscriptionProcess
+  :: ( MonadNakadi b m
+     , FromJSON a
+     , MonadNakadiHttpStream b m
+     , NakadiHttpStreamConstraint m
+     , MonadMask m
+     )
+  => Maybe ConsumeParameters
+  -> SubscriptionId
+  -> (SubscriptionEventStreamBatch a -> m ())
+  -> m ()
+subscriptionProcess maybeConsumeParameters subscriptionId processor =
+  subscriptionProcessConduit maybeConsumeParameters subscriptionId conduit
+  where conduit = iterMC processor
 
+subscriptionProcessConduit
+  :: ( MonadNakadi b m
+     , FromJSON a
+     , MonadNakadiHttpStream b m
+     , L.HasNakadiSubscriptionCursor c
+     , NakadiHttpStreamConstraint m
+     , MonadMask m
+     )
+  => Maybe ConsumeParameters
+  -> SubscriptionId
+  -> ConduitM (SubscriptionEventStreamBatch a) c m ()
+  -> m ()
+subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
+  config <- nakadiAsk
+  let consumeParams = fromMaybe defaultConsumeParameters maybeConsumeParameters
+      queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
       addFlowId     = case consumeParams^.L.flowId of
                         Just flowId -> setRequestHeader "X-Flow-Id" [encodeUtf8 flowId]
                         Nothing     -> identity
-  httpJsonBodyStream config ok200 buildSubscriptionEventStream
-    [(status404, errorSubscriptionNotFound)]
-    (setRequestPath path . addFlowId . setRequestQueryParameters queryParams)
+  httpJsonBodyStream ok200 [(status404, errorSubscriptionNotFound)]
+    (setRequestPath path . addFlowId . setRequestQueryParameters queryParams) $
+    handler config
+
 
   where buildSubscriptionEventStream response =
           case listToMaybe (getResponseHeader "X-Nakadi-StreamId" response) of
             Just streamId ->
-              Right SubscriptionEventStream
+              pure SubscriptionEventStream
               { _streamId       = StreamId (decodeUtf8 streamId)
               , _subscriptionId = subscriptionId }
             Nothing ->
-              Left "X-Nakadi-StreamId not found"
+              throwM StreamIdMissing
 
         path = "/subscriptions/"
                <> subscriptionIdToByteString subscriptionId
                <> "/events"
 
--- | GET to @\/subscriptions\/SUBSCRIPTION\/events@. Creates a Conduit
--- Source producing events from a Subscription's event stream. Uses
--- the configuration from the environment.
-subscriptionSourceR ::
-  (MonadNakadiEnv r m, MonadResource m, MonadBaseControl IO m, MonadMask m, FromJSON a)
-  => Maybe ConsumeParameters -- ^ Optional Consumption Parameters
-  -> SubscriptionId          -- ^ Subscription ID
-  -> m ( SubscriptionEventStream
-       , ConduitM ()
-         (SubscriptionEventStreamBatch a)
-         (ReaderT SubscriptionEventStreamContext m)
-         () )                -- ^ Returns a Pair consisting of subscription
-                             -- connection information ('SubscriptionEventStream')
-                             -- and a Conduit source.
-subscriptionSourceR maybeParams subscriptionId = do
-  config <- asks (view L.nakadiConfig)
-  subscriptionSource config maybeParams subscriptionId
+        handler config response = do
+          eventStream <- buildSubscriptionEventStream response
+          runConduit $
+            responseBody response
+            .| linesUnboundedAsciiC
+            .| conduitDecode config
+            .| processor
+            .| subscriptionSink eventStream
 
--- | Run a Subscription processing Conduit.
-runSubscription ::
-  (Monad m, MonadBaseControl IO m, MonadResource m)
-  => Config                  -- ^ Configuration
-  -> SubscriptionEventStream -- ^ Connection information for the Subscription
-  -> ConduitM ()
-              Void
-              (ReaderT SubscriptionEventStreamContext m)
-              r              -- ^ Subscription Conduit to run
-  -> m r                     -- ^ Result of the Conduit
-runSubscription config SubscriptionEventStream { .. } =
-  let subscriptionStreamContext = SubscriptionEventStreamContext
-                                  { _streamId       = _streamId
-                                  , _subscriptionId = _subscriptionId
-                                  , _ctxConfig      = config }
-  in runConduit . runReaderC subscriptionStreamContext
-
--- | Run a Subscription processing Conduit. Uses the configuration
--- contained in the environment.
-runSubscriptionR ::
-  (Monad m, MonadBaseControl IO m, MonadResource m, MonadReader r m, L.HasNakadiConfig r Config)
-  => SubscriptionEventStream -- ^ Connection information for the Subscription
-  -> ConduitM ()
-              Void
-              (ReaderT SubscriptionEventStreamContext m)
-              s              -- ^ Subscription Conduit to run
-  -> m s                     -- ^ Result of the Conduit
-runSubscriptionR subscriptionEventStream conduit = do
-  config <- asks (view L.nakadiConfig)
-  runSubscription config subscriptionEventStream conduit
 
 -- | Sink which can be used as sink for Conduits processing
 -- subscriptions events. This sink takes care of committing events. It
 -- can consume any values which contain Subscription Cursors.
 subscriptionSink ::
-  (MonadNakadi m, HasNakadiSubscriptionCursor a )
-  => ConduitM a Void (ReaderT SubscriptionEventStreamContext m) ()
-subscriptionSink = awaitForever $ lift . subscriptionCommit . (: [])
+  (MonadNakadi b m, L.HasNakadiSubscriptionCursor a)
+  => SubscriptionEventStream
+  -> ConduitM a Void m ()
+subscriptionSink eventStream =
+  awaitForever $ lift . subscriptionCursorCommit eventStream . (: [])

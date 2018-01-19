@@ -21,8 +21,8 @@ import           Network.Nakadi.Internal.Types.Service
 -- | This context is required in the environment for running a
 -- subscription. It is managed by the library, not by the user.
 
-data SubscriptionEventStreamContext = SubscriptionEventStreamContext
+data SubscriptionEventStreamContext b = SubscriptionEventStreamContext
   { _streamId       :: StreamId
   , _subscriptionId :: SubscriptionId
-  , _ctxConfig      :: Config
+  , _ctxConfig      :: Config b
   }

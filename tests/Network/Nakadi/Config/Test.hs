@@ -1,11 +1,16 @@
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
 module Network.Nakadi.Config.Test where
 
-import           ClassyPrelude
-import           Control.Lens         ((<&>))
-import           Control.Retry
-import qualified Data.ByteString.Lazy as LB
+import           ClassyPrelude               hiding (catch, throwM)
+import           Control.Monad.Catch         (MonadCatch (..), MonadThrow (..))
 import           Network.HTTP.Client
 import           Network.Nakadi
+import           Network.Nakadi.Tests.Common
 import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -18,31 +23,41 @@ testConfig = testGroup "Config"
 requestsExecuted :: TVar [Request]
 requestsExecuted = unsafePerformIO . newTVarIO $ []
 
-dummyHttpLbs :: Request -> IO (Response LB.ByteString)
-dummyHttpLbs req = do
-  atomically $ modifyTVar requestsExecuted (req :)
-  throwIO (HttpExceptionRequest req ResponseTimeout)
+newtype MockNakadiT m a = MockNakadiT { runMockNakadiT :: m a
+                                      } deriving (Functor, Applicative, Monad)
 
-dummyResponseOpen :: Request -> Manager -> IO (Response (IO ByteString))
-dummyResponseOpen req _manager = do
-  atomically $ modifyTVar requestsExecuted (req :)
-  throwIO (HttpExceptionRequest req ResponseTimeout)
+instance MonadTrans MockNakadiT where
+  lift m = MockNakadiT m
 
-dummyResponseClose :: Response BodyReader -> IO ()
-dummyResponseClose _response = return ()
+instance MonadThrow m => MonadThrow (MockNakadiT m) where
+  throwM = MockNakadiT . throwM
 
-dummyHttpBackend :: HttpBackend
-dummyHttpBackend = HttpBackend dummyHttpLbs dummyResponseOpen dummyResponseClose
+instance MonadCatch m => MonadCatch (MockNakadiT m) where
+  catch (MockNakadiT m) c = MockNakadiT $ m `catch` \e -> runMockNakadiT (c e)
+
+instance MonadIO m => MonadIO (MockNakadiT m) where
+  liftIO = lift . liftIO
+
+instance MonadNakadiHttp App (MockNakadiT App) where
+  type NakadiHttpConstraint (MockNakadiT App) = MonadThrow (MockNakadiT App)
+  nakadiHttpLbs _conf req _mngr = do
+    atomically $ modifyTVar requestsExecuted (req :)
+    throwM (HttpExceptionRequest req ResponseTimeout)
+
+instance MonadNakadi App (MockNakadiT App) where
+  nakadiAsk = pure mockConfig
+  nakadiLocal _ ma = ma
+  nakadiLift = lift
+
+mockConfig :: Config App
+mockConfig = newConfig defaultRequest
 
 testCustomHttpBackend :: Assertion
-testCustomHttpBackend = do
-  let trivialRetryPolicy = limitRetries 0
-  conf <- newConfig Nothing defaultRequest
-          <&> setHttpBackend dummyHttpBackend
-          <&> setRetryPolicy trivialRetryPolicy
-  res0 <- try $ registryPartitionStrategies conf -- This should use httpLbs
-  case res0 of
+testCustomHttpBackend = runApp $ do
+  res0 <- try $ runMockNakadiT $
+    registryPartitionStrategies -- This uses httpLbs.
+  liftIO $ case res0 of
     Left (HttpExceptionRequest _ ResponseTimeout) -> return ()
     _ -> assertFailure "Expected ResponseTimeout exception from dummy HttpBackend"
   requests <- atomically . readTVar $ requestsExecuted
-  1 @=? length requests
+  liftIO $ 1 @=? length requests

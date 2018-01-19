@@ -65,6 +65,7 @@ module Network.Nakadi.Types.Service
   , PartitionKeyField(..)
   , EventType(..)
   , DataChangeEvent(..)
+  , DataChangeEventEnriched(..)
   , DataOp(..)
   , EventEnriched(..)
   , MetadataEnriched(..)

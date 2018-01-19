@@ -1,0 +1,97 @@
+{-|
+Module      : Network.Nakadi.Internal.Types
+Description : Nakadi Client Types (Internal)
+Copyright   : (c) Moritz Schulte 2017
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+Exports all types for internal usage.
+-}
+
+{-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE FunctionalDependencies     #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE TypeFamilies               #-}
+
+module Network.Nakadi.Internal.Types
+  ( module Network.Nakadi.Internal.Types.Config
+  , module Network.Nakadi.Internal.Types.Exceptions
+  , module Network.Nakadi.Internal.Types.Logger
+  , module Network.Nakadi.Internal.Types.Problem
+  , module Network.Nakadi.Internal.Types.Service
+  , module Network.Nakadi.Internal.Types.Subscription
+  , module Network.Nakadi.Internal.Types.Util
+  , MonadNakadi(..)
+  , NakadiBaseT(..)
+  , NakadiT
+  , MonadBase(..)
+  , liftSub
+  , runNakadiT
+  ) where
+
+import           Control.Monad.Trans.Reader                 (ReaderT)
+import qualified Control.Monad.Trans.Reader                 as Reader
+import           Network.Nakadi.Internal.Prelude
+import           Network.Nakadi.Internal.Types.Config
+import           Network.Nakadi.Internal.Types.Exceptions
+import           Network.Nakadi.Internal.Types.Logger
+import           Network.Nakadi.Internal.Types.Problem
+import           Network.Nakadi.Internal.Types.Service
+import           Network.Nakadi.Internal.Types.Subscription
+import           Network.Nakadi.Internal.Types.Util
+
+
+instance (MonadIO m, MonadIO b, MonadCatch m, MonadMask b, MonadBase (NakadiBaseT b) m)
+      => MonadNakadi b (ReaderT (Config b) m) where
+  nakadiAsk = Reader.ask
+  nakadiLocal = Reader.local
+  nakadiReader = Reader.reader
+
+runNakadiT :: Config b -> NakadiT b a -> b a
+runNakadiT config a = runNakadiBaseT $ _runNakadiT a config
+
+newtype NakadiT b a = NakadiT
+  { _runNakadiT :: Config b -> NakadiBaseT b a
+  }
+
+
+instance (Monad b) => Monad (NakadiT b) where
+    return   = lift . return
+    m >>= k  = NakadiT $ \ c -> do
+        a <- _runNakadiT m c
+        _runNakadiT (k a) c
+    {-# INLINE (>>=) #-}
+    (>>) = (*>)
+    {-# INLINE (>>) #-}
+    fail msg = lift (fail msg)
+    {-# INLINE fail #-}
+
+-- liftNakadiT :: m a -> NakadiT b a
+-- liftNakadiT m = NakadiT (const (NakadiBaseT m))
+
+-- # INLINE liftNakadiT #
+
+instance MonadTrans NakadiT where
+    lift a = NakadiT $ const (NakadiBaseT a)
+    {-# INLINE lift #-}
+
+instance MonadIO b => MonadIO (NakadiT b) where
+    liftIO a = NakadiT $ \conf -> NakadiBaseT (liftIO a)
+    {-# INLINE liftIO #-}
+
+liftSub :: MonadBase (NakadiBaseT b) m => b a -> m a
+liftSub = liftBase . NakadiBaseT
+
+newtype NakadiBaseT b a = NakadiBaseT
+  { runNakadiBaseT :: b a
+  } deriving (Functor, Applicative, Monad)
+
+
+

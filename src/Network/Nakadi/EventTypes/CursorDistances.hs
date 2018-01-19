@@ -17,9 +17,7 @@ This module implements the
 
 module Network.Nakadi.EventTypes.CursorDistances
   ( cursorsDistance'
-  , cursorsDistanceR'
   , cursorDistance
-  , cursorDistanceR
   )  where
 
 import           Network.Nakadi.Internal.Prelude
@@ -36,53 +34,27 @@ path eventTypeName =
 
 -- | Query for distance between cursors. Low level call.
 cursorsDistance' ::
-  MonadNakadi m
-  => Config                   -- ^ Configuration
-  -> EventTypeName            -- ^ Event Type
+  MonadNakadi b m
+  => EventTypeName            -- ^ Event Type
   -> [CursorDistanceQuery]    -- ^ List of cursor-distance-queries
   -> m [CursorDistanceResult] -- ^ List of cursor-distance-results
-cursorsDistance' config eventTypeName cursorDistanceQuery =
-  httpJsonBody config ok200 []
+cursorsDistance' eventTypeName cursorDistanceQuery =
+  httpJsonBody ok200 []
   (setRequestMethod "POST"
    . setRequestPath (path eventTypeName)
    . setRequestBodyJSON cursorDistanceQuery)
 
--- | Query for distance between cursors. Low level call, retrieving
--- configuration from environment.
-cursorsDistanceR' ::
-  MonadNakadiEnv r m
-  => EventTypeName            -- ^ Event Type
-  -> [CursorDistanceQuery]    -- ^ List of cursor-distance-queries
-  -> m [CursorDistanceResult] -- ^ List of cursor-distance-results
-cursorsDistanceR' eventTypeName cursorDistanceQuery = do
-  config <- asks (view L.nakadiConfig)
-  cursorsDistance' config eventTypeName cursorDistanceQuery
-
 -- | Given two cursors, compute the distance between these cursors.
 cursorDistance ::
-  MonadNakadi m
-  => Config        -- ^ Configuration
-  -> EventTypeName -- ^ Event Type
-  -> Cursor        -- ^ First cursor
-  -> Cursor        -- ^ Second cursor
-  -> m Int64       -- ^ Resulting difference between first and second
-                   -- cursor
-cursorDistance config eventTypeName cursor cursor' =
-  let cursorDistanceQuery = CursorDistanceQuery { _initialCursor = cursor
-                                                , _finalCursor   = cursor' }
-  in cursorsDistance' config eventTypeName [cursorDistanceQuery] >>= \case
-    distanceResult:_ -> return $ distanceResult^.L.distance
-    _                -> throwIO CursorDistanceNoResult
-
--- | Given two cursors, compute the distance between these cursors,
--- retrieving configuration from environment.
-cursorDistanceR ::
-  MonadNakadiEnv r m
+  MonadNakadi b m
   => EventTypeName -- ^ Event Type
   -> Cursor        -- ^ First cursor
   -> Cursor        -- ^ Second cursor
   -> m Int64       -- ^ Resulting difference between first and second
                    -- cursor
-cursorDistanceR eventTypeName cursor cursor' = do
-  config <- asks (view L.nakadiConfig)
-  cursorDistance config eventTypeName cursor cursor'
+cursorDistance eventTypeName cursor cursor' =
+  let cursorDistanceQuery = CursorDistanceQuery { _initialCursor = cursor
+                                                , _finalCursor   = cursor' }
+  in cursorsDistance' eventTypeName [cursorDistanceQuery] >>= \case
+    distanceResult:_ -> return $ distanceResult^.L.distance
+    _                -> throwM CursorDistanceNoResult

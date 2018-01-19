@@ -17,12 +17,15 @@ module Network.Nakadi.Types
   , module Network.Nakadi.Types.Problem
   , module Network.Nakadi.Types.Service
   , module Network.Nakadi.Types.Subscription
-  , MonadNakadi
-  , MonadNakadiEnv
+  , MonadNakadi(..)
+  , MonadNakadiHttp(..)
   , HasNakadiConfig(..)
+  , MonadNakadiHttpStream(..)
+  , NakadiT
+  , runNakadiT
   ) where
 
-import           Network.Nakadi.Internal.Types     (MonadNakadi, MonadNakadiEnv)
+import           Network.Nakadi.Internal.Types
 
 import           Network.Nakadi.Internal.Lenses
 import           Network.Nakadi.Types.Config

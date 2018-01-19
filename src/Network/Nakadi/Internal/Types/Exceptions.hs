@@ -17,6 +17,7 @@ module Network.Nakadi.Internal.Types.Exceptions where
 import           Network.Nakadi.Internal.Prelude
 
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
+import           Network.HTTP.Client             (HttpException)
 import           Network.Nakadi.Types.Problem
 import           Network.Nakadi.Types.Service
 
@@ -39,6 +40,8 @@ data NakadiException = BatchPartiallySubmitted [BatchItemResponse]
                      | SubscriptionExistsAlready Subscription
                      | RequestModificationException SomeException
                      | CursorDistanceNoResult
+                     | StreamIdMissing
+                     | NakadiHttpException HttpException
                      deriving (Show, Typeable)
 
 instance Exception NakadiException

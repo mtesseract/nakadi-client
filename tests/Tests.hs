@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 import           ClassyPrelude
 
 import           Network.HTTP.Client
@@ -5,9 +6,12 @@ import           Network.Nakadi
 import           Network.Nakadi.Config.Test
 import           Network.Nakadi.Connection.Test
 import           Network.Nakadi.EventTypes.Test
+import           Network.Nakadi.Examples.Test
 import           Network.Nakadi.Internal.Test
+import           Network.Nakadi.MonadicAPI.Test
 import           Network.Nakadi.Registry.Test
 import           Network.Nakadi.Subscriptions.Test
+import           Network.Nakadi.Tests.Common
 import           System.Environment
 import           System.Exit
 import           System.IO                         (hFlush)
@@ -48,8 +52,10 @@ main = do
       let nakadiEndpointT = pack nakadiEndpoint
       case parseRequest nakadiEndpoint of
         Just request -> do
-          conf <- newConfig Nothing request
-          return ("nakadi-client Test Suite", unitTests ++ integrationTests conf)
+          let conf   = newConfig request
+              confIO = newConfig request :: ConfigIO
+          return ("nakadi-client Test Suite",
+                  integrationTests conf confIO ++ unitTests)
         Nothing -> do
           hPut stderr . encodeUtf8 $
             "Failed to parse Nakadi URL in TEST_NAKADI_ENDPOINT (" <> nakadiEndpointT <> ")"
@@ -64,9 +70,11 @@ unitTests =
   , testConnection
   ]
 
-integrationTests :: Config -> [TestTree]
-integrationTests conf =
-  [ testEventTypes conf
+integrationTests :: Config App -> ConfigIO -> [TestTree]
+integrationTests conf confIO =
+  [ testSubscriptions conf
+  , testExamples confIO
+  , testEventTypes conf
   , testRegistry conf
-  , testSubscriptions conf
+  , testMonadicAPI conf
   ]
