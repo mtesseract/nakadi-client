@@ -232,29 +232,6 @@ instance ToJSON EventId where
 instance FromJSON EventId where
   parseJSON = parseUUID "EventId" EventId
 
--- | Metadata
-
-data Metadata = Metadata
-  { _eid        :: EventId -- ^ Event ID
-  , _occurredAt :: Timestamp -- ^ Occurred-At timestamp
-  , _parentEids :: Maybe [EventId] -- ^ Event IDs of the Events which triggered this event
-  , _partition  :: Maybe PartitionName -- ^ Partition on which this Event is stored
-  } deriving (Eq, Show, Generic)
-
-deriveJSON nakadiJsonOptions ''Metadata
-
--- | Event
-
-data Event a = Event
-  { _payload  :: a -- ^ Payload of this Event. In the Nakadi API it is
-                   -- called @data@, but it cannot be named '_data',
-                   -- as this this would cause the lense 'data' to be
-                   -- created, which is a reserved keyword
-  , _metadata :: Metadata -- ^ Meta data for this Event
-  } deriving (Eq, Show, Generic)
-
-deriveJSON nakadiJsonOptions ''Event
-
 -- | Partition Data
 
 data Partition = Partition
@@ -721,9 +698,20 @@ data EventType = EventType
 
 deriveJSON nakadiJsonOptions ''EventType
 
--- | Type of enriched metadata values.
+-- | Type of published event metadata values.
 
-data MetadataEnriched = MetadataEnriched
+data EventMetadata = EventMetadata
+  { _eid        :: EventId
+  , _occurredAt :: Timestamp
+  , _parentEids :: Maybe [EventId]
+  , _partition  :: Maybe PartitionName
+  } deriving (Eq, Show, Generic)
+
+deriveJSON nakadiJsonOptions ''EventMetadata
+
+-- | Type of event metadata enriched by Nakadi
+
+data EventMetadataEnriched = EventMetadataEnriched
   { _eid        :: EventId
   , _eventType  :: EventTypeName
   , _occurredAt :: Timestamp
@@ -734,27 +722,13 @@ data MetadataEnriched = MetadataEnriched
   , _partition  :: Maybe PartitionName
   } deriving (Eq, Show, Generic)
 
-deriveJSON nakadiJsonOptions ''MetadataEnriched
-
--- | Type of enriched event.
-
-data EventEnriched a = EventEnriched
-  { _payload  :: a -- Cannot be named '_data', as this this would
-                   -- cause the lense 'data' to be created, which is a
-                   -- reserved keyword.
-  , _metadata :: MetadataEnriched
-  } deriving (Eq, Show, Generic)
-
-deriveJSON nakadiJsonOptions {
-  fieldLabelModifier = makeFieldRenamer [ ("_payload",  "data")
-                                        , ("_metadata", "metadata") ]
-  }  ''EventEnriched
+deriveJSON nakadiJsonOptions ''EventMetadataEnriched
 
 -- | EventStreamBatch
 
 data EventStreamBatch a = EventStreamBatch
   { _cursor :: Cursor -- ^ Cursor for this batch
-  , _events :: Maybe (Vector (EventEnriched a)) -- ^ Events in this batch
+  , _events :: Maybe (Vector a) -- ^ Events in this batch
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''EventStreamBatch
@@ -763,7 +737,7 @@ deriveJSON nakadiJsonOptions ''EventStreamBatch
 
 data SubscriptionEventStreamBatch a = SubscriptionEventStreamBatch
   { _cursor :: SubscriptionCursor -- ^ cursor for this subscription batch
-  , _events :: Maybe (Vector (EventEnriched a)) -- ^ Events for this subscription batch
+  , _events :: Maybe (Vector a) -- ^ Events for this subscription batch
   } deriving (Show, Generic)
 
 deriveJSON nakadiJsonOptions ''SubscriptionEventStreamBatch
@@ -797,9 +771,22 @@ data DataChangeEvent a = DataChangeEvent
   { _payload  :: a -- Cannot be named '_data', as this this would
                    -- cause the lense 'data' to be created, which is a
                    -- reserved keyword.
-  , _metadata :: Metadata
+  , _metadata :: EventMetadata
   , _dataType :: Text
   , _dataOp   :: DataOp
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''DataChangeEvent
+
+-- | A DataChangeEvent enriched by Nakadi
+
+data DataChangeEventEnriched a = DataChangeEventEnriched
+  { _payload  :: a -- Cannot be named '_data', as this this would
+                   -- cause the lense 'data' to be created, which is a
+                   -- reserved keyword.
+  , _metadata :: EventMetadataEnriched
+  , _dataType :: Text
+  , _dataOp   :: DataOp
+  } deriving (Eq, Show, Generic)
+
+deriveJSON nakadiJsonOptions ''DataChangeEventEnriched
