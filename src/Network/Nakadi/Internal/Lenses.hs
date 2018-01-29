@@ -41,9 +41,8 @@ makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
 makeNakadiLenses ''EventStreamBatch
 makeNakadiLenses ''SubscriptionEventStreamBatch
-makeNakadiLenses ''Event
-makeNakadiLenses ''Metadata
-makeNakadiLenses ''MetadataEnriched
+makeNakadiLenses ''EventMetadata
+makeNakadiLenses ''EventMetadataEnriched
 makeNakadiLenses ''Partition
 makeNakadiLenses ''CursorDistanceQuery
 makeNakadiLenses ''CursorDistanceResult

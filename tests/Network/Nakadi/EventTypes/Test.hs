@@ -111,11 +111,11 @@ testEventTypePublishData conf = do
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
-                              , _metadata = Metadata { _eid = eid
-                                                     , _occurredAt = Timestamp now
-                                                     , _parentEids = Nothing
-                                                     , _partition = Nothing
-                                                     }
+                              , _metadata = EventMetadata { _eid = eid
+                                                          , _occurredAt = Timestamp now
+                                                          , _parentEids = Nothing
+                                                          , _partition  = Nothing
+                                                          }
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }
@@ -133,18 +133,18 @@ testEventTypeParseFlowId conf = do
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
-                              , _metadata = Metadata { _eid = eid
-                                                     , _occurredAt = Timestamp now
-                                                     , _parentEids = Nothing
-                                                     , _partition = Nothing
-                                                     }
+                              , _metadata = EventMetadata { _eid = eid
+                                                          , _occurredAt = Timestamp now
+                                                          , _parentEids = Nothing
+                                                          , _partition  = Nothing
+                                                          }
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }
       expectedFlowId = Just $ FlowId "12345"
   withAsync (delayedPublish conf expectedFlowId [event]) $ \asyncHandle -> do
     link asyncHandle
-    eventConsumed :: Maybe (EventStreamBatch Foo) <- runResourceT $ do
+    eventConsumed :: Maybe (EventStreamBatch (DataChangeEventEnriched Foo)) <- runResourceT $ do
       source <- eventSource conf (Just consumeParametersSingle) myEventTypeName Nothing
       runConduit $ source .| headC
     isJust eventConsumed @=? True
@@ -154,7 +154,7 @@ testEventTypeParseFlowId conf = do
     case events of
       Nothing -> assertFailure "Received no events"
       Just v -> case toList v of
-        [EventEnriched _ x] ->
+        [DataChangeEventEnriched _ x _ _] ->
           x^.L.flowId @=? expectedFlowId
         _ -> assertFailure "Received not a singleton event list"
 
@@ -165,11 +165,11 @@ testEventTypeDeserializationFailure conf' = do
   eventTypeDelete conf myEventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate conf myEventType
   let event = DataChangeEvent { _payload = Foo "Hello!"
-                              , _metadata = Metadata { _eid = eid
-                                                     , _occurredAt = Timestamp now
-                                                     , _parentEids = Nothing
-                                                     , _partition = Nothing
-                                                     }
+                              , _metadata = EventMetadata { _eid = eid
+                                                          , _occurredAt = Timestamp now
+                                                          , _parentEids = Nothing
+                                                          , _partition  = Nothing
+                                                          }
                               , _dataType = "test.FOO"
                               , _dataOp = DataOpUpdate
                               }
