@@ -51,3 +51,40 @@ runNakadiT :: Config b -> NakadiT b m a -> m a
 ```
 
 Thus, a simple example for listing all registered events types can be written as follows:
+
+```
+dumpEventTypes :: Nakadi.ConfigIO -> LoggingT IO ()
+dumpEventTypes config = Nakadi.runNakadiT config $ do
+  eventTypes <- Nakadi.eventTypesList
+  forM_ eventTypes $ \ eventType ->
+    logInfoN $ tshow (eventType^.L.name)
+```
+
+Here, we are given a configuration of type `ConfigIO` and pass this to
+`runNakadiT` as first argument. Within the provided monadic action
+(second argument to `runNakadiT`) we have full access to the Nakadi
+API. The action `eventTypesList` for example has the following type
+signature
+
+```
+eventTypesList :: MonadNakadi b m => m [EventType]
+```
+
+In other words, under the `MonadNakadi` typeclass constraint, this
+action produces a list of event types (i.e., values of type type
+`EventType`).
+
+## Consuming a Subscription
+
+Consuming a Nakadi subscription can easily be done using the
+`subscriptionProcess` action. Let us consider an example:
+
+```
+dumpSubscription :: (MonadLogger m, MonadNakadi IO m, MonadMask m) => Nakadi.SubscriptionId -> m ()
+dumpSubscription subscriptionId =
+  Nakadi.subscriptionProcess Nothing subscriptionId processBatch
+
+  where processBatch :: MonadLogger m => Nakadi.SubscriptionEventStreamBatch Value -> m ()
+        processBatch batch =
+          logInfoN (tshow batch)
+```

@@ -2,7 +2,7 @@
 title: About
 ---
 
-nakadi-client provides:
+Nakadi-client provides:
 
 - Docker based test suite testing against the official Nakadi [docker
   image](https://github.com/zalando/nakadi#running-a-server).
