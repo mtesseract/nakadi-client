@@ -1,5 +1,5 @@
 ---
-title: Tutorial (Nakadi Client Library for Haskell)
+title: Tutorial (Nakadi-client Library for Haskell)
 ---
 
 # Tutorial for nakadi-client 0.5.x
@@ -18,23 +18,28 @@ import           Network.Nakadi.Prelude
 
 ## Creating the Nakadi Configuration
 
-In order to use Nakadi, you need to create a configuration object. THe function of choice for creating such a configuration is the following:
+In order to use Nakadi, you need to create a configuration object. The function of choice for creating such a configuration is the following:
 
 ```haskell
-newConfigIO :: Request -> Config IO
+newConfigIO :: Request -> ConfigIO
 ```
 
 The only parameter required by this function is a HTTP `Request`, which serves as the so-called *request template*. Every HTTP request executed by nakadi-client is produced by modifying this request template. This is the place where you specify the Nakadi endpoint to use. For example:
 
+The value it returns is of type `ConfigIO`, which denotes a Nakadi configuration whose *Nakadi base monad* is `IO`. Generally, the Nakadi base monad is the monad in which the HTTP backend code and any registered user callback runs.
+
+Even though you can easily get going with `newConfigIO`, it is not recommended to use this function in applications which need to follow certain resilience patterns: In an application doing a lot of HTTP calls, it is often desired to keep certain types of HTTP calls isolated from each other. 
 
 
-
-The value it returns is of type `Config IO`, which denotes a Nakadi configuration whose *Nakadi base monad* is `IO`. Generally, the Nakadi base monad is the monad in which the HTTP backend code and any registered user callback runs. We will see later which other functions for creating configurations exist.
+<!-- We will see later which other functions for creating configurations exist in case more flexibility or resilience is desired. -->
 
 <!-- ```haskell
 newConfigWithDedicatedManager :: (MonadIO b, MonadMask b, MonadIO m)
                               => ManagerSettings -> Request -> m (Config b)
-```
+``` -->
+
+# Advanced Usage
+
 
 In addition to a `Request`, this function also requires `ManagerSettings` to be specified. With these settings a new dedicated HTTP Manager will be created exclusively for use by nakadi-client. The configuration produced by the function `newConfigIO` on the other hand uses some global default HTTP manager. Using a dedicated manager with specified settings is a common resilience pattern.
 

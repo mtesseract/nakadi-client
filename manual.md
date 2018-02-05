@@ -1,5 +1,5 @@
 ---
-title: Nakadi Client Manual
+title: Nakadi-Client Manual
 ---
 
 # Foreword
