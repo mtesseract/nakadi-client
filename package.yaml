@@ -1,5 +1,5 @@
 name: nakadi-client
-version: '0.4.1.0'
+version: '0.5.0.0'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
              with the Nakadi event broker system developed by Zalando.
@@ -34,6 +34,8 @@ when:
     - -fno-warn-type-defaults
 dependencies:
 - base >=4.7 && <5
+- monad-control
+- transformers-base
 - conduit
 - conduit-extra
 - conduit-combinators
@@ -55,6 +57,7 @@ dependencies:
 - mtl
 - transformers
 - scientific
+- exceptions
 - safe-exceptions
 - unordered-containers
 - time
@@ -62,10 +65,12 @@ dependencies:
 - aeson-casing
 - template-haskell
 - retry
+- unliftio-core
 library:
   source-dirs: src
   exposed-modules:
   - Network.Nakadi
+  - Network.Nakadi.Base
   - Network.Nakadi.Config
   - Network.Nakadi.EventTypes
   - Network.Nakadi.EventTypes.CursorDistances
@@ -86,11 +91,11 @@ library:
   - Network.Nakadi.Types.Logger
   - Network.Nakadi.Types.Problem
   - Network.Nakadi.Types.Service
-  - Network.Nakadi.Types.Subscription
   - Network.Nakadi.Registry
   - Network.Nakadi.Lenses
   - Network.Nakadi.Internal.Http
   - Network.Nakadi.Internal.Retry
+  - Network.Nakadi.HttpBackendIO
 tests:
   nakadi-client-test-suite:
     main: Tests.hs
@@ -114,6 +119,12 @@ tests:
     - async
     - retry
     - stm
+    - stm-chans
+    - stm-conduit
     - warp
     - wai
     - tasty
+    - lifted-async
+    - unliftio
+    - monad-logger
+    - fast-logger

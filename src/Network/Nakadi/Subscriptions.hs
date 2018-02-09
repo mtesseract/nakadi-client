@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Subscriptions.Stats
 Description : Implementation of Nakadi Subscription API
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -20,15 +20,10 @@ module Network.Nakadi.Subscriptions
   , module Network.Nakadi.Subscriptions.Stats
   , module Network.Nakadi.Subscriptions.Subscription
   , subscriptionCreate'
-  , subscriptionCreateR'
   , subscriptionCreate
-  , subscriptionCreateR
   , subscriptionsList'
-  , subscriptionsListR'
   , subscriptionsSource
-  , subscriptionsSourceR
   , subscriptionsList
-  , subscriptionsListR
   ) where
 
 import           Network.Nakadi.Internal.Prelude
@@ -50,71 +45,38 @@ path = "/subscriptions"
 
 -- | @POST@ to @\/subscriptions@. Creates a new subscription. Low
 -- level interface.
-subscriptionCreate' :: MonadNakadi m
-                    => Config
-                    -> Subscription
-                    -> m Subscription
-subscriptionCreate' config subscription =
-  httpJsonBody config status201 [(ok200, errorSubscriptionExistsAlready)]
-  (setRequestMethod "POST" . setRequestPath path . setRequestBodyJSON subscription)
-
--- | @POST@ to @\/subscriptions@. Creates a new subscription. Low
--- level interface. Retrieves configuration from the environment.
-subscriptionCreateR' ::
-  MonadNakadiEnv r m
+subscriptionCreate' ::
+  MonadNakadi b m
   => Subscription
   -> m Subscription
-subscriptionCreateR' subscription = do
-  config <- asks (view L.nakadiConfig)
-  subscriptionCreate config subscription
+subscriptionCreate' subscription =
+  httpJsonBody status201 [(ok200, errorSubscriptionExistsAlready)]
+  (setRequestMethod "POST"
+   . setRequestPath path
+   . setRequestBodyJSON subscription)
 
 -- | @POST@ to @\/subscriptions@. Creates a new subscription. Does not
 -- fail if the requested subscription does already exist.
-subscriptionCreate :: MonadNakadi m
-                   => Config
-                   -> Subscription
-                   -> m Subscription
-subscriptionCreate config subscription =
-  Safe.catchJust exceptionPredicate (subscriptionCreate' config subscription) return
+subscriptionCreate ::
+  (MonadNakadi b m, MonadCatch m)
+  => Subscription
+  -> m Subscription
+subscriptionCreate subscription = do
+  Safe.catchJust exceptionPredicate (subscriptionCreate' subscription) return
 
   where exceptionPredicate (SubscriptionExistsAlready s) = Just s
         exceptionPredicate _                             = Nothing
 
--- | @POST@ to @\/subscriptions@. Creates a new subscription. Does not
--- fail if the requested subscription does already exist. Retrieves
--- configuration from the environment.
-subscriptionCreateR ::
-  MonadNakadiEnv r m
-  => Subscription
-  -> m Subscription
-subscriptionCreateR subscription = do
-  config <- asks (view L.nakadiConfig)
-  subscriptionCreate config subscription
-
 -- | @GET@ to @\/subscriptions@. Internal low-level interface.
-subscriptionsGet :: MonadNakadi m
-                 => Config
-                 -> [(ByteString, ByteString)]
-                 -> m SubscriptionsListResponse
-subscriptionsGet config queryParameters =
-  httpJsonBody config ok200 []
+subscriptionsGet ::
+  MonadNakadi b m
+  => [(ByteString, ByteString)]
+  -> m SubscriptionsListResponse
+subscriptionsGet queryParameters =
+  httpJsonBody ok200 []
   (setRequestMethod "GET"
    . setRequestPath path
    . setRequestQueryParameters queryParameters)
-
--- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
--- the provided filter criteria. Low-level interface using pagination.
-subscriptionsList' :: MonadNakadi m
-                   => Config
-                   -> Maybe ApplicationName
-                   -> Maybe [EventTypeName]
-                   -> Maybe Limit
-                   -> Maybe Offset
-                   -> m SubscriptionsListResponse
-subscriptionsList' config maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset =
-  subscriptionsGet config queryParameters
-  where queryParameters =
-          buildQueryParameters maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset
 
 buildQueryParameters :: Maybe ApplicationName
                      -> Maybe [EventTypeName]
@@ -131,31 +93,30 @@ buildQueryParameters maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset =
        Nothing -> []
 
 -- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
--- the provided filter criteria. Uses configuration contained in the
--- environment.
-subscriptionsListR' ::
-  (MonadNakadiEnv r m, MonadMask m)
+-- the provided filter criteria. Low-level interface using pagination.
+subscriptionsList' ::
+  (MonadNakadi b m)
   => Maybe ApplicationName
   -> Maybe [EventTypeName]
   -> Maybe Limit
   -> Maybe Offset
   -> m SubscriptionsListResponse
-subscriptionsListR' owningApp eventTypeNames maybeLimit maybeOffset = do
-  config <- asks (view L.nakadiConfig)
-  subscriptionsList' config owningApp eventTypeNames maybeLimit maybeOffset
+subscriptionsList' maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset = do
+  subscriptionsGet queryParameters
+  where queryParameters =
+          buildQueryParameters maybeOwningApp maybeEventTypeNames maybeLimit maybeOffset
 
 -- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
 -- the provided filter criteria. High-level Conduit interface.
-subscriptionsSource :: (MonadNakadi m, MonadMask m)
-                    => Config
-                    -> Maybe ApplicationName
+subscriptionsSource :: ( MonadNakadi b m)
+                    => Maybe ApplicationName
                     -> Maybe [EventTypeName]
-                    -> Source m [Subscription]
-subscriptionsSource config maybeOwningApp maybeEventTypeNames =
-  nextPage initialQueryParameters
+                    -> m (ConduitM () [Subscription] m ())
+subscriptionsSource maybeOwningApp maybeEventTypeNames =
+  pure $ nextPage initialQueryParameters
 
   where nextPage queryParameters = do
-          resp <- lift $ subscriptionsGet config queryParameters
+          resp <- lift $ subscriptionsGet queryParameters
           yield (resp^.L.items)
           let maybeNextPath = Text.unpack . (view L.href) <$> (resp^.L.links.L.next)
           case maybeNextPath >>= extractQueryParametersFromPath  of
@@ -168,33 +129,12 @@ subscriptionsSource config maybeOwningApp maybeEventTypeNames =
           buildQueryParameters maybeOwningApp maybeEventTypeNames Nothing Nothing
 
 -- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
--- the provided filter criteria. High-level Conduit interface,
--- obtaining the configuration from the environment.
-subscriptionsSourceR :: (MonadNakadiEnv r m, MonadMask m)
-                     => Maybe ApplicationName
-                     -> Maybe [EventTypeName]
-                     -> Source m [Subscription]
-subscriptionsSourceR maybeOwningApp maybeEventTypeNames = do
-  config <- asks (view L.nakadiConfig)
-  subscriptionsSource config maybeOwningApp maybeEventTypeNames
-
--- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
 -- the provided filter criteria. High-level list interface.
-subscriptionsList :: (MonadNakadi m, MonadMask m)
-                  => Config
-                  -> Maybe ApplicationName
-                  -> Maybe [EventTypeName]
-                  -> m [Subscription]
-subscriptionsList config maybeOwningApp maybeEventTypeNames = runConduit $
-  subscriptionsSource config maybeOwningApp maybeEventTypeNames .| concatC .| sinkList
-
--- | @GET@ to @\/subscriptions@. Retrieves all subscriptions matching
--- the provided filter criteria. High-level Conduit interface,
--- obtaining the configuration from the environment.
-subscriptionsListR :: (MonadNakadiEnv r m, MonadMask m)
-                   => Maybe ApplicationName
-                   -> Maybe [EventTypeName]
-                   -> m [Subscription]
-subscriptionsListR maybeOwningApp maybeEventTypeNames = do
-  config <- asks (view L.nakadiConfig)
-  subscriptionsList config maybeOwningApp maybeEventTypeNames
+subscriptionsList ::
+  MonadNakadi b m
+  => Maybe ApplicationName
+  -> Maybe [EventTypeName]
+  -> m [Subscription]
+subscriptionsList maybeOwningApp maybeEventTypeNames = do
+  source <- subscriptionsSource maybeOwningApp maybeEventTypeNames
+  runConduit $ source .| concatC .| sinkList

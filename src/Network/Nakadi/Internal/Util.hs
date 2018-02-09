@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Util
 Description : Nakadi Client Utilities (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -10,7 +10,8 @@ Portability : POSIX
 Internal utility functions.
 -}
 
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 
 module Network.Nakadi.Internal.Util
   ( conduitDrainToLazyByteString
@@ -28,11 +29,12 @@ import           Data.Conduit
 import           Data.Conduit.Combinators        hiding (decodeUtf8, map)
 import           Network.HTTP.Simple
 
-import           Network.Nakadi.Types
+import           Network.Nakadi.Internal.Types
 
-conduitDrainToLazyByteString :: Monad m
-                             => ConduitM () ByteString m ()
-                             -> m ByteString.Lazy.ByteString
+conduitDrainToLazyByteString ::
+  Monad b
+  => ConduitM () ByteString b ()
+  -> b ByteString.Lazy.ByteString
 conduitDrainToLazyByteString conduit =
   toLazyByteString <$> (conduit $$ sinkBuilder)
 

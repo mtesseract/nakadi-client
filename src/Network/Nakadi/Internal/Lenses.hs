@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Lenses
 Description : Nakadi Client Library Lenses (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -24,14 +24,13 @@ module Network.Nakadi.Internal.Lenses where
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
-import           Data.Text                                  (Text)
+import           Data.Text                             (Text)
 import           Data.Time.Clock
-import           Data.UUID                                  (UUID)
+import           Data.UUID                             (UUID)
 import           Network.Nakadi.Internal.TH
 
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Service
-import           Network.Nakadi.Internal.Types.Subscription
 
 class HasNakadiConfig s a where
   nakadiConfig :: Lens' s a
@@ -40,6 +39,8 @@ makeNakadiLenses ''Config
 makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
 makeNakadiLenses ''EventStreamBatch
+makeNakadiLenses ''DataChangeEvent
+makeNakadiLenses ''DataChangeEventEnriched
 makeNakadiLenses ''SubscriptionEventStreamBatch
 makeNakadiLenses ''EventMetadata
 makeNakadiLenses ''EventMetadataEnriched
@@ -48,7 +49,6 @@ makeNakadiLenses ''CursorDistanceQuery
 makeNakadiLenses ''CursorDistanceResult
 makeNakadiLenses ''Timestamp
 makeNakadiLenses ''SubscriptionEventStream
-makeNakadiLenses ''SubscriptionEventStreamContext
 makeNakadiLenses ''EventTypeSchema
 makeNakadiLenses ''EventType
 makeNakadiLenses ''EventTypeSchemasResponse

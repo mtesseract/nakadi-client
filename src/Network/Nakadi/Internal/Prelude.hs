@@ -1,4 +1,4 @@
- {-|
+{-|
 Module      : Network.Nakadi.Prelude
 Description : Nakadi Client Prelude (Internal)
 Copyright   : (c) Moritz Schulte 2017
@@ -28,6 +28,7 @@ module Network.Nakadi.Internal.Prelude
   , undefined
   , error
   , MonadIO
+  , liftIO
   , Request
   , Response
   ) where
@@ -45,7 +46,7 @@ import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
 import           Data.Text.Encoding
 import           Network.HTTP.Client        (Request, Response)
-import           Prelude                    hiding (id, undefined, error)
+import           Prelude                    hiding (error, id, undefined)
 import qualified Prelude
 
 tshow :: Show a => a -> Text

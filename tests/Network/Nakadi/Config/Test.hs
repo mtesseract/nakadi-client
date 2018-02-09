@@ -1,11 +1,25 @@
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE UndecidableInstances       #-}
+
 module Network.Nakadi.Config.Test where
 
-import           ClassyPrelude
-import           Control.Lens         ((<&>))
-import           Control.Retry
-import qualified Data.ByteString.Lazy as LB
+import           ClassyPrelude               hiding (catch, throwM)
+
+import           Control.Lens
+import           Control.Monad.Catch         (MonadThrow (..))
+import qualified Data.ByteString.Lazy        as LB
+import           Data.Conduit                (ConduitM, transPipe)
 import           Network.HTTP.Client
+import           Network.HTTP.Client.Conduit (bodyReaderSource)
+import           Network.HTTP.Client.TLS     (getGlobalManager)
 import           Network.Nakadi
+import           Network.Nakadi.Tests.Common
 import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -18,31 +32,31 @@ testConfig = testGroup "Config"
 requestsExecuted :: TVar [Request]
 requestsExecuted = unsafePerformIO . newTVarIO $ []
 
-dummyHttpLbs :: Request -> IO (Response LB.ByteString)
-dummyHttpLbs req = do
+mockHttpBackendLbs :: Config b -> Request -> Maybe Manager -> App (Response LB.ByteString)
+mockHttpBackendLbs _conf req _mngr = do
   atomically $ modifyTVar requestsExecuted (req :)
-  throwIO (HttpExceptionRequest req ResponseTimeout)
+  throwM (HttpExceptionRequest req ResponseTimeout)
 
-dummyResponseOpen :: Request -> Manager -> IO (Response (IO ByteString))
-dummyResponseOpen req _manager = do
-  atomically $ modifyTVar requestsExecuted (req :)
-  throwIO (HttpExceptionRequest req ResponseTimeout)
+mockHttpBackendResponseOpen :: Config b -> Request -> Maybe Manager -> App (Response (ConduitM i ByteString App ()))
+mockHttpBackendResponseOpen _config req _maybeMngr = do
+  mngr <- liftIO getGlobalManager
+  liftIO $ responseOpen req mngr <&> fmap (transPipe liftIO . bodyReaderSource)
 
-dummyResponseClose :: Response BodyReader -> IO ()
-dummyResponseClose _response = return ()
-
-dummyHttpBackend :: HttpBackend
-dummyHttpBackend = HttpBackend dummyHttpLbs dummyResponseOpen dummyResponseClose
+mockHttpBackendResponseClose :: Response a -> App ()
+mockHttpBackendResponseClose = liftIO . responseClose
 
 testCustomHttpBackend :: Assertion
-testCustomHttpBackend = do
-  let trivialRetryPolicy = limitRetries 0
-  conf <- newConfig Nothing defaultRequest
-          <&> setHttpBackend dummyHttpBackend
-          <&> setRetryPolicy trivialRetryPolicy
-  res0 <- try $ registryPartitionStrategies conf -- This should use httpLbs
-  case res0 of
+testCustomHttpBackend = runApp $ do
+  res0 <- try $ runNakadiT mockConfig $
+    registryPartitionStrategies -- This uses httpLbs.
+  liftIO $ case res0 of
     Left (HttpExceptionRequest _ ResponseTimeout) -> return ()
     _ -> assertFailure "Expected ResponseTimeout exception from dummy HttpBackend"
   requests <- atomically . readTVar $ requestsExecuted
-  1 @=? length requests
+  liftIO $ 1 @=? length requests
+
+  where mockConfig = newConfig mockHttpBackend defaultRequest
+        mockHttpBackend = HttpBackend
+                          { _httpLbs           = mockHttpBackendLbs
+                          , _httpResponseOpen  = mockHttpBackendResponseOpen
+                          , _httpResponseClose = mockHttpBackendResponseClose }

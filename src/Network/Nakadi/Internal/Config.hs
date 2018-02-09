@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Config
 Description : Nakadi Client Configuration (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -32,3 +32,15 @@ buildSubscriptionConsumeQueryParameters :: ConsumeParameters -> [(ByteString, By
 buildSubscriptionConsumeQueryParameters params@ConsumeParameters { .. } =
   buildConsumeQueryParameters params
   ++ catMaybes [("max_uncommitted_events",) . encodeUtf8 . tshow <$> _maxUncommittedEvents]
+
+-- | Default parameters for event consumption.
+defaultConsumeParameters :: ConsumeParameters
+defaultConsumeParameters = ConsumeParameters
+  { _maxUncommittedEvents = Nothing
+  , _batchLimit           = Nothing
+  , _streamLimit          = Nothing
+  , _batchFlushTimeout    = Nothing
+  , _streamTimeout        = Nothing
+  , _streamKeepAliveLimit = Nothing
+  , _flowId               = Nothing
+  }
