@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Types.Service
 Description : Nakadi Client Service Types (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -779,7 +779,6 @@ data DataChangeEvent a = DataChangeEvent
 deriveJSON nakadiJsonOptions ''DataChangeEvent
 
 -- | A DataChangeEvent enriched by Nakadi
-
 data DataChangeEventEnriched a = DataChangeEventEnriched
   { _payload  :: a -- Cannot be named '_data', as this this would
                    -- cause the lense 'data' to be created, which is a

@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Types
 Description : Nakadi API Types
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -16,13 +16,14 @@ module Network.Nakadi.Types
   , module Network.Nakadi.Types.Logger
   , module Network.Nakadi.Types.Problem
   , module Network.Nakadi.Types.Service
-  , module Network.Nakadi.Types.Subscription
-  , MonadNakadi
-  , MonadNakadiEnv
+  , MonadNakadiBase(..)
+  , MonadNakadi(..)
   , HasNakadiConfig(..)
+  , NakadiT
+  , runNakadiT
   ) where
 
-import           Network.Nakadi.Internal.Types     (MonadNakadi, MonadNakadiEnv)
+import           Network.Nakadi.Internal.Types
 
 import           Network.Nakadi.Internal.Lenses
 import           Network.Nakadi.Types.Config
@@ -30,4 +31,3 @@ import           Network.Nakadi.Types.Exceptions
 import           Network.Nakadi.Types.Logger
 import           Network.Nakadi.Types.Problem
 import           Network.Nakadi.Types.Service
-import           Network.Nakadi.Types.Subscription

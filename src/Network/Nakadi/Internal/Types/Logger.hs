@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Types.Logger
 Description : Nakadi Client Logger Types (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -17,4 +17,7 @@ import           Prelude
 
 -- | Type of a logger callback provided to nakadi-client for logging
 -- purposes.
-type LogFunc = Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+type LogFunc m = LogSource -> LogLevel -> LogStr -> m ()
+
+-- | 'LogFunc' specialized to IO.
+type LogFuncIO = LogFunc IO

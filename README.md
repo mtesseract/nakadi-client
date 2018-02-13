@@ -49,15 +49,14 @@ Please note that the **API is not considered stable yet**.
 
 ### Example
 
-Example using the Subscription API:
+Example code showing how to dump a subscription:
 
 ```haskell
-import qualified Network.Nakadi as Nakadi
+dumpSubscription :: (MonadLogger m, MonadNakadi IO m) => Nakadi.SubscriptionId -> m ()
+dumpSubscription subscriptionId =
+  Nakadi.subscriptionProcess Nothing subscriptionId processBatch
 
-processSubscription :: Nakadi.SubscriptionId -> IO ()
-processSubscription subscriptionId = do
-  runResourceT $ do
-    (connection, source) <- Nakadi.subscriptionSource config Nothing subscriptionId
-    Nakadi.runSubscription config connection $
-      source .| iterMC processEvent .| Nakadi.subscriptionSink
+  where processBatch :: MonadLogger m => Nakadi.SubscriptionEventStreamBatch Value -> m ()
+        processBatch batch =
+          logInfoN (tshow batch)
 ```

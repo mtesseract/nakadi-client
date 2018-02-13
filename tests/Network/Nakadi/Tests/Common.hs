@@ -1,16 +1,24 @@
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 
 module Network.Nakadi.Tests.Common where
 
 import           ClassyPrelude
 
+import           Control.Lens
 import           Data.Aeson
-import           Data.UUID      (UUID)
+import           Data.UUID             (UUID)
 import           Network.Nakadi
+import qualified Network.Nakadi.Lenses as L
 import           System.Random
+
+type App = ReaderT () IO
+
+runApp :: App a -> IO a
+runApp = flip runReaderT ()
 
 data Foo = Foo { fortune :: Text } deriving (Show, Eq, Generic)
 
@@ -68,15 +76,34 @@ myDataChangeEvent eid now =  DataChangeEvent
   , _dataOp = DataOpUpdate
   }
 
-genRandomUUID :: IO UUID
-genRandomUUID = randomIO
 
-recreateEvent :: Config -> EventTypeName -> EventType -> IO ()
-recreateEvent conf eventTypeName eventType = do
-  eventTypeDelete conf eventTypeName `catch` (ignoreExnNotFound ())
-  eventTypeCreate conf eventType
+genMyDataChangeEvent :: MonadIO m => m (DataChangeEvent Foo)
+genMyDataChangeEvent = do
+  eid <- genRandomUUID
+  now <- liftIO getCurrentTime
+  pure DataChangeEvent
+    { _payload = Foo "Hello!"
+    , _metadata = EventMetadata { _eid        = EventId eid
+                                , _occurredAt = Timestamp now
+                                , _parentEids = Nothing
+                                , _partition  = Nothing
+                                }
+    , _dataType = "test.FOO"
+    , _dataOp = DataOpUpdate
+    }
 
-delayedPublish :: (ToJSON a) => Config -> Maybe FlowId -> [a] -> IO ()
-delayedPublish conf flowId events  = do
-  threadDelay (10^6)
-  eventPublish conf myEventTypeName flowId events
+genRandomUUID :: MonadIO m => m UUID
+genRandomUUID = liftIO randomIO
+
+recreateEvent :: (MonadCatch m, MonadNakadi b m) => EventTypeName -> EventType -> m ()
+recreateEvent eventTypeName eventType = do
+  subscriptionIds <- subscriptionsList Nothing (Just [eventTypeName])
+    <&> catMaybes . map (view L.id)
+  mapM_ subscriptionDelete subscriptionIds
+  eventTypeDelete eventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreate eventType
+
+delayedPublish :: (MonadNakadi b m, MonadIO m, ToJSON a) => Maybe FlowId -> [a] -> m ()
+delayedPublish flowId events  = do
+  liftIO $ threadDelay (10^6)
+  eventsPublish myEventTypeName flowId events

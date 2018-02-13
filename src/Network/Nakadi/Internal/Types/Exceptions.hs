@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Types.Exceptions
 Description : Nakadi Client Exceptions (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Schulte 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -39,6 +39,7 @@ data NakadiException = BatchPartiallySubmitted [BatchItemResponse]
                      | SubscriptionExistsAlready Subscription
                      | RequestModificationException SomeException
                      | CursorDistanceNoResult
+                     | StreamIdMissing
                      deriving (Show, Typeable)
 
 instance Exception NakadiException

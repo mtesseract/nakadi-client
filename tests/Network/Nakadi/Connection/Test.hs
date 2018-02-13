@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Network.Nakadi.Connection.Test where
 
 import           ClassyPrelude
@@ -66,28 +68,30 @@ testServerResponseTimeoutApp req respond =
 
 testSimpleRetry :: Assertion
 testSimpleRetry = do
-  conf <- newConfig Nothing testServerRequest { port = testServerRetryPort }
-  withAsync (run testServerRetryPort (testServerRetryApp 2)) $ \_serverHandle -> do
-    events <- eventTypesList conf
+  let conf = newConfigIO testServerRequest { port = testServerRetryPort } :: ConfigIO
+  withAsync (run testServerRetryPort (testServerRetryApp 1)) $ \_serverHandle -> do
+    events <- runNakadiT conf eventTypesList
     [] @=? events
 
 testResponseTimeoutSuccess :: Assertion
 testResponseTimeoutSuccess = do
   let timeout = responseTimeoutMicro (5 * 10^6) -- Accept delay of 5s
-  conf <- newConfig Nothing testServerRequest { port = testServerResponseTimeoutPort
-                                              , responseTimeout = timeout }
+      request = testServerRequest { port = testServerResponseTimeoutPort
+                                  , responseTimeout = timeout }
+      conf    = newConfigIO request :: ConfigIO
   withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle -> do
-    events <- eventTypesList conf
+    events <- runNakadiT conf eventTypesList
     [] @=? events
 
 testResponseTimeoutFail :: Assertion
 testResponseTimeoutFail = do
   res <- try $ do
     let timeout = responseTimeoutMicro (3 * 10^6) -- Accept delay of 3s
-    conf <- newConfig Nothing testServerRequest { port = testServerResponseTimeoutPort
-                                                , responseTimeout = timeout }
-    withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle -> do
-      eventTypesList conf
+        request = testServerRequest { port = testServerResponseTimeoutPort
+                                    , responseTimeout = timeout }
+        conf    = newConfigIO request :: ConfigIO
+    withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle ->
+      runNakadiT conf eventTypesList
   case res of
     Left (HttpExceptionRequest _request ResponseTimeout) -> return ()
     _ -> assertFailure "Expected HttpExceptionRequest with content ResponseTimeout"
