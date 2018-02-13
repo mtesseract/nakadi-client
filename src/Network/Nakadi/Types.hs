@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Types
 Description : Nakadi API Types
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -25,7 +25,6 @@ module Network.Nakadi.Types
 
 import           Network.Nakadi.Internal.Types
 
-import           Network.Nakadi.Internal.Lenses
 import           Network.Nakadi.Types.Config
 import           Network.Nakadi.Types.Exceptions
 import           Network.Nakadi.Types.Logger

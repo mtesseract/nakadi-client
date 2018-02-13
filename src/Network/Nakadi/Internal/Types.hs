@@ -32,6 +32,7 @@ module Network.Nakadi.Internal.Types
   , module Network.Nakadi.Internal.Types.Service
   , module Network.Nakadi.Internal.Types.Util
   , module Network.Nakadi.Internal.Types.Base
+  , HasNakadiConfig(..)
   , MonadNakadi(..)
   , MonadNakadiIO
   , NakadiT(..)
@@ -49,7 +50,6 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Reader               (ReaderT (..))
 import           Control.Monad.Trans.Resource
-import           Control.Monad.Trans.Resource.Internal    (transResourceT)
 import qualified Control.Monad.Writer.Lazy                as Writer.Lazy
 import qualified Control.Monad.Writer.Strict              as Writer.Strict
 import           Network.Nakadi.Internal.Prelude
@@ -61,7 +61,10 @@ import           Network.Nakadi.Internal.Types.Problem
 import           Network.Nakadi.Internal.Types.Service
 import           Network.Nakadi.Internal.Types.Util
 
--- * Define `MonadNakadi` Typeclass
+-- * Define Typeclasses
+
+class HasNakadiConfig b r | r -> b where
+  nakadiConfig :: r -> Config b
 
 -- | The `MonadNakadi` typeclass is implemented by monads in which
 -- Nakadi can be called. The first parameter (`b`) denotes the `base
@@ -75,14 +78,9 @@ import           Network.Nakadi.Internal.Types.Util
 -- The `MonadNakadi` typeclass is modelled closely after `MonadReader`.
 class (MonadNakadiBase b m, MonadThrow b, MonadMask b, MonadThrow m, MonadCatch m)
    => MonadNakadi b m | m -> b where
-  -- {-# MINIMAL (nakadiAsk | nakadiReader), nakadiLocal #-}
-  -- FIXME, nakadiAsk in terms of nakadiReader.
   nakadiAsk :: m (Config b)
   default nakadiAsk :: (MonadNakadi b n, MonadTrans t, m ~ t n) => m (Config b)
   nakadiAsk = lift nakadiAsk
-  nakadiLocal :: (Config b -> Config b) -> m a -> m a
-  nakadiReader :: (Config b -> a) -> m a
-  nakadiReader f = nakadiAsk >>= (return . f)
 
 -- * Define Types
 
@@ -194,51 +192,41 @@ instance {-# OVERLAPPABLE #-} MonadNakadiBase b m => MonadNakadiBase b (NakadiT 
 
 -- ** Implementations 'MonadNakadi' typeclass for transformers.
 
--- | 'NakadiT'
-instance ( MonadBase IO b
-         , Monad m
+-- | 'ReaderT'
+instance ( MonadMask b
          , MonadCatch m
-         , MonadNakadiBase b (NakadiT b m)
-         , MonadIO b
+         , MonadNakadiBase b (ReaderT r m)
+         , HasNakadiConfig b r )
+      => MonadNakadi b (ReaderT r m) where
+  nakadiAsk = asks nakadiConfig
+
+-- | 'NakadiT'
+instance ( MonadCatch m
          , MonadMask b
-         , MonadCatch b )
+         , MonadNakadiBase b (NakadiT b m) )
       => MonadNakadi b (NakadiT b m) where
   nakadiAsk = NakadiT return
-  nakadiLocal f (NakadiT m) = NakadiT (\ c -> m (f c))
-
--- | 'ReaderT'
-instance (MonadNakadi b m) => MonadNakadi b (ReaderT r m) where
-  nakadiLocal f (ReaderT m) = ReaderT (\ r -> nakadiLocal f (m r))
 
 -- | 'WriterT' (lazy)
-instance (MonadNakadi b m, Monoid w) => MonadNakadi b (Writer.Lazy.WriterT w m) where
-  nakadiLocal f (Writer.Lazy.WriterT m) = Writer.Lazy.WriterT $ nakadiLocal f m
+instance (MonadNakadi b m, Monoid w) => MonadNakadi b (Writer.Lazy.WriterT w m)
 
 -- | 'WriterT' (strict)
-instance (MonadNakadi b m, Monoid w) => MonadNakadi b (Writer.Strict.WriterT w m) where
-  nakadiLocal f (Writer.Strict.WriterT m) = Writer.Strict.WriterT $ nakadiLocal f m
+instance (MonadNakadi b m, Monoid w) => MonadNakadi b (Writer.Strict.WriterT w m)
 
 -- | 'StateT' (strict)
-instance (MonadNakadi b m) => MonadNakadi b (State.Strict.StateT s m) where
-  nakadiLocal f (State.Strict.StateT g) =
-    State.Strict.StateT $ \ s -> nakadiLocal f (g s)
+instance (MonadNakadi b m) => MonadNakadi b (State.Strict.StateT s m)
 
 -- | 'StateT' (lazy)
-instance (MonadNakadi b m) => MonadNakadi b (State.Lazy.StateT s m) where
-  nakadiLocal f (State.Lazy.StateT g) =
-    State.Lazy.StateT $ \ s -> nakadiLocal f (g s)
+instance (MonadNakadi b m) => MonadNakadi b (State.Lazy.StateT s m)
 
 -- | 'LoggingT'
-instance (MonadNakadi b m) => MonadNakadi b (LoggingT m) where
-  nakadiLocal f = LoggingT . (nakadiLocal f .) . runLoggingT
+instance (MonadNakadi b m) => MonadNakadi b (LoggingT m)
 
 -- | 'NoLoggingT'
-instance (MonadNakadi b m) => MonadNakadi b (NoLoggingT m) where
-  nakadiLocal f = NoLoggingT . (nakadiLocal f) . runNoLoggingT
+instance (MonadNakadi b m) => MonadNakadi b (NoLoggingT m)
 
 -- | 'ResourceT'.
-instance (MonadNakadi b m) => MonadNakadi b (ResourceT m) where
-  nakadiLocal f m = transResourceT (nakadiLocal f) m
+instance (MonadNakadi b m) => MonadNakadi b (ResourceT m)
 
 -- * Convenience Functions
 

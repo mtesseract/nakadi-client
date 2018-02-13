@@ -32,9 +32,6 @@ import           Network.Nakadi.Internal.TH
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Service
 
-class HasNakadiConfig s a where
-  nakadiConfig :: Lens' s a
-
 makeNakadiLenses ''Config
 makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
