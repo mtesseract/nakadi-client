@@ -24,7 +24,6 @@ import           Network.Nakadi.Base
 import           Network.Nakadi.Config
 import           Network.Nakadi.EventTypes
 import           Network.Nakadi.HttpBackendIO
-import           Network.Nakadi.Internal.Lenses
 import           Network.Nakadi.Registry
 import           Network.Nakadi.Subscriptions
 import           Network.Nakadi.Types
