@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Types.Exceptions
 Description : Nakadi Client Exceptions (Internal)
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -16,7 +16,6 @@ module Network.Nakadi.Internal.Types.Exceptions where
 
 import           Network.Nakadi.Internal.Prelude
 
-import qualified Data.ByteString.Lazy            as ByteString.Lazy
 import           Network.Nakadi.Types.Problem
 import           Network.Nakadi.Types.Service
 
@@ -27,7 +26,7 @@ data NakadiException = BatchPartiallySubmitted [BatchItemResponse]
                      | AccessForbidden Problem
                      | UnprocessableEntity Problem
                      | Conflict Problem
-                     | DeserializationFailure ByteString.Lazy.ByteString
+                     | DeserializationFailure ByteString Text
                      | UnexpectedResponse (Response ())
                      | NotFound Problem
                      | TooManyRequests Problem

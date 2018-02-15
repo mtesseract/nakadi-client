@@ -64,18 +64,24 @@ import qualified Network.Nakadi.Internal.Lenses  as L
 import           Network.Nakadi.Internal.Types
 import           Network.Nakadi.Internal.Util
 
+-- | If no deserializationFailureCallback is set in the provided
+-- configuration (which is the default), a
+-- DeserializationFailureCallback exception will be thrown. Otherwise,
+-- simply run the callback.
 conduitDecode
-  :: (FromJSON a, MonadNakadi b m)
+  :: forall a b m
+   . (FromJSON a, MonadNakadi b m)
   => Config b -- ^ Configuration, containing the
               -- deserialization-failure-callback.
   -> ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
                                 -- into custom values
-conduitDecode Config {..} = awaitForever $ \a -> case eitherDecodeStrict a of
+conduitDecode config = awaitForever $ \ a -> case eitherDecodeStrict' a of
   Right v   -> yield v
   Left  err -> lift . nakadiLiftBase $ callback a (Text.pack err)
  where
-  callback = fromMaybe dummyCallback _deserializationFailureCallback
-  dummyCallback _ _ = return ()
+  callback bs err = case config ^. L.deserializationFailureCallback of
+    Nothing -> throwM $ DeserializationFailure bs err
+    Just cb -> cb bs err
 
 -- | Throw 'HttpException' exception on server errors (5xx).
 checkNakadiResponse :: Request -> Response BodyReader -> IO ()

@@ -123,7 +123,7 @@ testEventTypePublishData conf = runApp . runNakadiT conf $ do
                               }
   withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    eventConsumed :: Maybe (EventStreamBatch Foo) <-
+    eventConsumed :: Maybe (EventStreamBatch (DataChangeEvent Foo)) <-
       eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
     liftIO $ isJust eventConsumed @=? True
 
