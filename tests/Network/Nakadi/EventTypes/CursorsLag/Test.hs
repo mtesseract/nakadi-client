@@ -43,7 +43,7 @@ testCursorsLagN conf n = runApp . runNakadiT conf $ do
   let cursorsMap = Map.fromList $
         map (\Partition { .. } -> (_partition, _newestAvailableOffset)) partitions
   forM_ [1..n] $ \_ ->
-    eventsPublish myEventTypeName Nothing [myDataChangeEvent eid now]
+    eventsPublish myEventTypeName [myDataChangeEvent eid now]
   lagMap <- cursorsLag myEventTypeName cursorsMap
   liftIO $ Map.size cursorsMap @=? Map.size lagMap
   let lag = sum $ map snd (Map.toList lagMap)

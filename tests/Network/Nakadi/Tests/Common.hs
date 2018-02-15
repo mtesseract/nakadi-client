@@ -104,6 +104,9 @@ recreateEvent eventTypeName eventType = do
   eventTypeCreate eventType
 
 delayedPublish :: (MonadNakadi b m, MonadIO m, ToJSON a) => Maybe FlowId -> [a] -> m ()
-delayedPublish flowId events  = do
+delayedPublish maybeFlowId events  = do
   liftIO $ threadDelay (10^6)
-  eventsPublish myEventTypeName flowId events
+  let flowId = fromMaybe (FlowId "shalom") maybeFlowId
+  config <- nakadiAsk <&> setFlowId flowId
+  runNakadiT config $
+    eventsPublish myEventTypeName events

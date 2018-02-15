@@ -67,6 +67,7 @@ eventsProcessConduit maybeConsumeParameters eventTypeName maybeCursors consumer 
   httpJsonBodyStream ok200 [ (status429, errorTooManyRequests)
                            , (status429, errorEventTypeNotFound) ]
     (setRequestPath (path eventTypeName)
+     . includeFlowId config
      . setRequestQueryParameters queryParams
      . addCursors) $
     handler config
@@ -84,17 +85,17 @@ eventsProcessConduit maybeConsumeParameters eventTypeName maybeCursors consumer 
 
 -- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
 -- events for the specified event type.
-eventsPublish ::
-  (MonadNakadi b m, ToJSON a)
+eventsPublish
+  :: (MonadNakadi b m, ToJSON a)
   => EventTypeName
-  -> Maybe FlowId
   -> [a]
   -> m ()
-eventsPublish eventTypeName maybeFlowId eventBatch =
+eventsPublish eventTypeName eventBatch = do
+  config <- nakadiAsk
   httpJsonNoBody status200
-  [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
-  , (status422, errorBatchNotSubmitted) ]
-  (setRequestMethod "POST"
-   . setRequestPath (path eventTypeName)
-   . maybe identity (addRequestHeader "X-Flow-Id" . encodeUtf8 . unFlowId) maybeFlowId
-   . setRequestBodyJSON eventBatch)
+    [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
+    , (status422, errorBatchNotSubmitted) ] $
+    (setRequestMethod "POST"
+     . setRequestPath (path eventTypeName)
+     . includeFlowId config
+     . setRequestBodyJSON eventBatch)

@@ -88,7 +88,7 @@ testEventTypeCursorDistances10 conf = runApp . runNakadiT conf $ do
   forM_ [1..10] $ \_ -> do
     now <- liftIO getCurrentTime
     eid <- EventId <$> genRandomUUID
-    eventsPublish myEventTypeName Nothing [myDataChangeEvent eid now]
+    eventsPublish myEventTypeName [myDataChangeEvent eid now]
 
   cursorPairs <- forM cursors $ \cursor@Cursor { .. } -> do
     part <- eventTypePartition myEventTypeName _partition

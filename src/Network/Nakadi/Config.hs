@@ -66,6 +66,7 @@ newConfig httpBackend request =
          , _retryPolicy                    = defaultRetryPolicy
          , _http                           = httpBackend
          , _httpErrorCallback              = Nothing
+         , _flowId                         = Nothing
          }
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
@@ -145,6 +146,13 @@ setRetryPolicy ::
   -> Config m
 setRetryPolicy = (L.retryPolicy .~)
 
+-- | Set flow ID in the provided configuration.
+setFlowId
+  :: FlowId
+  -> Config m
+  -> Config m
+setFlowId flowId = L.flowId .~ Just flowId
+
 -- | Set maximum number of uncommitted events in the provided value of
 -- consumption parameters.
 setMaxUncommittedEvents :: Int32 -> ConsumeParameters -> ConsumeParameters
@@ -171,7 +179,3 @@ setStreamTimeout n params = params & L.streamTimeout .~ Just n
 -- parameters.
 setStreamKeepAliveLimit :: Int32 -> ConsumeParameters -> ConsumeParameters
 setStreamKeepAliveLimit n params = params & L.streamKeepAliveLimit .~ Just n
-
--- | Set flow ID in the provided value of value of consumption parameters.
-setFlowId :: Text -> ConsumeParameters -> ConsumeParameters
-setFlowId flowId = L.flowId .~ Just flowId

@@ -27,6 +27,7 @@ module Network.Nakadi.Internal.Http
   , httpJsonBodyStream
   , httpBuildRequest
   , conduitDecode
+  , includeFlowId
   , errorClientNotAuthenticated
   , errorUnprocessableEntity
   , errorAccessForbidden
@@ -208,6 +209,15 @@ httpJsonBodyStream successStatus exceptionMap requestDef handler = do
 setRequestQueryParameters :: [(ByteString, ByteString)] -> Request -> Request
 setRequestQueryParameters parameters = setRequestQueryString parameters'
   where parameters' = map (fmap Just) parameters
+
+includeFlowId
+  :: Config b
+  -> Request
+  -> Request
+includeFlowId config =
+  case config^.L.flowId of
+    Just flowId -> setRequestHeader "X-Flow-Id" [encodeUtf8 (unFlowId flowId)]
+    Nothing     -> identity
 
 defaultExceptionMap
   :: MonadThrow m => [(Status, ByteString.Lazy.ByteString -> m NakadiException)]

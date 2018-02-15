@@ -37,11 +37,13 @@ cursorsShift' ::
   => EventTypeName   -- ^ Event Type
   -> [ShiftedCursor] -- ^ Cursors with Shift Distances
   -> m [Cursor]      -- ^ Resulting Cursors
-cursorsShift' eventTypeName cursors =
-  httpJsonBody ok200 []
-  (setRequestMethod "POST"
-   . setRequestPath (path eventTypeName)
-   . setRequestBodyJSON cursors)
+cursorsShift' eventTypeName cursors = do
+  config <- nakadiAsk
+  httpJsonBody ok200 [] $
+    (setRequestMethod "POST"
+     . includeFlowId config
+     . setRequestPath (path eventTypeName)
+     . setRequestBodyJSON cursors)
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/shifted-cursors@. High
 -- level interface.

@@ -25,7 +25,6 @@ module Network.Nakadi.Subscriptions.Events
 import           Network.Nakadi.Internal.Prelude
 
 import           Conduit                              hiding (throwM)
-import           Control.Lens
 import           Data.Aeson
 import           Data.Void
 import           Network.HTTP.Client                  (responseBody)
@@ -63,11 +62,10 @@ subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
   config <- nakadiAsk
   let consumeParams = fromMaybe defaultConsumeParameters maybeConsumeParameters
       queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
-      addFlowId     = case consumeParams^.L.flowId of
-                        Just flowId -> setRequestHeader "X-Flow-Id" [encodeUtf8 flowId]
-                        Nothing     -> identity
   httpJsonBodyStream ok200 [(status404, errorSubscriptionNotFound)]
-    (setRequestPath path . addFlowId . setRequestQueryParameters queryParams) $
+    (setRequestPath path
+     . includeFlowId config
+     . setRequestQueryParameters queryParams) $
     handler config
 
 
