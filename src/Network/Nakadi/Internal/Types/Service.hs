@@ -213,6 +213,9 @@ newtype FlowId = FlowId
   }
   deriving (Show, Eq, Ord, Generic)
 
+instance IsString FlowId where
+  fromString = FlowId . Text.pack
+
 instance ToJSON FlowId where
   toJSON = String . unFlowId
 
