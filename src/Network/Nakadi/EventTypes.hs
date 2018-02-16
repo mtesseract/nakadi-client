@@ -48,8 +48,8 @@ eventTypesList = do
   config <- nakadiAsk
   httpJsonBody status200 [] $
     (setRequestMethod "GET"
-     . setRequestPath path
-     . includeFlowId config )
+     . includeFlowId config
+     . setRequestPath path)
 
 -- | @POST@ to @\/event-types@. Creates a new event type.
 eventTypeCreate ::

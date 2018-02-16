@@ -50,8 +50,8 @@ eventTypeUpdate eventTypeName eventType = do
   config <- nakadiAsk
   httpJsonNoBody ok200 [] $
     (setRequestMethod "PUT"
-     . setRequestPath (path eventTypeName)
      . includeFlowId config
+     . setRequestPath (path eventTypeName)
      . setRequestBodyJSON eventType)
 
 -- | Deletes an event type given its 'EventTypeName'. @DELETE@ to

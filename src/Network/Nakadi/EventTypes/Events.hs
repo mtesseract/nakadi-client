@@ -96,6 +96,6 @@ eventsPublish eventTypeName eventBatch = do
     [ (Status 207 "Multi-Status", errorBatchPartiallySubmitted)
     , (status422, errorBatchNotSubmitted) ] $
     (setRequestMethod "POST"
-     . setRequestPath (path eventTypeName)
      . includeFlowId config
+     . setRequestPath (path eventTypeName)
      . setRequestBodyJSON eventBatch)

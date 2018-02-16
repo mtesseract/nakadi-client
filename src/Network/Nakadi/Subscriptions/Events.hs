@@ -63,8 +63,8 @@ subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
   let consumeParams = fromMaybe defaultConsumeParameters maybeConsumeParameters
       queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
   httpJsonBodyStream ok200 [(status404, errorSubscriptionNotFound)]
-    (setRequestPath path
-     . includeFlowId config
+    (includeFlowId config
+     . setRequestPath path
      . setRequestQueryParameters queryParams) $
     handler config
 
