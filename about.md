@@ -2,7 +2,7 @@
 title: About
 ---
 
-nakadi-client provides:
+Nakadi-client provides:
 
 - Docker based test suite testing against the official Nakadi [docker
   image](https://github.com/zalando/nakadi#running-a-server).
@@ -20,13 +20,12 @@ nakadi-client provides:
 
 - Integrated and configurable retry mechanism.
 
-- Replacable HTTP Backend for testing and mocking.
+- Pluggable HTTP Backend for testing and mocking.
 - 
-- Conduit based interfaces for streaming events.
+- Conduit based streaming interfaces.
 
-- Convenient high-level Subscription API.
-
-- Mechanism for registering callbacks for logging and token injection.
+- Mechanism for registering callbacks for logging, token injection and
+  more.
 
 - Correct types for values like `CursorOffset` (which must be treated
   as opaque strings).
