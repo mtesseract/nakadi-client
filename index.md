@@ -15,5 +15,4 @@ of [Conduit](https://haskell-lang.org/library/conduit).
 ### News
 
 Nakadi-client v0.5.0 has just been released. This is an API breaking
-change from the 0.4.x series. See the [release notes](release-0.5.0.0.html) for more information.
-
+change from the 0.4.x series.
