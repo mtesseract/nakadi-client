@@ -35,6 +35,7 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypeCursorDistances10" (testEventTypeCursorDistances10 conf)
   , testCase "EventTypePublishData" (testEventTypePublishData conf)
   , testCase "EventTypeParseFlowId" (testEventTypeParseFlowId conf)
+  , testCase "EventTypeDeserializationFailureException" (testEventTypeDeserializationFailureException conf)
   , testCase "EventTypeDeserializationFailure" (testEventTypeDeserializationFailure conf)
   , testEventTypesShiftedCursors conf
   , testEventTypesCursorsLag conf
@@ -123,9 +124,9 @@ testEventTypePublishData conf = runApp . runNakadiT conf $ do
                               }
   withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    eventConsumed :: Maybe (EventStreamBatch Foo) <-
+    (Just batchConsumed) :: Maybe (EventStreamBatch (DataChangeEvent Foo)) <-
       eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
-    liftIO $ isJust eventConsumed @=? True
+    liftIO $ isJust (batchConsumed^.L.events) @=? True
 
 testEventTypeParseFlowId :: Config App -> Assertion
 testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
@@ -145,18 +146,41 @@ testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
       expectedFlowId = Just $ FlowId "12345"
   withAsync (delayedPublish expectedFlowId [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    eventConsumed :: Maybe (EventStreamBatch (DataChangeEventEnriched Foo)) <-
+    Just batchConsumed :: Maybe (EventStreamBatch (DataChangeEventEnriched Foo)) <-
       eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
-    liftIO $ isJust eventConsumed @=? True
-    let events = eventConsumed >>= (\batch -> batch^.L.events)
-    liftIO $ isJust events @=? True
+    let (Just events) = (batchConsumed^.L.events)
+    liftIO $ case toList events of
+      [DataChangeEventEnriched _ x _ _] ->
+        x^.L.flowId @=? expectedFlowId
+      [] -> assertFailure "Received no events"
+      _ -> assertFailure "Did not receive a singleton event list"
 
-    liftIO $ case events of
-      Nothing -> assertFailure "Received no events"
-      Just v -> case toList v of
-        [DataChangeEventEnriched _ x _ _] ->
-          x^.L.flowId @=? expectedFlowId
-        _ -> assertFailure "Received not a singleton event list"
+testEventTypeDeserializationFailureException :: Config App -> Assertion
+testEventTypeDeserializationFailureException conf = runApp . runNakadiT conf $ do
+  now <- liftIO getCurrentTime
+  eid <- EventId <$> genRandomUUID
+  eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeCreate myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = EventMetadata { _eid = eid
+                                                          , _occurredAt = Timestamp now
+                                                          , _parentEids = Nothing
+                                                          , _partition  = Nothing
+                                                          }
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+  res :: Either NakadiException (Maybe (EventStreamBatch WrongFoo)) <- try $
+    withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
+    liftIO $ link asyncHandle
+    eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
+  case res of
+    Left (DeserializationFailure _ _) ->
+      pure ()
+    Left exn ->
+      liftIO $ assertFailure $ "Unexpected exception: " <> show exn
+    Right events ->
+      liftIO $ assertFailure $ "Unexpected success: " <> show events
 
 testEventTypeDeserializationFailure :: Config App -> Assertion
 testEventTypeDeserializationFailure conf' = runApp . runNakadiT conf $ do
