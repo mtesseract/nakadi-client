@@ -42,11 +42,13 @@ cursorsLag' ::
   -> [Cursor]      -- ^ Cursors for which to compute the lag for
   -> m [Partition] -- ^ Resulting partition information containing
                    -- information about unconsumed events.
-cursorsLag' eventTypeName cursors =
-  httpJsonBody ok200 []
-  (setRequestMethod "POST"
-   . setRequestPath (path eventTypeName)
-   . setRequestBodyJSON cursors)
+cursorsLag' eventTypeName cursors = do
+  config <- nakadiAsk
+  httpJsonBody ok200 [] $
+    (setRequestMethod "POST"
+     . includeFlowId config
+     . setRequestPath (path eventTypeName)
+     . setRequestBodyJSON cursors)
 
 -- | @POST@ to @\/event-types\/EVENT-TYPE\/cursors-lag@. High level
 -- interface.

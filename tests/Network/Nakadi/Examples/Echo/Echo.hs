@@ -37,6 +37,6 @@ runEcho eventNameInput eventNameOutput =
         publishEvents eventName channel =
           sourceTBQueue channel
             .| mapC toList
-            $$ mapM_C (eventsPublish eventName Nothing)
+            $$ mapM_C (eventsPublish eventName)
 
         consumeParameters = defaultConsumeParameters & L.batchFlushTimeout .~ Just 1

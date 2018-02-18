@@ -18,10 +18,11 @@ module Network.Nakadi.Internal.Types.Config where
 
 import           Conduit
 import           Control.Retry
-import qualified Data.ByteString.Lazy                 as LB
+import qualified Data.ByteString.Lazy                  as LB
 import           Network.HTTP.Client
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Types.Logger
+import           Network.Nakadi.Internal.Types.Service
 
 -- | Config
 
@@ -44,6 +45,7 @@ data Config m where
             , _retryPolicy                    :: RetryPolicyM IO
             , _http                           :: HttpBackend m
             , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
+            , _flowId                         :: Maybe FlowId
             } -> Config m
 
 -- | ConsumeParameters
@@ -55,7 +57,6 @@ data ConsumeParameters = ConsumeParameters
   , _batchFlushTimeout    :: Maybe Int32
   , _streamTimeout        :: Maybe Int32
   , _streamKeepAliveLimit :: Maybe Int32
-  , _flowId               :: Maybe Text
   } deriving (Show, Eq, Ord)
 
 

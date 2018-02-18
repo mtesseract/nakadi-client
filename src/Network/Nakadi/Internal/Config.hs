@@ -42,5 +42,4 @@ defaultConsumeParameters = ConsumeParameters
   , _batchFlushTimeout    = Nothing
   , _streamTimeout        = Nothing
   , _streamKeepAliveLimit = Nothing
-  , _flowId               = Nothing
   }

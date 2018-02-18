@@ -46,7 +46,7 @@ publishEvents :: Nakadi.MonadNakadi IO m
               => Vector (Nakadi.DataChangeEvent Foo)
               -> Nakadi.EventTypeName -> m ()
 publishEvents events eventName = do
-  Nakadi.eventsPublish eventName Nothing (Vector.toList events)
+  Nakadi.eventsPublish eventName (Vector.toList events)
 
 consumerMain
   :: ( Nakadi.MonadNakadi b m

@@ -44,9 +44,12 @@ path = "/event-types"
 eventTypesList ::
   MonadNakadi b m
   => m [EventType] -- ^ Registered Event Types
-eventTypesList =
-  httpJsonBody status200 []
-  (setRequestMethod "GET" . setRequestPath path)
+eventTypesList = do
+  config <- nakadiAsk
+  httpJsonBody status200 [] $
+    (setRequestMethod "GET"
+     . includeFlowId config
+     . setRequestPath path)
 
 -- | @POST@ to @\/event-types@. Creates a new event type.
 eventTypeCreate ::

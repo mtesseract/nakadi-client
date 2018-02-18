@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.EventTypes.Partitions
 Description : Implementation of Nakadi Partitions API
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -33,21 +33,25 @@ path eventTypeName maybePartitionName =
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions@. Retrieves
 -- information about all partitions.
-eventTypePartitions ::
-  MonadNakadi b m
+eventTypePartitions
+  :: MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> m [Partition] -- ^ Partition Information
-eventTypePartitions eventTypeName =
-  httpJsonBody ok200 [(status404, errorEventTypeNotFound)]
-  (setRequestPath (path eventTypeName Nothing))
+eventTypePartitions eventTypeName = do
+  config <- nakadiAsk
+  httpJsonBody ok200 [(status404, errorEventTypeNotFound)] $
+    (includeFlowId config
+     . setRequestPath (path eventTypeName Nothing))
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions\/PARTITION@.
 -- Retrieves information about a single partition.
-eventTypePartition ::
-  MonadNakadi b m
+eventTypePartition
+  :: MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> PartitionName -- ^ Name of Partition to look up
   -> m Partition   -- ^ Partition Information
-eventTypePartition eventTypeName partitionName =
-  httpJsonBody ok200 []
-  (setRequestPath (path eventTypeName (Just partitionName)))
+eventTypePartition eventTypeName partitionName = do
+  config <- nakadiAsk
+  httpJsonBody ok200 [] $
+    (includeFlowId config
+     . setRequestPath (path eventTypeName (Just partitionName)))

@@ -28,14 +28,16 @@ path eventTypeName = "/event-types/" <> encodeUtf8 (unEventTypeName eventTypeNam
 
 -- | Retrieves an 'EventType' by its 'EventTypeName'. @GET@ to
 -- @\/event-types\/EVENT-TYPE@.
-eventTypeGet ::
-  MonadNakadi b m
+eventTypeGet
+  :: MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> m EventType   -- ^ Event Type information
-eventTypeGet eventTypeName =
-  httpJsonBody ok200 [(status404, errorEventTypeNotFound)]
-  (setRequestMethod "GET"
-   . setRequestPath (path eventTypeName))
+eventTypeGet eventTypeName = do
+  config <- nakadiAsk
+  httpJsonBody ok200 [(status404, errorEventTypeNotFound)] $
+    (setRequestMethod "GET"
+     . includeFlowId config
+     . setRequestPath (path eventTypeName))
 
 -- | Updates an event type given its 'EventTypeName' and its new
 -- 'EventType' description. @PUT@ to @\/event-types\/EVENT-TYPE@.
@@ -44,18 +46,23 @@ eventTypeUpdate ::
   => EventTypeName -- ^ Name of Event Type
   -> EventType     -- ^ Event Type Settings
   -> m ()
-eventTypeUpdate eventTypeName eventType =
-  httpJsonNoBody ok200 []
-  (setRequestMethod "PUT"
-   . setRequestPath (path eventTypeName)
-   . setRequestBodyJSON eventType)
+eventTypeUpdate eventTypeName eventType = do
+  config <- nakadiAsk
+  httpJsonNoBody ok200 [] $
+    (setRequestMethod "PUT"
+     . includeFlowId config
+     . setRequestPath (path eventTypeName)
+     . setRequestBodyJSON eventType)
 
 -- | Deletes an event type given its 'EventTypeName'. @DELETE@ to
 -- @\/event-types\/EVENT-TYPE@.
-eventTypeDelete ::
-  MonadNakadi b m
+eventTypeDelete
+  :: MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> m ()
-eventTypeDelete eventTypeName =
-  httpJsonNoBody ok200 [(status404, errorEventTypeNotFound)]
-  (setRequestMethod "DELETE" . setRequestPath (path eventTypeName))
+eventTypeDelete eventTypeName = do
+  config <- nakadiAsk
+  httpJsonNoBody ok200 [(status404, errorEventTypeNotFound)] $
+    (setRequestMethod "DELETE"
+     . includeFlowId config
+     . setRequestPath (path eventTypeName))
