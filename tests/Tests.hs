@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+
 import           ClassyPrelude
 
 import           Network.HTTP.Client
@@ -14,7 +15,6 @@ import           Network.Nakadi.Subscriptions.Test
 import           Network.Nakadi.Tests.Common
 import           System.Environment
 import           System.Exit
-import           System.IO                         (hFlush)
 import           Test.Tasty
 
 main :: IO ()

@@ -5,14 +5,14 @@
 
 module Network.Nakadi.Examples.Echo.Echo (runEcho) where
 
-import           ClassyPrelude
+import           ClassyPrelude hiding (async)
 import           Conduit
-import           Control.Concurrent.Async.Lifted (link, waitEither_)
 import           Control.Lens
 import           Data.Aeson
 import           Data.Conduit.TQueue
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses           as L
+import UnliftIO.Async
 
 -- Example program which consumes the events for the event type
 -- "test-event" and republishes them unchanged under the event type
@@ -34,9 +34,9 @@ runEcho eventNameInput eventNameOutput =
           .| mapC (fmap (toJSON :: DataChangeEvent Value -> Value))
           .| sinkTBQueue channel
 
-        publishEvents eventName channel =
+        publishEvents eventName channel = runConduit $
           sourceTBQueue channel
             .| mapC toList
-            $$ mapM_C (eventsPublish eventName)
+            .| mapM_C (eventsPublish eventName)
 
         consumeParameters = defaultConsumeParameters & L.batchFlushTimeout .~ Just 1

@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Http
 Description : Nakadi Client HTTP (Internal)
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -45,7 +45,9 @@ module Network.Nakadi.Internal.Http
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Conduit                         hiding (throwM)
+import Data.Conduit
+import Data.Conduit.Combinators (sinkLazy)
+import Control.Monad.Trans.Class (lift)
 import           Control.Arrow
 import           Control.Lens
 import           Control.Monad                   (void)
@@ -200,13 +202,11 @@ httpJsonBodyStream successStatus exceptionMap requestDef handler = do
             then do connectCallback config response_
                     handler responseLifted
             else case lookup status exceptionMap' of
-                   Just mkExn ->
-                     conduitDrainToLazyByteString bodySource >>= mkExn >>= throwM
+                   Just mkExn -> runConduit (bodySource .| sinkLazy) >>= mkExn >>= throwM
                    Nothing -> throwM (UnexpectedResponse response_)
 
         exceptionMap' = exceptionMap ++ defaultExceptionMap
 
-        -- connectCallback :: s -> t -> m ()
         connectCallback config response =
           nakadiLiftBase $ case config^.L.streamConnectCallback of
                          Just cb -> cb response

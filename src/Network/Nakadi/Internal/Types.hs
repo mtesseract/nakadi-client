@@ -60,6 +60,7 @@ import           Network.Nakadi.Internal.Types.Logger
 import           Network.Nakadi.Internal.Types.Problem
 import           Network.Nakadi.Internal.Types.Service
 import           Network.Nakadi.Internal.Types.Util
+import Control.Monad.Primitive
 
 -- * Define Typeclasses
 
@@ -189,6 +190,11 @@ instance MonadBaseControl b' m => MonadBaseControl b' (NakadiT b m) where
 
 -- | 'MonadNakadiBase'
 instance {-# OVERLAPPABLE #-} MonadNakadiBase b m => MonadNakadiBase b (NakadiT b m)
+
+instance PrimMonad m => PrimMonad (NakadiT b m) where
+  type PrimState (NakadiT b m) = PrimState m
+  primitive = lift . primitive
+  {-# INLINE primitive #-}
 
 -- ** Implementations 'MonadNakadi' typeclass for transformers.
 

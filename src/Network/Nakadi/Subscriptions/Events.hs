@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Subscriptions.Events
 Description : Implementation of Nakadi Subscription Events API
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -24,9 +24,8 @@ module Network.Nakadi.Subscriptions.Events
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Conduit                              hiding (throwM)
+import           Conduit hiding (throwM)
 import           Data.Aeson
-import           Data.Void
 import           Network.HTTP.Client                  (responseBody)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types

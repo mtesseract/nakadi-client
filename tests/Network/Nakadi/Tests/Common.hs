@@ -14,6 +14,9 @@ import           Data.UUID             (UUID)
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses as L
 import           System.Random
+import Control.Monad.Catch (MonadCatch, MonadThrow, throwM)
+import UnliftIO.Concurrent (threadDelay)
+import Control.Monad.IO.Unlift ()
 
 type App = ReaderT () IO
 
@@ -57,7 +60,7 @@ myEventType = EventType
 
 ignoreExnNotFound :: MonadThrow m => a -> NakadiException -> m a
 ignoreExnNotFound a (EventTypeNotFound _) = return a
-ignoreExnNotFound _ exn                   = throw exn
+ignoreExnNotFound _ exn                   = throwM exn
 
 extractCursor :: Partition -> Cursor
 extractCursor Partition { ..} =
@@ -95,7 +98,7 @@ genMyDataChangeEvent = do
 genRandomUUID :: MonadIO m => m UUID
 genRandomUUID = liftIO randomIO
 
-recreateEvent :: (MonadCatch m, MonadNakadi b m) => EventTypeName -> EventType -> m ()
+recreateEvent :: (MonadCatch m, MonadNakadi b m, MonadUnliftIO m) => EventTypeName -> EventType -> m ()
 recreateEvent eventTypeName eventType = do
   subscriptionIds <- subscriptionsList Nothing (Just [eventTypeName])
     <&> catMaybes . map (view L.id)

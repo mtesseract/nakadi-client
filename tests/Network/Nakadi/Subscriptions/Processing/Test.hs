@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-
 -- This test tests the following the high-level subscription consumption.
 
 module Network.Nakadi.Subscriptions.Processing.Test where
@@ -18,6 +17,7 @@ import qualified Network.Nakadi.Lenses       as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import Control.Monad.Catch (throwM)
 
 testSubscriptionsProcessing :: Config App -> TestTree
 testSubscriptionsProcessing conf = testGroup "Processing"
@@ -38,7 +38,8 @@ testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
   eventsRead <- readIORef counter
   liftIO $ nEvents @=? eventsRead
 
-  where before :: MonadNakadi App m => m SubscriptionId
+  where before :: (MonadUnliftIO m, MonadNakadi App m)
+               => m SubscriptionId
         before = do
           recreateEvent myEventTypeName myEventType
           subscription <- subscriptionCreate Subscription
@@ -52,7 +53,8 @@ testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
             }
           pure . fromJust $ subscription^.L.id
 
-        after :: MonadNakadi App m => SubscriptionId -> m ()
+        after :: (MonadUnliftIO m, MonadNakadi App m)
+              => SubscriptionId -> m ()
         after subscriptionId = do
           subscriptionDelete subscriptionId
           eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
@@ -91,7 +93,8 @@ testSubscriptionConduitProcessing conf = runApp . runNakadiT conf $ do
   eventsRead <- readIORef counter
   liftIO $ nEvents @=? eventsRead
 
-  where before :: MonadNakadi App m => m SubscriptionId
+  where before :: (MonadUnliftIO m, MonadNakadi App m)
+               => m SubscriptionId
         before = do
           recreateEvent myEventTypeName myEventType
           subscription <- subscriptionCreate Subscription
@@ -105,7 +108,8 @@ testSubscriptionConduitProcessing conf = runApp . runNakadiT conf $ do
             }
           pure . fromJust $ subscription^.L.id
 
-        after :: MonadNakadi App m => SubscriptionId -> m ()
+        after :: (MonadUnliftIO m, MonadNakadi App m)
+              => SubscriptionId -> m ()
         after subscriptionId = do
           subscriptionDelete subscriptionId
           eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())

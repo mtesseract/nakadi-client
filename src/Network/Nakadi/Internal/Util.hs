@@ -14,8 +14,7 @@ Internal utility functions.
 {-# LANGUAGE TupleSections    #-}
 
 module Network.Nakadi.Internal.Util
-  ( conduitDrainToLazyByteString
-  , decodeThrow
+  ( decodeThrow
   , sequenceSnd
   , extractQueryParametersFromPath
   ) where
@@ -23,21 +22,11 @@ module Network.Nakadi.Internal.Util
 import           Network.Nakadi.Internal.Prelude
 
 import           Data.Aeson
-import           Data.ByteString.Builder
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
-import           Data.Conduit
-import           Data.Conduit.Combinators        hiding (decodeUtf8, map)
 import qualified Data.Text                       as Text
 import           Network.HTTP.Simple
 
 import           Network.Nakadi.Internal.Types
-
-conduitDrainToLazyByteString ::
-  Monad b
-  => ConduitM () ByteString b ()
-  -> b ByteString.Lazy.ByteString
-conduitDrainToLazyByteString conduit =
-  toLazyByteString <$> (conduit $$ sinkBuilder)
 
 decodeThrow
   :: (FromJSON a, MonadThrow m)

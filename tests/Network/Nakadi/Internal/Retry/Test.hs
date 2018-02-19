@@ -18,6 +18,7 @@ import           Network.Nakadi
 import           Network.Nakadi.Internal.Retry
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import Control.Monad.Catch (throwM)
 
 testRetry :: TestTree
 testRetry = testGroup "Retry"

@@ -29,7 +29,6 @@ import           Network.Nakadi.Internal.Prelude
 import           Conduit
 import           Data.Aeson
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
-import           Data.Void
 import           Network.HTTP.Client             (responseBody)
 import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.Http
@@ -77,11 +76,11 @@ eventsProcessConduit maybeConsumeParameters eventTypeName maybeCursors consumer 
                           in addRequestHeader "X-Nakadi-Cursors" cursors'
           Nothing      -> identity
 
-        handler config response =
+        handler config response = runConduit $
           responseBody response
           .| linesUnboundedAsciiC
           .| conduitDecode config
-          $$ consumer
+          .| consumer
 
 -- | @POST@ to @\/event-types\/NAME\/events@. Publishes a batch of
 -- events for the specified event type.

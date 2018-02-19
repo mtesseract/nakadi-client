@@ -1,6 +1,6 @@
 resolver: lts-10.5
 packages:
 - '.'
-extra-deps: []
+extra-deps: [conduit-1.3.0, resourcet-1.2.0, conduit-extra-1.3.0, http-conduit-2.3.0, stm-conduit-4.0.0, cereal-conduit-0.8.0, classy-prelude-1.4.0, unliftio-0.2.4.0]
 flags: {}
 extra-package-dbs: []

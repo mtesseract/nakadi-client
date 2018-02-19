@@ -8,7 +8,6 @@ module Network.Nakadi.Examples.Echo.Test (testEcho) where
 
 import           ClassyPrelude
 import           Conduit
-import           Control.Concurrent.Async.Lifted   (wait)
 import           Control.Lens
 import qualified Data.Vector                       as Vector
 import qualified Network.Nakadi                    as Nakadi
@@ -16,6 +15,8 @@ import           Network.Nakadi.Examples.Echo.Echo
 import qualified Network.Nakadi.Lenses             as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty.HUnit
+import Control.Monad.Catch (MonadMask)
+import UnliftIO.Concurrent (threadDelay)
 
 -- Example program which consumes the events for the event type
 -- "test-event" and republishes them unchanged under the event type
@@ -50,8 +51,8 @@ publishEvents events eventName = do
 
 consumerMain
   :: ( Nakadi.MonadNakadi b m
-     , MonadIO m
-     , MonadBaseControl IO m
+     , MonadUnliftIO m
+     , PrimMonad m
      , MonadMask m)
   => Nakadi.EventTypeName
   -> Int

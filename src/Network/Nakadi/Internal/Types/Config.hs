@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Types.Config
 Description : Nakadi Client Configuration Types (Internal)
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -16,7 +16,7 @@ Internal configuration specific types.
 
 module Network.Nakadi.Internal.Types.Config where
 
-import           Conduit
+import           Data.Conduit
 import           Control.Retry
 import qualified Data.ByteString.Lazy                  as LB
 import           Network.HTTP.Client
