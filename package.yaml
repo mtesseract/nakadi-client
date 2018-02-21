@@ -1,5 +1,5 @@
 name: nakadi-client
-version: '0.5.0.3'
+version: '0.5.0.4'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
              with the Nakadi event broker system developed by Zalando.
@@ -87,6 +87,7 @@ library:
   - Network.Nakadi.Subscriptions.Stats
   - Network.Nakadi.Subscriptions.Subscription
   - Network.Nakadi.Types
+  - Network.Nakadi.Types.Base
   - Network.Nakadi.Types.Config
   - Network.Nakadi.Types.Exceptions
   - Network.Nakadi.Types.Logger

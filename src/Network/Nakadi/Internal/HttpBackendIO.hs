@@ -35,6 +35,7 @@ getHttpManager
 getHttpManager Nothing        = liftIO getGlobalManager
 getHttpManager (Just manager) = pure manager
 
+-- | Default 'HttpBackend' doing actual IO including retries.
 httpBackendIO
   :: (MonadMask b, MonadIO b)
   => HttpBackend b

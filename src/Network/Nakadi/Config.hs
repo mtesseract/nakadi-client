@@ -48,7 +48,7 @@ import           Network.Nakadi.Internal.Types
 defaultRetryPolicy :: MonadIO m => RetryPolicyM m
 defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 
--- | Producs a new configuration, with mandatory HTTP manager, default
+-- | Produces a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
 newConfig
   :: Monad b
@@ -69,15 +69,15 @@ newConfig httpBackend request =
          , _flowId                         = Nothing
          }
 
--- | Producs a new configuration, with mandatory HTTP manager, default
--- consumption parameters and HTTP request template.
+-- | Produces a new configuration, specialized to @IO@.
 newConfigIO
   :: Request           -- ^ Request Template
   -> ConfigIO          -- ^ Resulting Configuration
 newConfigIO = newConfig httpBackendIO
 
--- | Produce a new configuration, with optional HTTP manager settings
--- and mandatory HTTP request template.
+-- | Produces a new configuration, with optional HTTP manager settings
+-- and mandatory HTTP request template. The configuration contains a reference
+-- to a dedicated HTTP Manager that is used for all HTTP requests.
 newConfigWithDedicatedManager ::
   (MonadIO b, MonadMask b, MonadIO m)
   => ManagerSettings -- ^ Optional 'ManagerSettings'

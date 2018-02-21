@@ -1,3 +1,16 @@
+{-|
+Module      : Network.Nakadi.Internal.Types.Base
+Description : Nakadi Client Base Types (Internal)
+Copyright   : (c) Moritz Clasmeier 2018
+License     : BSD3
+Maintainer  : mtesseract@silverratio.net
+Stability   : experimental
+Portability : POSIX
+
+This module provides the 'MonadNakadiBase' typeclass and
+corresponding instances.
+-}
+
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -22,7 +35,11 @@ import qualified Control.Monad.Writer.Lazy       as Writer.Lazy
 import qualified Control.Monad.Writer.Strict     as Writer.Strict
 import           Network.Nakadi.Internal.Prelude
 
+-- | The 'MonadNakadiBase' typeclass. A typeclass constraint of the form @MonadNakadiBase b m@ is
+-- a constraint for the typeclass @MonadNakadi b m@. This typeclass simply encodes the possibility
+-- of lifting an action from @b@ to @m@.
 class (Monad b, Monad m) => MonadNakadiBase b m where
+  -- | Lift an action in the base monad to the monad @m@.
   nakadiLiftBase :: b a -> m a
   default nakadiLiftBase :: (MonadNakadiBase b n, MonadTrans t, m ~ t n) => b a -> m a
   nakadiLiftBase = lift . nakadiLiftBase
@@ -48,8 +65,10 @@ instance {-# OVERLAPPABLE #-} MonadNakadiBase b m => MonadNakadiBase b (Resource
 instance {-# OVERLAPPABLE #-} (MonadNakadiBase b m) => MonadNakadiBase b (State.Strict.StateT s m)
 instance {-# OVERLAPPABLE #-} (MonadNakadiBase b m) => MonadNakadiBase b (State.Lazy.StateT s m)
 
+-- | Applications which need to use some custom, or non-standard, monad as base monad for Nakadi,
+-- can use the 'NakadiBaseT' monad transformer.
 newtype NakadiBaseT m a = NakadiBaseT
-  { runNakadiBaseT :: m a
+  { runNakadiBaseT :: m a -- ^ The wrapped monadic action.
   } deriving ( Functor, Applicative, Monad, MonadIO
              , MonadThrow, MonadCatch, MonadMask
              , MonadReader r, MonadWriter w, MonadState s

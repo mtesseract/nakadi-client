@@ -8,6 +8,7 @@ Stability   : experimental
 Portability : POSIX
 
 This module exports the public API of the nakadi-client package.
+It is best imported qualified.
 -}
 
 module Network.Nakadi
