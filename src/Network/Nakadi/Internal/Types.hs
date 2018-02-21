@@ -160,6 +160,9 @@ instance (Monad b, MonadReader r m) => MonadReader r (NakadiT b m) where
 -- | 'MonadLogger'
 instance MonadLogger m => MonadLogger (NakadiT b m)
 
+-- | 'MonadLoggerIO'
+instance (Monad b, MonadLoggerIO m) => MonadLoggerIO (NakadiT b m)
+
 -- | 'MonadState'
 instance (Monad b, MonadState s m) => MonadState s (NakadiT b m) where
   get = lift get
