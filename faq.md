@@ -12,7 +12,7 @@ setRequestModifier :: (Request -> m Request) -> Config m -> Config m
 ```
 
 This request modifier is then run for every HTTP request initiated by
-nakadi-client.
+nakadi-client and can inject token headers into the request.
 
 ### Can I simply put a Nakadi configuration in my own Reader monad environment?
 
