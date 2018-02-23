@@ -1,5 +1,5 @@
 name: nakadi-client
-version: '0.5.0.3'
+version: '0.5.1.0'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
              with the Nakadi event broker system developed by Zalando.
@@ -66,6 +66,8 @@ dependencies:
 - template-haskell
 - retry
 - unliftio-core
+- stm
+- lifted-async >= 0.10.0 && < 0.11
 library:
   source-dirs: src
   exposed-modules:

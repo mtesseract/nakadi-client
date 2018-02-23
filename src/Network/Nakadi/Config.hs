@@ -29,6 +29,7 @@ module Network.Nakadi.Config
   , setStreamTimeout
   , setStreamKeepAliveLimit
   , setFlowId
+  , setCommitStrategy
   , defaultConsumeParameters
   ) where
 
@@ -47,6 +48,10 @@ import           Network.Nakadi.Internal.Types
 -- | Default retry policy.
 defaultRetryPolicy :: MonadIO m => RetryPolicyM m
 defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
+
+-- | Default commit strategy.
+defaultCommitStrategy :: CommitStrategy
+defaultCommitStrategy = CommitSyncUnbuffered
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
@@ -67,6 +72,7 @@ newConfig httpBackend request =
          , _http                           = httpBackend
          , _httpErrorCallback              = Nothing
          , _flowId                         = Nothing
+         , _commitStrategy                 = defaultCommitStrategy
          }
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
@@ -152,6 +158,13 @@ setFlowId
   -> Config m
   -> Config m
 setFlowId flowId = L.flowId .~ Just flowId
+
+-- | Set flow ID in the provided configuration.
+setCommitStrategy
+  :: CommitStrategy
+  -> Config m
+  -> Config m
+setCommitStrategy = (L.commitStrategy .~)
 
 -- | Set maximum number of uncommitted events in the provided value of
 -- consumption parameters.
