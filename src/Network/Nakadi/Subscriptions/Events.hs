@@ -83,42 +83,76 @@ subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
     (includeFlowId config
      . setRequestPath path
      . setRequestQueryParameters queryParams) $
-    handler config
+    subscriptionProcessHandler config subscriptionId processor
 
-  where buildSubscriptionEventStream response =
-          case listToMaybe (getResponseHeader "X-Nakadi-StreamId" response) of
-            Just streamId ->
-              pure SubscriptionEventStream
-              { _streamId       = StreamId (decodeUtf8 streamId)
-              , _subscriptionId = subscriptionId }
-            Nothing ->
-              throwM StreamIdMissing
-
-        path = "/subscriptions/"
+  where path = "/subscriptions/"
                <> subscriptionIdToByteString subscriptionId
                <> "/events"
 
-        handler config response = do
-          eventStream <- buildSubscriptionEventStream response
-          queue <- liftIO . atomically $ newTBQueue 1024
-          withAsync (subscriptionCommitter (config^.L.commitStrategy) eventStream queue) $
-            \ asyncHandle -> do
-              link asyncHandle
-              runConduit $
-                responseBody response
-                .| linesUnboundedAsciiC
-                .| conduitDecode config
-                .| processor
-                .| Conduit.map (view L.subscriptionCursor)
-                .| Conduit.mapM_ (liftIO . atomically . writeTBQueue queue)
+-- | Derive a 'SubscriptionEventStream' from the provided
+-- 'SubscriptionId' and Nakadi streaming response.
+buildSubscriptionEventStream
+  :: MonadThrow m
+  => SubscriptionId
+  -> Response a
+  -> m SubscriptionEventStream
+buildSubscriptionEventStream subscriptionId response =
+  case listToMaybe (getResponseHeader "X-Nakadi-StreamId" response) of
+    Just streamId ->
+      pure SubscriptionEventStream
+      { _streamId       = StreamId (decodeUtf8 streamId)
+      , _subscriptionId = subscriptionId }
+    Nothing ->
+      throwM StreamIdMissing
+
+subscriptionProcessHandler
+  :: ( MonadThrow m
+     , MonadIO m
+     , MonadBaseControl IO m
+     , MonadNakadi b m
+     , FromJSON a
+     , L.HasNakadiSubscriptionCursor c )
+  => Config b
+  -> SubscriptionId
+  -> ConduitM (SubscriptionEventStreamBatch a) c m ()
+  -> Response (ConduitM () ByteString m ())
+  -> m ()
+subscriptionProcessHandler config subscriptionId processor response = do
+  eventStream <- buildSubscriptionEventStream subscriptionId response
+  let producer = responseBody response
+                 .| linesUnboundedAsciiC
+                 .| conduitDecode config
+                 .| processor
+                 .| Conduit.map (view L.subscriptionCursor)
+  case config^.L.commitStrategy of
+    CommitSync ->
+      runConduit $ producer .| subscriptionSink eventStream
+    CommitAsync bufferingStrategy -> do
+      queue <- liftIO . atomically $ newTBQueue 1024
+      withAsync (subscriptionCommitter bufferingStrategy eventStream queue) $
+        \ asyncHandle -> do
+          link asyncHandle
+          runConduit $
+            producer
+            .| Conduit.mapM_ (liftIO . atomically . writeTBQueue queue)
+
+-- | Sink which can be used as sink for Conduits processing
+-- subscriptions events. This sink takes care of committing events. It
+-- can consume any values which contain Subscription Cursors.
+subscriptionSink
+  :: MonadNakadi b m
+  => SubscriptionEventStream
+  -> ConduitM SubscriptionCursor void m ()
+subscriptionSink eventStream =
+  awaitForever $ lift . subscriptionCursorCommit eventStream . (: [])
 
 subscriptionCommitter
   :: (MonadIO m, MonadNakadi b m)
-  => CommitStrategy
+  => CommitBufferingStrategy
   -> SubscriptionEventStream
   -> TBQueue SubscriptionCursor
   -> m ()
-subscriptionCommitter CommitSyncUnbuffered eventStream queue = go
+subscriptionCommitter CommitNoBuffer eventStream queue = go
   where go = do
           a <- liftIO . atomically . readTBQueue $ queue
           subscriptionCursorCommit eventStream [a]

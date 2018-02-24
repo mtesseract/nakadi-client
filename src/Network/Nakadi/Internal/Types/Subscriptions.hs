@@ -13,8 +13,16 @@ subscriptions, which are not modelled after the Nakadi API.
 
 module Network.Nakadi.Internal.Types.Subscriptions where
 
+data CommitBufferingStrategy
+  = CommitNoBuffer
+
 -- | This type encodes the supported strategies for subscription
 -- cursor committing.
 data CommitStrategy
-  = CommitSyncUnbuffered -- ^ This strategy synchronously commit every
-                         -- cursor.
+  = CommitSync                          -- ^ This strategy synchronously commit every
+                                        -- cursor.
+  | CommitAsync CommitBufferingStrategy -- ^ This strategy sends cursors to be
+                                        -- committed to a dedicated thread
+                                        -- responsible for committing them. Cursors
+                                        -- are commited one by one, without special
+                                        -- buffering logic.
