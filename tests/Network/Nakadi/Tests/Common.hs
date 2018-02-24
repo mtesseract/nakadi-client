@@ -9,16 +9,19 @@ module Network.Nakadi.Tests.Common where
 import           ClassyPrelude
 
 import           Control.Lens
+import           Control.Monad.Logger
 import           Data.Aeson
+import           Data.List.Split       (chunksOf)
+import qualified Data.Text             as Text
 import           Data.UUID             (UUID)
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses as L
 import           System.Random
 
-type App = ReaderT () IO
+type App = LoggingT (ReaderT () IO)
 
 runApp :: App a -> IO a
-runApp = flip runReaderT ()
+runApp = flip runReaderT () . runStdoutLoggingT
 
 data Foo = Foo { fortune :: Text } deriving (Show, Eq, Generic)
 
@@ -92,6 +95,21 @@ genMyDataChangeEvent = do
     , _dataOp = DataOpUpdate
     }
 
+genMyDataChangeEventIdx :: MonadIO m => Int -> m (DataChangeEvent Foo)
+genMyDataChangeEventIdx idx = do
+  eid <- genRandomUUID
+  now <- liftIO getCurrentTime
+  pure DataChangeEvent
+    { _payload = Foo ("Hello " ++ Text.pack (show idx))
+    , _metadata = EventMetadata { _eid        = EventId eid
+                                , _occurredAt = Timestamp now
+                                , _parentEids = Nothing
+                                , _partition  = Nothing
+                                }
+    , _dataType = "test.FOO"
+    , _dataOp = DataOpUpdate
+    }
+
 genRandomUUID :: MonadIO m => m UUID
 genRandomUUID = liftIO randomIO
 
@@ -103,10 +121,15 @@ recreateEvent eventTypeName eventType = do
   eventTypeDelete eventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate eventType
 
-delayedPublish :: (MonadNakadi b m, MonadIO m, ToJSON a) => Maybe FlowId -> [a] -> m ()
+delayedPublish
+  :: (MonadNakadi b m, MonadIO m, ToJSON a)
+  => Maybe FlowId
+  -> [a]
+  -> m ()
 delayedPublish maybeFlowId events  = do
   liftIO $ threadDelay (10^6)
   let flowId = fromMaybe (FlowId "shalom") maybeFlowId
   config <- nakadiAsk <&> setFlowId flowId
+  -- Publish events in batches.
   runNakadiT config $
-    eventsPublish myEventTypeName events
+    forM_ (chunksOf 100 events) (eventsPublish myEventTypeName)

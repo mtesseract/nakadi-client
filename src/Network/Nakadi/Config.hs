@@ -51,7 +51,7 @@ defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 
 -- | Default commit strategy.
 defaultCommitStrategy :: CommitStrategy
-defaultCommitStrategy = CommitSyncUnbuffered
+defaultCommitStrategy = CommitSync
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
