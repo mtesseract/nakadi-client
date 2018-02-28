@@ -9,6 +9,7 @@ maintainer: mtesseract@silverratio.net
 copyright: (c) 2017, 2018 Moritz Clasmeier
 license: BSD3
 github: mtesseract/nakadi-haskell
+homepage: http://nakadi-client.haskell.silverratio.net
 extra-source-files:
 - README.md
 - AUTHORS.md
@@ -58,7 +59,7 @@ dependencies:
 - transformers
 - scientific
 - exceptions
-- safe-exceptions
+- safe-exceptions >= 0.1.7.0 && < 0.2
 - unordered-containers
 - time
 - split
@@ -67,7 +68,8 @@ dependencies:
 - retry
 - unliftio-core
 - stm
-- lifted-async >= 0.10.0 && < 0.11
+- unliftio >= 0.2.4.0 && < 0.3
+- async-timer >= 0.2.0.0 && < 0.3
 library:
   source-dirs: src
   exposed-modules:
@@ -131,3 +133,18 @@ tests:
     - unliftio
     - monad-logger
     - fast-logger
+benchmarks:
+  subscription-consumption:
+    source-dirs: benchmarks/subscription-consumption
+    main: Benchmark.hs
+    dependencies:
+    - base
+    - classy-prelude
+    - nakadi-client
+    - criterion
+    - lens
+    - aeson
+    - random
+    - split
+    - tasty-hunit
+    - unliftio

@@ -20,9 +20,17 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 
 testSubscriptionsProcessing :: Config App -> TestTree
-testSubscriptionsProcessing conf = testGroup "Processing"
-  [ testCase "SubscriptionProcessing" (testSubscriptionHighLevelProcessing conf)
-  ]
+testSubscriptionsProcessing confTemplate =
+  let mkConf commitStrategy = confTemplate
+                              & setCommitStrategy commitStrategy
+  in testGroup "Processing"
+     [ testCase "SubscriptionProcessing/async/TimeBuffer" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)))
+     , testCase "SubscriptionProcessing/sync" $
+       testSubscriptionHighLevelProcessing (mkConf CommitSync)
+     , testCase "SubscriptionProcessing/async/NoBuffer" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer))
+     ]
 
 data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
 
@@ -58,7 +66,7 @@ testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
           eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
 
         nEvents :: Int
-        nEvents = 100
+        nEvents = 10000
 
         publishAndConsume :: (ToJSON a, FromJSON a)
                           => [DataChangeEvent a]
@@ -80,7 +88,8 @@ testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
 
         consumeParameters = defaultConsumeParameters
                             & setBatchFlushTimeout 1
-                            & setBatchLimit 1
+                            & setMaxUncommittedEvents 5000
+                            & setBatchLimit 10
 
 testSubscriptionConduitProcessing :: Config App -> Assertion
 testSubscriptionConduitProcessing conf = runApp . runNakadiT conf $ do
@@ -133,5 +142,5 @@ testSubscriptionConduitProcessing conf = runApp . runNakadiT conf $ do
               yield batch
 
         consumeParameters = defaultConsumeParameters
-                            & setBatchFlushTimeout 1
-                            & setBatchLimit 1
+                            & setMaxUncommittedEvents 5000
+                            & setBatchLimit 10

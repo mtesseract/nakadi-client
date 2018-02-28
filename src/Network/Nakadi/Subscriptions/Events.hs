@@ -13,6 +13,7 @@ This module implements a high level interface for the
 
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -25,13 +26,17 @@ module Network.Nakadi.Subscriptions.Events
 import           Network.Nakadi.Internal.Prelude
 
 import           Conduit                              hiding (throwM)
-import           Control.Concurrent.Async.Lifted      (link, withAsync)
+import qualified Control.Concurrent.Async.Timer       as Timer
 import           Control.Concurrent.STM               (TBQueue, atomically,
-                                                       newTBQueue, readTBQueue,
-                                                       writeTBQueue)
+                                                       modifyTVar, newTBQueue,
+                                                       newTVar, readTBQueue,
+                                                       swapTVar, writeTBQueue)
 import           Control.Lens
+import           Control.Monad.IO.Unlift
+import           Control.Monad.Logger
 import           Data.Aeson
 import qualified Data.Conduit.List                    as Conduit (map, mapM_)
+import qualified Data.HashMap.Strict                  as HashMap
 import           Network.HTTP.Client                  (responseBody)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
@@ -40,15 +45,15 @@ import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
 import qualified Network.Nakadi.Internal.Lenses       as L
 import           Network.Nakadi.Subscriptions.Cursors
+import           UnliftIO.Async
 
 -- | Consumes the specified subscription using the commit strategy
 -- contained in the configuration. Each consumed batch of subscription
 -- events is provided to the provided batch processor action. If this
--- action throws an exception, subscription consumtion will terminate.
+-- action throws an exception, subscription consumption will terminate.
 subscriptionProcess
   :: ( MonadNakadi b m
-     , MonadIO m
-     , MonadBaseControl IO m
+     , MonadUnliftIO m
      , MonadMask m
      , FromJSON a )
   => Maybe ConsumeParameters
@@ -63,11 +68,10 @@ subscriptionProcess maybeConsumeParameters subscriptionId processor =
 -- the specified subscription using the commit strategy contained in
 -- the configuration. Each consumed event batch is then processed by
 -- the provided conduit. If an exception is thrown inside the conduit,
--- subscription consumtion will terminate.
+-- subscription consumption will terminate.
 subscriptionProcessConduit
   :: ( MonadNakadi b m
-     , MonadIO m
-     , MonadBaseControl IO m
+     , MonadUnliftIO m
      , MonadMask m
      , FromJSON a
      , L.HasNakadiSubscriptionCursor c )
@@ -106,10 +110,9 @@ buildSubscriptionEventStream subscriptionId response =
       throwM StreamIdMissing
 
 subscriptionProcessHandler
-  :: ( MonadThrow m
-     , MonadIO m
-     , MonadBaseControl IO m
-     , MonadNakadi b m
+  :: ( MonadNakadi b m
+     , MonadUnliftIO m
+     , MonadMask m
      , FromJSON a
      , L.HasNakadiSubscriptionCursor c )
   => Config b
@@ -147,13 +150,65 @@ subscriptionSink eventStream =
   awaitForever $ lift . subscriptionCursorCommit eventStream . (: [])
 
 subscriptionCommitter
-  :: (MonadIO m, MonadNakadi b m)
+  :: ( MonadNakadi b m
+     , MonadUnliftIO m
+     , MonadMask m )
   => CommitBufferingStrategy
   -> SubscriptionEventStream
   -> TBQueue SubscriptionCursor
   -> m ()
+
 subscriptionCommitter CommitNoBuffer eventStream queue = go
   where go = do
           a <- liftIO . atomically . readTBQueue $ queue
           subscriptionCursorCommit eventStream [a]
           go
+
+subscriptionCommitter CommitInfiniteBuffer _eventStream queue = go
+  where go = do
+          _a <- liftIO . atomically . readTBQueue $ queue
+          go
+
+subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
+  let timerConf = Timer.defaultConf
+                  & Timer.setInitDelay (fromIntegral millis)
+                  & Timer.setInterval  (fromIntegral millis)
+  cursorsMap <- liftIO . atomically $ newTVar HashMap.empty
+  withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
+    link asyncCursorConsumer
+    Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap
+
+  where -- The cursorsConsumer drains the cursors queue and adds each
+        -- cursor to the provided cursorsMap.
+        cursorConsumer cursorsMap = loop
+          where loop = do
+                  _cursor <- liftIO . atomically $ do
+                    cursor <- readTBQueue queue
+                    modifyTVar cursorsMap (HashMap.insert (cursor^.L.partition) cursor)
+                    pure cursor
+                  loop
+
+        -- The cursorsCommitter is responsible for periodically committing
+        -- the cursors in the provided cursorsMap.
+        cursorCommitter cursorsMap timer = loop
+          where loop = do
+                  Timer.wait timer
+                  commitAllCursors cursorsMap
+                  loop
+
+        -- This function commits all cursors in the provided cursorsMap.
+        commitAllCursors cursorsMap = do
+          cursors <- liftIO . atomically $ swapTVar cursorsMap HashMap.empty
+          forM_ cursors commitOneCursor
+
+        -- This function takes care of committing a single cursor. Exceptions will be
+        -- catched and logged, but the failure will NOT be propagated. This means that
+        -- Nakadi itself is in control of disconnecting us.
+        commitOneCursor cursor = do
+          config <- nakadiAsk
+          catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
+            case config^.L.logFunc of
+              Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
+                "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
+              Nothing ->
+                pure ()

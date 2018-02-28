@@ -7,8 +7,9 @@ import           Data.Aeson
 import qualified Network.Nakadi as Nakadi
 import Network.Nakadi (MonadNakadi)
 import Control.Monad.Logger
+import Control.Monad.IO.Unlift
 
-dumpSubscription :: (MonadLogger m, MonadNakadi IO m, MonadIO m, MonadBaseControl IO m, MonadMask m)
+dumpSubscription :: (MonadLogger m, MonadNakadi IO m, MonadUnliftIO m, MonadMask m)
                  => Nakadi.SubscriptionId -> m ()
 dumpSubscription subscriptionId =
   Nakadi.subscriptionProcess Nothing subscriptionId processBatch

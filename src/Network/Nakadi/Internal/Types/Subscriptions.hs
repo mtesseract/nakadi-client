@@ -13,13 +13,18 @@ subscriptions, which are not modelled after the Nakadi API.
 
 module Network.Nakadi.Internal.Types.Subscriptions where
 
+import           Data.Int
+
 data CommitBufferingStrategy
-  = CommitNoBuffer
+  = CommitNoBuffer         -- ^ No buffering at all.
+  | CommitTimeBuffer Int32 -- ^ Buffer for the specified duration,
+                           -- given in milliseconds.
+  | CommitInfiniteBuffer
 
 -- | This type encodes the supported strategies for subscription
 -- cursor committing.
 data CommitStrategy
-  = CommitSync                          -- ^ This strategy synchronously commit every
+  = CommitSync                          -- ^ This strategy synchronously commits every
                                         -- cursor.
   | CommitAsync CommitBufferingStrategy -- ^ This strategy sends cursors to be
                                         -- committed to a dedicated thread
