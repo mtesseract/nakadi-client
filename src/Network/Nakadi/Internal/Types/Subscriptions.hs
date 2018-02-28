@@ -19,7 +19,6 @@ data CommitBufferingStrategy
   = CommitNoBuffer         -- ^ No buffering at all.
   | CommitTimeBuffer Int32 -- ^ Buffer for the specified duration,
                            -- given in milliseconds.
-  | CommitInfiniteBuffer
 
 -- | This type encodes the supported strategies for subscription
 -- cursor committing.

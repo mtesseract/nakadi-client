@@ -164,11 +164,6 @@ subscriptionCommitter CommitNoBuffer eventStream queue = go
           subscriptionCursorCommit eventStream [a]
           go
 
-subscriptionCommitter CommitInfiniteBuffer _eventStream queue = go
-  where go = do
-          _a <- liftIO . atomically . readTBQueue $ queue
-          go
-
 subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
   let timerConf = Timer.defaultConf
                   & Timer.setInitDelay (fromIntegral millis)
