@@ -9,6 +9,7 @@ module Network.Nakadi.Subscriptions.Processing.Test where
 
 import           ClassyPrelude
 
+import           Control.Concurrent.Async    (link)
 import           Control.Lens
 import           Data.Aeson
 import           Data.Conduit
@@ -75,7 +76,9 @@ testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
         publishAndConsume events counter =
           bracket before after $ \ subscriptionId -> do
           let n = length events
-          void . async $ delayedPublish Nothing events
+          publisherHandle <- async $ do
+            delayedPublish Nothing events
+          liftIO $ link publisherHandle
           subscriptionProcess (Just consumeParameters) subscriptionId $
             \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
               -- Make sure that we can use Nakadi from within the high

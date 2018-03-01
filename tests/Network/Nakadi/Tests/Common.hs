@@ -10,6 +10,7 @@ import           ClassyPrelude
 
 import           Control.Lens
 import           Data.Aeson
+import           Data.List.Split       (chunksOf)
 import           Data.UUID             (UUID)
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses as L
@@ -103,10 +104,15 @@ recreateEvent eventTypeName eventType = do
   eventTypeDelete eventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate eventType
 
-delayedPublish :: (MonadNakadi b m, MonadIO m, ToJSON a) => Maybe FlowId -> [a] -> m ()
+delayedPublish
+  :: (MonadNakadi b m, MonadIO m, ToJSON a)
+  => Maybe FlowId
+  -> [a]
+  -> m ()
 delayedPublish maybeFlowId events  = do
   liftIO $ threadDelay (10^6)
   let flowId = fromMaybe (FlowId "shalom") maybeFlowId
   config <- nakadiAsk <&> setFlowId flowId
+  -- Publish events in batches.
   runNakadiT config $
-    eventsPublish myEventTypeName events
+    forM_ (chunksOf 100 events) (eventsPublish myEventTypeName)
