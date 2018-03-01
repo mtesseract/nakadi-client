@@ -56,7 +56,7 @@ testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
             , _eventTypes = [myEventTypeName]
             , _consumerGroup = Nothing -- ??
             , _createdAt = Nothing
-            , _readFrom = Just SubscriptionPositionEnd
+            , _readFrom = Just SubscriptionPositionBegin
             , _initialCursors = Nothing
             }
           pure . fromJust $ subscription^.L.id
@@ -81,9 +81,6 @@ testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
           liftIO $ link publisherHandle
           subscriptionProcess (Just consumeParameters) subscriptionId $
             \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
-              -- Make sure that we can use Nakadi from within the high
-              -- level processing callback:
-              void $ registryPartitionStrategies
               let eventsReceived = fromMaybe mempty (batch^.L.events)
               modifyIORef counter (+ (length eventsReceived))
               eventsRead <- readIORef counter
