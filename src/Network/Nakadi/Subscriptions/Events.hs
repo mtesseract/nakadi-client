@@ -158,11 +158,17 @@ subscriptionCommitter
   -> TBQueue SubscriptionCursor
   -> m ()
 
-subscriptionCommitter CommitNoBuffer eventStream queue = go
-  where go = do
-          a <- liftIO . atomically . readTBQueue $ queue
-          subscriptionCursorCommit eventStream [a]
-          go
+subscriptionCommitter CommitNoBuffer eventStream queue = loop
+  where loop = do
+          config <- nakadiAsk
+          cursor <- liftIO . atomically . readTBQueue $ queue
+          catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
+            case config^.L.logFunc of
+              Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
+                "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
+              Nothing ->
+                pure ()
+          loop
 
 subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
   let timerConf = Timer.defaultConf
