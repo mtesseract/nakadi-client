@@ -143,11 +143,20 @@ subscriptionProcessHandler config subscriptionId processor response = do
 -- subscriptions events. This sink takes care of committing events. It
 -- can consume any values which contain Subscription Cursors.
 subscriptionSink
-  :: MonadNakadi b m
+  :: (MonadIO m, MonadNakadi b m)
   => SubscriptionEventStream
   -> ConduitM SubscriptionCursor void m ()
-subscriptionSink eventStream =
-  awaitForever $ lift . subscriptionCursorCommit eventStream . (: [])
+subscriptionSink eventStream = do
+  config <- lift nakadiAsk
+  awaitForever $ \ cursor -> lift $ do
+    liftIO . putStrLn $ "Committing cursor: " <> show cursor
+    catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
+      case config^.L.logFunc of
+        Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
+          "Failed to synchonously commit cursor: " <> tshow exn
+        Nothing ->
+          pure ()
+
 
 subscriptionCommitter
   :: ( MonadNakadi b m
