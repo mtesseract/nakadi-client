@@ -11,6 +11,7 @@ import           ClassyPrelude
 import           Control.Lens
 import           Data.Aeson
 import           Data.List.Split       (chunksOf)
+import qualified Data.Text             as Text
 import           Data.UUID             (UUID)
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses as L
@@ -84,6 +85,21 @@ genMyDataChangeEvent = do
   now <- liftIO getCurrentTime
   pure DataChangeEvent
     { _payload = Foo "Hello!"
+    , _metadata = EventMetadata { _eid        = EventId eid
+                                , _occurredAt = Timestamp now
+                                , _parentEids = Nothing
+                                , _partition  = Nothing
+                                }
+    , _dataType = "test.FOO"
+    , _dataOp = DataOpUpdate
+    }
+
+genMyDataChangeEventIdx :: MonadIO m => Int -> m (DataChangeEvent Foo)
+genMyDataChangeEventIdx idx = do
+  eid <- genRandomUUID
+  now <- liftIO getCurrentTime
+  pure DataChangeEvent
+    { _payload = Foo ("Hello " ++ Text.pack (show idx))
     , _metadata = EventMetadata { _eid        = EventId eid
                                 , _occurredAt = Timestamp now
                                 , _parentEids = Nothing
