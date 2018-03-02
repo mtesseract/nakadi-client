@@ -83,7 +83,7 @@ testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
           subscriptionProcess (Just consumeParameters) subscriptionId $
             \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
               let eventsReceived = fromMaybe mempty (batch^.L.events)
-              -- forM_ eventsReceived print
+              forM_ eventsReceived print
               modifyIORef counter (+ (length eventsReceived))
               eventsRead <- readIORef counter
               when (n == eventsRead) $ throwM ConsumptionDone
