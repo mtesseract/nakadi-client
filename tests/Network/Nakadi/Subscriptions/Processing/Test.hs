@@ -37,7 +37,6 @@ testSubscriptionsProcessing confTemplate =
 
 data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
 
-
 instance Exception ConsumptionDone
 
 testSubscriptionHighLevelProcessing :: Config App -> Assertion
@@ -72,7 +71,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
           eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
 
         nEvents :: Int
-        nEvents = 1000
+        nEvents = 10000
 
         publishAndConsume :: (ToJSON a, FromJSON a)
                           => [DataChangeEvent a]
