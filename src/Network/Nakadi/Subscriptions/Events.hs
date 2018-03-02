@@ -171,12 +171,15 @@ subscriptionCommitter CommitNoBuffer eventStream queue = loop
   where loop = do
           config <- nakadiAsk
           cursor <- liftIO . atomically . readTBQueue $ queue
-          catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
-            case config^.L.logFunc of
-              Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-                "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
-              Nothing ->
-                pure ()
+          liftIO . putStrLn $ "Committing cursor: " <> show cursor
+          catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> do
+            liftIO . putStrLn $ "Exception: " <> show exn
+            nakadiLiftBase $
+              case config^.L.logFunc of
+                Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
+                  "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
+                Nothing ->
+                  pure ()
           loop
 
 subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
