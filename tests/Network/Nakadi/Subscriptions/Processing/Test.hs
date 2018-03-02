@@ -31,6 +31,8 @@ testSubscriptionsProcessing confTemplate =
        testSubscriptionHighLevelProcessing (mkConf CommitSync)
      , testCase "SubscriptionProcessing/async/NoBuffer" $
        testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer))
+     , testCase "SubscriptionProcessing/async/SmartBuffer" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitSmartBuffer))
      ]
 
 data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)

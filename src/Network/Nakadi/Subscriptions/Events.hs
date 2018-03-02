@@ -27,16 +27,21 @@ import           Network.Nakadi.Internal.Prelude
 
 import           Conduit                              hiding (throwM)
 import qualified Control.Concurrent.Async.Timer       as Timer
-import           Control.Concurrent.STM               (TBQueue, atomically,
-                                                       modifyTVar, newTBQueue,
-                                                       newTVar, readTBQueue,
-                                                       swapTVar, writeTBQueue)
+import           Control.Concurrent.STM               (TBQueue, TVar,
+                                                       atomically, modifyTVar,
+                                                       newTBQueue, newTVar,
+                                                       readTBQueue, readTVar,
+                                                       retry, swapTVar,
+                                                       writeTBQueue, writeTVar)
 import           Control.Lens
 import           Control.Monad.IO.Unlift
 import           Control.Monad.Logger
 import           Data.Aeson
-import qualified Data.Conduit.List                    as Conduit (map, mapM_)
+import qualified Data.Conduit.List                    as Conduit (mapM_)
+import           Data.HashMap.Strict                  (HashMap)
 import qualified Data.HashMap.Strict                  as HashMap
+import           Data.List                            (partition)
+import qualified Data.Vector                          as Vector
 import           Network.HTTP.Client                  (responseBody)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
@@ -73,11 +78,10 @@ subscriptionProcessConduit
   :: ( MonadNakadi b m
      , MonadUnliftIO m
      , MonadMask m
-     , FromJSON a
-     , L.HasNakadiSubscriptionCursor c )
+     , FromJSON a )
   => Maybe ConsumeParameters
   -> SubscriptionId
-  -> ConduitM (SubscriptionEventStreamBatch a) c m ()
+  -> ConduitM (SubscriptionEventStreamBatch a) (SubscriptionEventStreamBatch a) m ()
   -> m ()
 subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
   config <- nakadiAsk
@@ -113,11 +117,10 @@ subscriptionProcessHandler
   :: ( MonadNakadi b m
      , MonadUnliftIO m
      , MonadMask m
-     , FromJSON a
-     , L.HasNakadiSubscriptionCursor c )
+     , FromJSON a )
   => Config b
   -> SubscriptionId
-  -> ConduitM (SubscriptionEventStreamBatch a) c m ()
+  -> ConduitM (SubscriptionEventStreamBatch a) (SubscriptionEventStreamBatch a) m ()
   -> Response (ConduitM () ByteString m ())
   -> m ()
 subscriptionProcessHandler config subscriptionId processor response = do
@@ -126,7 +129,6 @@ subscriptionProcessHandler config subscriptionId processor response = do
                  .| linesUnboundedAsciiC
                  .| conduitDecode config
                  .| processor
-                 .| Conduit.map (view L.subscriptionCursor)
   case config^.L.commitStrategy of
     CommitSync ->
       runConduit $ producer .| subscriptionSink eventStream
@@ -135,9 +137,13 @@ subscriptionProcessHandler config subscriptionId processor response = do
       withAsync (subscriptionCommitter bufferingStrategy eventStream queue) $
         \ asyncHandle -> do
           link asyncHandle
-          runConduit $
-            producer
-            .| Conduit.mapM_ (liftIO . atomically . writeTBQueue queue)
+          runConduit $ producer .| Conduit.mapM_ (sendToQueue queue)
+
+  where sendToQueue queue batch = liftIO . atomically $ do
+          let cursor  = batch^.L.cursor
+              events  = fromMaybe Vector.empty (batch^.L.events)
+              nEvents = length events
+          writeTBQueue queue (nEvents, cursor)
 
 -- | Sink which can be used as sink for Conduits processing
 -- subscriptions events. This sink takes care of committing events. It
@@ -145,11 +151,11 @@ subscriptionProcessHandler config subscriptionId processor response = do
 subscriptionSink
   :: (MonadIO m, MonadNakadi b m)
   => SubscriptionEventStream
-  -> ConduitM SubscriptionCursor void m ()
+  -> ConduitM (SubscriptionEventStreamBatch a) void m ()
 subscriptionSink eventStream = do
   config <- lift nakadiAsk
-  awaitForever $ \ cursor -> lift $ do
-    liftIO . putStrLn $ "Committing cursor: " <> show cursor
+  awaitForever $ \ batch -> lift $ do
+    let cursor  = batch^.L.cursor
     catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
       case config^.L.logFunc of
         Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
@@ -157,21 +163,19 @@ subscriptionSink eventStream = do
         Nothing ->
           pure ()
 
-
 subscriptionCommitter
   :: ( MonadNakadi b m
      , MonadUnliftIO m
      , MonadMask m )
   => CommitBufferingStrategy
   -> SubscriptionEventStream
-  -> TBQueue SubscriptionCursor
+  -> TBQueue (Int, SubscriptionCursor)
   -> m ()
 
 subscriptionCommitter CommitNoBuffer eventStream queue = loop
   where loop = do
           config <- nakadiAsk
-          cursor <- liftIO . atomically . readTBQueue $ queue
-          liftIO . putStrLn $ "Committing cursor: " <> show cursor
+          (_, cursor) <- liftIO . atomically . readTBQueue $ queue
           catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> do
             liftIO . putStrLn $ "Exception: " <> show exn
             nakadiLiftBase $
@@ -196,8 +200,8 @@ subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
         cursorConsumer cursorsMap = loop
           where loop = do
                   _cursor <- liftIO . atomically $ do
-                    cursor <- readTBQueue queue
-                    modifyTVar cursorsMap (HashMap.insert (cursor^.L.partition) cursor)
+                    (_, cursor) <- readTBQueue queue
+                    modifyTVar cursorsMap (HashMap.insert (cursor^.L.partition) (0, cursor))
                     pure cursor
                   loop
 
@@ -206,22 +210,83 @@ subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
         cursorCommitter cursorsMap timer = loop
           where loop = do
                   Timer.wait timer
-                  commitAllCursors cursorsMap
+                  commitAllCursors eventStream cursorsMap
                   loop
 
-        -- This function commits all cursors in the provided cursorsMap.
-        commitAllCursors cursorsMap = do
-          cursors <- liftIO . atomically $ swapTVar cursorsMap HashMap.empty
-          forM_ cursors commitOneCursor
+subscriptionCommitter CommitSmartBuffer eventStream queue = do
+  config <- nakadiAsk
+  let millis            = 1000
+      nMaxEventsDefault = 1000
+      consumeParameters = fromMaybe defaultConsumeParameters (config^.L.consumeParameters)
+      nMaxEvents        = fromIntegral $ (fromMaybe nMaxEventsDefault (consumeParameters^.L.maxUncommittedEvents)) `div` 2
 
-        -- This function takes care of committing a single cursor. Exceptions will be
-        -- catched and logged, but the failure will NOT be propagated. This means that
-        -- Nakadi itself is in control of disconnecting us.
-        commitOneCursor cursor = do
-          config <- nakadiAsk
-          catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
-            case config^.L.logFunc of
-              Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-                "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
-              Nothing ->
-                pure ()
+      timerConf = Timer.defaultConf
+                  & Timer.setInitDelay (fromIntegral millis)
+                  & Timer.setInterval  (fromIntegral millis)
+  cursorsMap <- liftIO . atomically $ newTVar HashMap.empty
+  withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
+    link asyncCursorConsumer
+    Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap nMaxEvents
+
+  where -- The cursorsConsumer drains the cursors queue and adds each
+        -- cursor to the provided cursorsMap.
+        cursorConsumer cursorsMap = loop
+          where loop = do
+                  _cursor <- liftIO . atomically $ do
+                    (nEvents, cursor) <- readTBQueue queue
+                    modifyTVar cursorsMap (HashMap.insertWith updateCursor (cursor^.L.partition) (nEvents, cursor))
+                    pure cursor
+                  loop
+
+        updateCursor cursorNew (nEventsOld, _) =
+          cursorNew & _1 %~ (+ nEventsOld)
+
+        cursorCommitter cursorsMap nMaxEvents timer = loop
+          where loop = do
+                  race (Timer.wait timer) (maxEventsReached cursorsMap nMaxEvents) >>= \ case
+                    Left _ -> commitAllCursors eventStream cursorsMap
+                    Right cursors -> do
+                      Timer.reset timer
+                      forM_ cursors (commitOneCursor eventStream)
+                  loop
+
+        maxEventsReached
+          :: MonadIO m
+          => TVar (HashMap PartitionName (Int, SubscriptionCursor))
+          -> Int
+          -> m [SubscriptionCursor]
+        maxEventsReached cursorsMap nMaxEvents = liftIO . atomically $ do
+          cursorsList <- HashMap.toList <$> readTVar cursorsMap
+          let (cursorsCommit, cursorsNotCommit) = partition (shouldBeCommitted nMaxEvents) cursorsList
+          if null cursorsCommit
+            then retry
+            else do writeTVar cursorsMap (HashMap.fromList cursorsNotCommit)
+                    pure $ map (view (_2._2)) cursorsCommit
+
+        shouldBeCommitted nMaxEvents cursor = cursor^._2._1  > nMaxEvents
+
+-- | This function commits all cursors in the provided cursorsMap.
+commitAllCursors
+  :: (MonadNakadi b m, MonadIO m)
+  => SubscriptionEventStream
+  -> TVar (HashMap PartitionName (Int, SubscriptionCursor))
+  -> m ()
+commitAllCursors eventStream cursorsMap = do
+  cursors <- liftIO . atomically $ swapTVar cursorsMap HashMap.empty
+  forM_ cursors $ \ (_nEvents, cursor) -> commitOneCursor eventStream cursor
+
+
+-- | This function takes care of committing a single cursor. Exceptions will be
+-- catched and logged, but the failure will NOT be propagated. This means that
+-- Nakadi itself is in control of disconnecting us.
+commitOneCursor
+  :: (MonadIO m, MonadNakadi b m)
+  => SubscriptionEventStream -> SubscriptionCursor -> m ()
+commitOneCursor eventStream cursor = do
+  config <- nakadiAsk
+  catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
+    case config^.L.logFunc of
+      Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
+        "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
+      Nothing ->
+        pure ()
