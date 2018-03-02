@@ -11,6 +11,7 @@ import           ClassyPrelude
 
 import           Control.Concurrent.Async    (link)
 import           Control.Lens
+import           Control.Monad.Logger
 import           Data.Aeson
 import           Data.Maybe                  (fromJust)
 import           Network.Nakadi
@@ -40,13 +41,16 @@ data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
 instance Exception ConsumptionDone
 
 testSubscriptionHighLevelProcessing :: Config App -> Assertion
-testSubscriptionHighLevelProcessing conf = runApp . runNakadiT conf $ do
-  counter <- newIORef 0
-  events <- sequence $
-    map genMyDataChangeEventIdx [1..nEvents] :: NakadiT App App [DataChangeEvent Foo]
-  publishAndConsume events counter `catch` \ (_exn :: ConsumptionDone) -> pure ()
-  eventsRead <- readIORef counter
-  liftIO $ nEvents @=? eventsRead
+testSubscriptionHighLevelProcessing conf = runApp $ do
+  logger <- askLoggerIO
+  let logFunc src lev str = liftIO $ logger defaultLoc src lev str
+  runNakadiT (conf & setLogFunc logFunc) $ do
+    counter <- newIORef 0
+    events <- sequence $
+      map genMyDataChangeEventIdx [1..nEvents] :: NakadiT App App [DataChangeEvent Foo]
+    publishAndConsume events counter `catch` \ (_exn :: ConsumptionDone) -> pure ()
+    eventsRead <- readIORef counter
+    liftIO $ nEvents @=? eventsRead
 
   where before :: MonadNakadi App m => m SubscriptionId
         before = do

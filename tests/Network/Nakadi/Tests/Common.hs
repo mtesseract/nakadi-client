@@ -9,6 +9,7 @@ module Network.Nakadi.Tests.Common where
 import           ClassyPrelude
 
 import           Control.Lens
+import           Control.Monad.Logger
 import           Data.Aeson
 import           Data.List.Split       (chunksOf)
 import qualified Data.Text             as Text
@@ -17,10 +18,10 @@ import           Network.Nakadi
 import qualified Network.Nakadi.Lenses as L
 import           System.Random
 
-type App = ReaderT () IO
+type App = LoggingT (ReaderT () IO)
 
 runApp :: App a -> IO a
-runApp = flip runReaderT ()
+runApp = flip runReaderT () . runStdoutLoggingT
 
 data Foo = Foo { fortune :: Text } deriving (Show, Eq, Generic)
 
