@@ -135,4 +135,3 @@ delayedPublish maybeFlowId events  = do
   runNakadiT config $
     forM_ (chunksOf 100 events) $ \ batch -> do
     eventsPublish myEventTypeName batch
-    putStrLn $ "Published batch of " ++ tshow (length batch) ++ " events. First event: " ++ tshow (listToMaybe batch)

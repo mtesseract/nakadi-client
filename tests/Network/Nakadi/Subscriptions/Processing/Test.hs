@@ -41,27 +41,6 @@ data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
 
 instance Exception ConsumptionDone
 
-data MyException = MyException deriving (Show, Typeable)
-
-instance Exception MyException
-
-testIORefException :: Assertion
-testIORefException = do
-  let nIterations = 500
-  forM_ [1..nIterations] $ \ idx -> do
-    n :: Int <- randomRIO (10000, 20000)
-    putStrLn $ "Iteration: " ++ tshow idx ++ " (rand n = " ++ tshow n ++ ")"
-    sharedRef <- newIORef 0
-    count n sharedRef `catch` \ MyException -> pure ()
-    shared <- readIORef sharedRef
-    n @=? shared
-
-  where count n ref = do
-          forM_ [1..n] $ \ _ -> do
-            modifyIORef ref (+ 1)
-            current <- readIORef ref
-            when (current == n) $ throwM MyException
-
 testSubscriptionHighLevelProcessing :: Config App -> Assertion
 testSubscriptionHighLevelProcessing conf = runApp $ do
   logger <- askLoggerIO
