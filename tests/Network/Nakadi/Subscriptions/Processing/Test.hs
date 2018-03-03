@@ -98,7 +98,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
         nEvents :: Int
         nEvents = 10000
 
-        publishAndConsume :: (ToJSON a, FromJSON a)
+        publishAndConsume :: (ToJSON a, FromJSON a, Show a)
                           => [DataChangeEvent a]
                           -> IORef Int
                           -> NakadiT App App ()

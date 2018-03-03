@@ -12,6 +12,7 @@ import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
 import           Data.List.Split       (chunksOf)
+import           Data.Maybe            (listToMaybe)
 import qualified Data.Text             as Text
 import           Data.UUID             (UUID)
 import           Network.Nakadi
@@ -122,7 +123,7 @@ recreateEvent eventTypeName eventType = do
   eventTypeCreate eventType
 
 delayedPublish
-  :: (MonadNakadi b m, MonadIO m, ToJSON a)
+  :: (MonadNakadi b m, MonadIO m, ToJSON a, Show a)
   => Maybe FlowId
   -> [a]
   -> m ()
@@ -132,4 +133,6 @@ delayedPublish maybeFlowId events  = do
   config <- nakadiAsk <&> setFlowId flowId
   -- Publish events in batches.
   runNakadiT config $
-    forM_ (chunksOf 100 events) (eventsPublish myEventTypeName)
+    forM_ (chunksOf 100 events) $ \ batch -> do
+    eventsPublish myEventTypeName batch
+    putStrLn $ "Published batch of " ++ tshow (length batch) ++ " events. First event: " ++ tshow (listToMaybe batch)
