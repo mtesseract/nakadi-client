@@ -247,10 +247,9 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
 
   where -- The cursorsConsumer drains the cursors queue and adds each
         -- cursor to the provided cursorsMap.
-        cursorConsumer cursorsMap = loop
-          where loop = forever . liftIO . atomically $ do
-                  (nEvents, cursor) <- readTBQueue queue
-                  modifyTVar cursorsMap (HashMap.insertWith updateCursor (cursor^.L.partition) (nEvents, cursor))
+        cursorConsumer cursorsMap = forever . liftIO . atomically $ do
+          (nEvents, cursor) <- readTBQueue queue
+          modifyTVar cursorsMap (HashMap.insertWith updateCursor (cursor^.L.partition) (nEvents, cursor))
 
         updateCursor cursorNew (nEventsOld, _) =
           cursorNew & _1 %~ (+ nEventsOld)
