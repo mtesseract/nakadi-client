@@ -48,9 +48,9 @@ instance Exception MyException
 
 testIORefException :: Assertion
 testIORefException = do
-  let nIterations = 10000
+  let nIterations = 500
   forM_ [1..nIterations] $ \ idx -> do
-    n :: Int <- randomRIO (9000, 20000)
+    n :: Int <- randomRIO (10000, 20000)
     putStrLn $ "Iteration: " ++ tshow idx ++ " (rand n = " ++ tshow n ++ ")"
     sharedRef <- newIORef 0
     count n sharedRef `catch` \ MyException -> pure ()
@@ -112,6 +112,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
           subscriptionProcess (Just consumeParameters) subscriptionId $
             \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
               let eventsReceived = fromMaybe mempty (batch^.L.events)
+              putStrLn $ "Consumed batch. Cursor: " ++ tshow (batch^.L.cursor) ++ "; numbers of events: " ++ tshow (length eventsReceived)
               modifyIORef counter (+ (length eventsReceived))
               eventsRead <- readIORef counter
               when (n == eventsRead) $ do
