@@ -12,7 +12,6 @@ import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
 import           Data.List.Split       (chunksOf)
-import           Data.Maybe            (listToMaybe)
 import qualified Data.Text             as Text
 import           Data.UUID             (UUID)
 import           Network.Nakadi

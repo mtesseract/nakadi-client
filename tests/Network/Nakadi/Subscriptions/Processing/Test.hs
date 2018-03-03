@@ -18,7 +18,6 @@ import qualified Data.Vector                 as Vector
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses       as L
 import           Network.Nakadi.Tests.Common
-import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
