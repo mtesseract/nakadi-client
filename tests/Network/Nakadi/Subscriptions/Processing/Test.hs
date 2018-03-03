@@ -14,6 +14,7 @@ import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
 import           Data.Maybe                  (fromJust)
+import qualified Data.Vector                 as Vector
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses       as L
 import           Network.Nakadi.Tests.Common
@@ -26,9 +27,7 @@ testSubscriptionsProcessing confTemplate =
   let mkConf commitStrategy = confTemplate
                               & setCommitStrategy commitStrategy
   in testGroup "Processing"
-     [ testCase "IORef/Exception" $
-       testIORefException
-     , testCase "SubscriptionProcessing/async/TimeBuffer" $
+     [ testCase "SubscriptionProcessing/async/TimeBuffer" $
        testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)))
      , testCase "SubscriptionProcessing/sync" $
        testSubscriptionHighLevelProcessing (mkConf CommitSync)
@@ -112,7 +111,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
           subscriptionProcess (Just consumeParameters) subscriptionId $
             \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
               let eventsReceived = fromMaybe mempty (batch^.L.events)
-              putStrLn $ "Consumed batch. Cursor: " ++ tshow (batch^.L.cursor) ++ "; numbers of events: " ++ tshow (length eventsReceived)
+              putStrLn $ "Consumed batch. Cursor: " ++ tshow (batch^.L.cursor.L.offset) ++ "; numbers of events: " ++ tshow (length eventsReceived) ++ "; first event = " ++ tshow (eventsReceived Vector.!? 0)
               modifyIORef counter (+ (length eventsReceived))
               eventsRead <- readIORef counter
               when (n == eventsRead) $ do
