@@ -48,14 +48,14 @@ instance Exception MyException
 
 testIORefException :: Assertion
 testIORefException = do
-  let nIterations = 100
+  let nIterations = 10000
   forM_ [1..nIterations] $ \ idx -> do
-    n :: Int <- randomRIO (0, 10000)
+    n :: Int <- randomRIO (9000, 20000)
     putStrLn $ "Iteration: " ++ tshow idx ++ " (rand n = " ++ tshow n ++ ")"
     sharedRef <- newIORef 0
-    count n sharedRef `catch` \ MyException -> do
-      shared <- readIORef sharedRef
-      n @=? shared
+    count n sharedRef `catch` \ MyException -> pure ()
+    shared <- readIORef sharedRef
+    n @=? shared
 
   where count n ref = do
           forM_ [1..n] $ \ _ -> do
@@ -71,8 +71,8 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
     counter <- newIORef 0
     events <- sequence $
       map genMyDataChangeEventIdx [1..nEvents] :: NakadiT App App [DataChangeEvent Foo]
-    publishAndConsume events counter `catch` \ (_exn :: ConsumptionDone) -> do
-      putStrLn $ "Caught ConsumptionDone exception."
+    publishAndConsume events counter `catchAny` \ exn -> do
+      putStrLn $ "Caught exception: " ++ tshow exn
     eventsRead <- readIORef counter
     putStrLn $ "Counter content: " <> tshow eventsRead
     liftIO $ nEvents @=? eventsRead
