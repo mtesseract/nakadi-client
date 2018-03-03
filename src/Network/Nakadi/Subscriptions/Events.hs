@@ -1,7 +1,8 @@
+{-# LANGUAGE GADTs                 #-}
 {-|
 Module      : Network.Nakadi.Subscriptions.Events
 Description : Implementation of Nakadi Subscription Events API
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -91,7 +92,7 @@ subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
     (includeFlowId config
      . setRequestPath path
      . setRequestQueryParameters queryParams) $
-    subscriptionProcessHandler config subscriptionId processor
+    subscriptionProcessHandler subscriptionId processor
 
   where path = "/subscriptions/"
                <> subscriptionIdToByteString subscriptionId
@@ -113,17 +114,20 @@ buildSubscriptionEventStream subscriptionId response =
     Nothing ->
       throwM StreamIdMissing
 
+-- | This function processes a description, taking care of applying
+-- the configured committing strategy.
 subscriptionProcessHandler
   :: ( MonadNakadi b m
      , MonadUnliftIO m
      , MonadMask m
-     , FromJSON a )
-  => Config b
-  -> SubscriptionId
-  -> ConduitM (SubscriptionEventStreamBatch a) (SubscriptionEventStreamBatch a) m ()
-  -> Response (ConduitM () ByteString m ())
+     , FromJSON a
+     , batch ~ (SubscriptionEventStreamBatch a) )
+  => SubscriptionId                         -- ^ Subscription ID required for committing.
+  -> ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
+  -> Response (ConduitM () ByteString m ()) -- ^ Streaming response from Nakadi
   -> m ()
-subscriptionProcessHandler config subscriptionId processor response = do
+subscriptionProcessHandler subscriptionId processor response = do
+  config      <- nakadiAsk
   eventStream <- buildSubscriptionEventStream subscriptionId response
   let producer = responseBody response
                  .| linesUnboundedAsciiC
@@ -131,8 +135,16 @@ subscriptionProcessHandler config subscriptionId processor response = do
                  .| processor
   case config^.L.commitStrategy of
     CommitSync ->
+      -- Synchronous case: Simply use a Conduit sink that commits
+      -- every cursor.
       runConduit $ producer .| subscriptionSink eventStream
     CommitAsync bufferingStrategy -> do
+      -- Asynchronous case: Create a new queue and spawn a cursor
+      -- committer thread depending on the configured commit buffering
+      -- method. Then execute the provided Conduit processor with a
+      -- sink that sends cursor information to the queue. The cursor
+      -- committer thread reads from this queue and processes the
+      -- cursors.
       queue <- liftIO . atomically $ newTBQueue 1024
       withAsync (subscriptionCommitter bufferingStrategy eventStream queue) $
         \ asyncHandle -> do
@@ -156,13 +168,15 @@ subscriptionSink eventStream = do
   config <- lift nakadiAsk
   awaitForever $ \ batch -> lift $ do
     let cursor  = batch^.L.cursor
-    catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
+    catchAny (commitOneCursor eventStream cursor) $ \ exn -> nakadiLiftBase $
       case config^.L.logFunc of
         Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-          "Failed to synchonously commit cursor: " <> tshow exn
+          "Failed to synchronously commit cursor: " <> tshow exn
         Nothing ->
           pure ()
 
+-- | Main function for the cursor committer thread. Logic depends on
+-- the provided buffering strategy.
 subscriptionCommitter
   :: ( MonadNakadi b m
      , MonadUnliftIO m
@@ -172,12 +186,13 @@ subscriptionCommitter
   -> TBQueue (Int, SubscriptionCursor)
   -> m ()
 
+-- | Implementation for the 'CommitNoBuffer' strategy: We simply read
+-- every cursor and commit it in order.
 subscriptionCommitter CommitNoBuffer eventStream queue = loop
   where loop = do
           config <- nakadiAsk
-          (_, cursor) <- liftIO . atomically . readTBQueue $ queue
+          (_nEvents, cursor) <- liftIO . atomically . readTBQueue $ queue
           catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> do
-            liftIO . putStrLn $ "Exception: " <> show exn
             nakadiLiftBase $
               case config^.L.logFunc of
                 Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
@@ -186,32 +201,25 @@ subscriptionCommitter CommitNoBuffer eventStream queue = loop
                   pure ()
           loop
 
+-- | Implementation of the 'CommitTimeBuffer' strategy: We use an
+-- async timer for committing cursors at specified intervals.
 subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
   let timerConf = Timer.defaultConf
                   & Timer.setInitDelay (fromIntegral millis)
                   & Timer.setInterval  (fromIntegral millis)
-  cursorsMap <- liftIO . atomically $ newTVar HashMap.empty
+  cursorsMap <- liftIO . atomically $
+                newTVar (HashMap.empty :: HashMap PartitionName (Int, SubscriptionCursor))
   withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
     link asyncCursorConsumer
-    Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap
+    Timer.withAsyncTimer timerConf $ \ timer -> forever $ do
+      Timer.wait timer
+      commitAllCursors eventStream cursorsMap
 
   where -- The cursorsConsumer drains the cursors queue and adds each
         -- cursor to the provided cursorsMap.
-        cursorConsumer cursorsMap = loop
-          where loop = do
-                  _cursor <- liftIO . atomically $ do
-                    (_, cursor) <- readTBQueue queue
-                    modifyTVar cursorsMap (HashMap.insert (cursor^.L.partition) (0, cursor))
-                    pure cursor
-                  loop
-
-        -- The cursorsCommitter is responsible for periodically committing
-        -- the cursors in the provided cursorsMap.
-        cursorCommitter cursorsMap timer = loop
-          where loop = do
-                  Timer.wait timer
-                  commitAllCursors eventStream cursorsMap
-                  loop
+        cursorConsumer cursorsMap = forever . liftIO . atomically $ do
+          (_, cursor) <- readTBQueue queue
+          modifyTVar cursorsMap (HashMap.insert (cursor^.L.partition) (0, cursor))
 
 subscriptionCommitter CommitSmartBuffer eventStream queue = do
   config <- nakadiAsk
