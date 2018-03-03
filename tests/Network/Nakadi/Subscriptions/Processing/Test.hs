@@ -104,6 +104,9 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
                           -> NakadiT App App ()
         publishAndConsume events counter =
           bracket before after $ \ subscriptionId -> do
+          -- Wait two seconds. Without this, there seem to be random
+          -- stream consumption failures.:
+          threadDelay (10^6)
           let n = length events
           publisherHandle <- async $ do
             delayedPublish Nothing events
