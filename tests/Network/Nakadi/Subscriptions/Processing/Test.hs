@@ -17,6 +17,7 @@ import           Data.Maybe                  (fromJust)
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses       as L
 import           Network.Nakadi.Tests.Common
+import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -25,7 +26,9 @@ testSubscriptionsProcessing confTemplate =
   let mkConf commitStrategy = confTemplate
                               & setCommitStrategy commitStrategy
   in testGroup "Processing"
-     [ testCase "SubscriptionProcessing/async/TimeBuffer" $
+     [ testCase "IORef/Exception" $
+       testIORefException
+     , testCase "SubscriptionProcessing/async/TimeBuffer" $
        testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)))
      , testCase "SubscriptionProcessing/sync" $
        testSubscriptionHighLevelProcessing (mkConf CommitSync)
@@ -39,6 +42,27 @@ data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
 
 instance Exception ConsumptionDone
 
+data MyException = MyException deriving (Show, Typeable)
+
+instance Exception MyException
+
+testIORefException :: Assertion
+testIORefException = do
+  let nIterations = 100
+  forM_ [1..nIterations] $ \ idx -> do
+    n :: Int <- randomRIO (0, 10000)
+    putStrLn $ "Iteration: " ++ tshow idx ++ " (rand n = " ++ tshow n ++ ")"
+    sharedRef <- newIORef 0
+    count n sharedRef `catch` \ MyException -> do
+      shared <- readIORef sharedRef
+      n @=? shared
+
+  where count n ref = do
+          forM_ [1..n] $ \ _ -> do
+            modifyIORef ref (+ 1)
+            current <- readIORef ref
+            when (current == n) $ throwM MyException
+
 testSubscriptionHighLevelProcessing :: Config App -> Assertion
 testSubscriptionHighLevelProcessing conf = runApp $ do
   logger <- askLoggerIO
@@ -47,8 +71,10 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
     counter <- newIORef 0
     events <- sequence $
       map genMyDataChangeEventIdx [1..nEvents] :: NakadiT App App [DataChangeEvent Foo]
-    publishAndConsume events counter `catch` \ (_exn :: ConsumptionDone) -> pure ()
+    publishAndConsume events counter `catch` \ (_exn :: ConsumptionDone) -> do
+      putStrLn $ "Caught ConsumptionDone exception."
     eventsRead <- readIORef counter
+    putStrLn $ "Counter content: " <> tshow eventsRead
     liftIO $ nEvents @=? eventsRead
 
   where before :: MonadNakadi App m => m SubscriptionId
@@ -88,7 +114,10 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
               let eventsReceived = fromMaybe mempty (batch^.L.events)
               modifyIORef counter (+ (length eventsReceived))
               eventsRead <- readIORef counter
-              when (n == eventsRead) $ throwM ConsumptionDone
+              when (n == eventsRead) $ do
+                putStrLn $
+                  "Throwing ConsumptionDone exception. Counter content is " <> tshow eventsRead
+                throwM ConsumptionDone
 
         consumeParameters = defaultConsumeParameters
                             & setBatchFlushTimeout 1
