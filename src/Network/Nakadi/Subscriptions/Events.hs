@@ -221,17 +221,26 @@ subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
           (_, cursor) <- readTBQueue queue
           modifyTVar cursorsMap (HashMap.insert (cursor^.L.partition) (0, cursor))
 
+-- | Implementation of the 'CommitSmartBuffer' strategy: We use an
+-- async timer for committing cursors at specified intervals, but if
+-- the number of uncommitted events reaches some threshold before the
+-- next scheduled commit, a commit is being done right away and the
+-- timer is resetted.
 subscriptionCommitter CommitSmartBuffer eventStream queue = do
   config <- nakadiAsk
-  let millis            = 1000
-      nMaxEventsDefault = 1000
-      consumeParameters = fromMaybe defaultConsumeParameters (config^.L.consumeParameters)
-      nMaxEvents        = fromIntegral $ (fromMaybe nMaxEventsDefault (consumeParameters^.L.maxUncommittedEvents)) `div` 2
-
-      timerConf = Timer.defaultConf
-                  & Timer.setInitDelay (fromIntegral millis)
-                  & Timer.setInterval  (fromIntegral millis)
-  cursorsMap <- liftIO . atomically $ newTVar HashMap.empty
+  let millisDefault               = 1000
+      nMaxUncommitedEventsDefault = 1000
+      consumeParameters           = fromMaybe defaultConsumeParameters $
+                                    config^.L.consumeParameters
+      nMaxUncommittedEvents       = case consumeParameters^.L.maxUncommittedEvents of
+                                      Just n  -> n
+                                      Nothing -> nMaxUncommitedEventsDefault
+      nMaxEvents                  = fromIntegral $ nMaxUncommittedEvents `div` 2
+      timerConf                   = Timer.defaultConf
+                                    & Timer.setInitDelay (fromIntegral millisDefault)
+                                    & Timer.setInterval  (fromIntegral millisDefault)
+  cursorsMap <- liftIO . atomically $
+                newTVar (HashMap.empty :: HashMap PartitionName (Int, SubscriptionCursor))
   withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
     link asyncCursorConsumer
     Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap nMaxEvents
@@ -239,12 +248,9 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
   where -- The cursorsConsumer drains the cursors queue and adds each
         -- cursor to the provided cursorsMap.
         cursorConsumer cursorsMap = loop
-          where loop = do
-                  _cursor <- liftIO . atomically $ do
-                    (nEvents, cursor) <- readTBQueue queue
-                    modifyTVar cursorsMap (HashMap.insertWith updateCursor (cursor^.L.partition) (nEvents, cursor))
-                    pure cursor
-                  loop
+          where loop = forever . liftIO . atomically $ do
+                  (nEvents, cursor) <- readTBQueue queue
+                  modifyTVar cursorsMap (HashMap.insertWith updateCursor (cursor^.L.partition) (nEvents, cursor))
 
         updateCursor cursorNew (nEventsOld, _) =
           cursorNew & _1 %~ (+ nEventsOld)
@@ -258,11 +264,6 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
                       forM_ cursors (commitOneCursor eventStream)
                   loop
 
-        maxEventsReached
-          :: MonadIO m
-          => TVar (HashMap PartitionName (Int, SubscriptionCursor))
-          -> Int
-          -> m [SubscriptionCursor]
         maxEventsReached cursorsMap nMaxEvents = liftIO . atomically $ do
           cursorsList <- HashMap.toList <$> readTVar cursorsMap
           let (cursorsCommit, cursorsNotCommit) = partition (shouldBeCommitted nMaxEvents) cursorsList

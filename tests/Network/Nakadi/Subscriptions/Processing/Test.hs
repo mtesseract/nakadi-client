@@ -89,16 +89,18 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
           publisherHandle <- async $ do
             delayedPublish Nothing events
           liftIO $ link publisherHandle
-          subscriptionProcess (Just consumeParameters) subscriptionId $
-            \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
-              let eventsReceived = fromMaybe mempty (batch^.L.events)
-              putStrLn $ "Consumed batch. Cursor: " ++ tshow (batch^.L.cursor.L.offset) ++ "; numbers of events: " ++ tshow (length eventsReceived) ++ "; first event = " ++ tshow (eventsReceived Vector.!? 0)
-              modifyIORef counter (+ (length eventsReceived))
-              eventsRead <- readIORef counter
-              when (n == eventsRead) $ do
-                putStrLn $
-                  "Throwing ConsumptionDone exception. Counter content is " <> tshow eventsRead
-                throwM ConsumptionDone
+          forever $ do
+            subscriptionProcess (Just consumeParameters) subscriptionId $
+              \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
+                let eventsReceived = fromMaybe mempty (batch^.L.events)
+                putStrLn $ "Consumed batch. Cursor: " ++ tshow (batch^.L.cursor.L.offset) ++ "; numbers of events: " ++ tshow (length eventsReceived) ++ "; first event = " ++ tshow (eventsReceived Vector.!? 0)
+                modifyIORef counter (+ (length eventsReceived))
+                eventsRead <- readIORef counter
+                when (n >= eventsRead) $ do
+                  putStrLn $
+                    "Throwing ConsumptionDone exception. Counter content is " <> tshow eventsRead
+                  throwM ConsumptionDone
+            putStrLn $ "Subscription Processing terminated, will restart."
 
         consumeParameters = defaultConsumeParameters
                             & setBatchFlushTimeout 1
