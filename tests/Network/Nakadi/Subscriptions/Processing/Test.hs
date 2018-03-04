@@ -96,7 +96,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
                 putStrLn $ "Consumed batch. Cursor: " ++ tshow (batch^.L.cursor.L.offset) ++ "; numbers of events: " ++ tshow (length eventsReceived) ++ "; first event = " ++ tshow (eventsReceived Vector.!? 0)
                 modifyIORef counter (+ (length eventsReceived))
                 eventsRead <- readIORef counter
-                when (n >= eventsRead) $ do
+                when (n <= eventsRead) $ do
                   putStrLn $
                     "Throwing ConsumptionDone exception. Counter content is " <> tshow eventsRead
                   throwM ConsumptionDone
