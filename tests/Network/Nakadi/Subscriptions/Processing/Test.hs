@@ -63,7 +63,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
             , _eventTypes = [myEventTypeName]
             , _consumerGroup = Nothing -- ??
             , _createdAt = Nothing
-            , _readFrom = Just SubscriptionPositionBegin
+            , _readFrom = Just SubscriptionPositionEnd
             , _initialCursors = Nothing
             }
           pure . fromJust $ subscription^.L.id

@@ -127,7 +127,7 @@ delayedPublish
   -> [a]
   -> m ()
 delayedPublish maybeFlowId events  = do
-  liftIO $ threadDelay (10^6)
+  liftIO $ threadDelay (2 * 10^6)
   let flowId = fromMaybe (FlowId "shalom") maybeFlowId
   config <- nakadiAsk <&> setFlowId flowId
   -- Publish events in batches.
