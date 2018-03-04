@@ -90,6 +90,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
             delayedPublish Nothing events
           liftIO $ link publisherHandle
           forever $ do
+            putStrLn "Starting subscription consumption"
             subscriptionProcess (Just consumeParameters) subscriptionId $
               \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
                 let eventsReceived = fromMaybe mempty (batch^.L.events)
