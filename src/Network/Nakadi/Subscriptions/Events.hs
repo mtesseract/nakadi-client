@@ -33,7 +33,7 @@ import           Control.Concurrent.STM               (TBQueue, TVar,
                                                        newTBQueue, newTVar,
                                                        readTBQueue, readTVar,
                                                        retry, swapTVar,
-                                                       writeTBQueue, writeTVar)
+                                                       writeTBQueue)
 import           Control.Lens
 import           Control.Monad.IO.Unlift
 import           Control.Monad.Logger
@@ -41,7 +41,6 @@ import           Data.Aeson
 import qualified Data.Conduit.List                    as Conduit (mapM_)
 import           Data.HashMap.Strict                  (HashMap)
 import qualified Data.HashMap.Strict                  as HashMap
-import           Data.List                            (partition)
 import qualified Data.Vector                          as Vector
 import           Network.HTTP.Client                  (responseBody)
 import           Network.HTTP.Simple
@@ -247,8 +246,8 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
     link asyncCursorConsumer
     Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap nMaxEvents
 
-  where -- The cursorsConsumer drains the cursors queue and adds each
-        -- cursor to the provided cursorsMap.
+  where -- | The cursorsConsumer drains the cursors queue and adds
+        -- each cursor to the provided cursorsMap.
         cursorConsumer cursorsMap = forever . liftIO . atomically $ do
           (nEvents, cursor) <- readTBQueue queue
           modifyTVar cursorsMap (HashMap.insertWith updateCursor (cursor^.L.partition) (nEvents, cursor))
@@ -265,12 +264,12 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
               -- Timer has elapsed, simply commit all currently
               -- buffered cursors.
               commitAllCursors eventStream cursorsMap
-            Right cursors -> do
+            Right _ -> do
               -- Events processed since last cursor commit have
               -- crosses configured threshold for at least one
               -- partition. Commit cursors on all such partitions.
               Timer.reset timer
-              forM_ cursors (commitOneCursor eventStream)
+              commitAllCursors eventStream cursorsMap
 
         -- | Returns list of cursors that should be committed
         -- considering the number of events processed on the
@@ -278,12 +277,10 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
         -- least one such cursor is found.
         maxEventsReached cursorsMap nMaxEvents = liftIO . atomically $ do
           cursorsList <- HashMap.toList <$> readTVar cursorsMap
-          let (cursorsCommit, cursorsNotCommit) = partition (shouldBeCommitted nMaxEvents) cursorsList
+          let cursorsCommit = filter (shouldBeCommitted nMaxEvents) cursorsList
           if null cursorsCommit
             then retry
-            else do writeTVar cursorsMap (HashMap.fromList cursorsNotCommit)
-                    pure $ map (view (_2._2)) cursorsCommit
-
+            else pure ()
 
         -- | Returns True if the provided cursor should be committed.
         shouldBeCommitted nMaxEvents cursor = cursor^._2._1  >= nMaxEvents
