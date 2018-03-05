@@ -1,5 +1,5 @@
 name: nakadi-client
-version: '0.5.0.3'
+version: '0.5.1.0'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
              with the Nakadi event broker system developed by Zalando.
@@ -9,6 +9,7 @@ maintainer: mtesseract@silverratio.net
 copyright: (c) 2017, 2018 Moritz Clasmeier
 license: BSD3
 github: mtesseract/nakadi-haskell
+homepage: http://nakadi-client.haskell.silverratio.net
 extra-source-files:
 - README.md
 - AUTHORS.md
@@ -58,7 +59,7 @@ dependencies:
 - transformers
 - scientific
 - exceptions
-- safe-exceptions
+- safe-exceptions >= 0.1.7.0 && < 0.2
 - unordered-containers
 - time
 - split
@@ -66,6 +67,9 @@ dependencies:
 - template-haskell
 - retry
 - unliftio-core
+- stm
+- unliftio >= 0.2.4.0 && < 0.3
+- async-timer >= 0.2.0.0 && < 0.3
 library:
   source-dirs: src
   exposed-modules:

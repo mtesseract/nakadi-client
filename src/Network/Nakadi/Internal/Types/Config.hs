@@ -18,11 +18,12 @@ module Network.Nakadi.Internal.Types.Config where
 
 import           Conduit
 import           Control.Retry
-import qualified Data.ByteString.Lazy                  as LB
+import qualified Data.ByteString.Lazy                        as LB
 import           Network.HTTP.Client
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Types.Logger
 import           Network.Nakadi.Internal.Types.Service
+import           Network.Nakadi.Internal.Types.Subscriptions
 
 -- | Config
 
@@ -46,6 +47,7 @@ data Config m where
             , _http                           :: HttpBackend m
             , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
             , _flowId                         :: Maybe FlowId
+            , _commitStrategy                 :: CommitStrategy
             } -> Config m
 
 -- | ConsumeParameters

@@ -16,6 +16,7 @@ module Network.Nakadi.Types
   , module Network.Nakadi.Types.Logger
   , module Network.Nakadi.Types.Problem
   , module Network.Nakadi.Types.Service
+  , module Network.Nakadi.Types.Subscriptions
   , MonadNakadiBase(..)
   , MonadNakadi(..)
   , HasNakadiConfig(..)
@@ -30,3 +31,4 @@ import           Network.Nakadi.Types.Exceptions
 import           Network.Nakadi.Types.Logger
 import           Network.Nakadi.Types.Problem
 import           Network.Nakadi.Types.Service
+import           Network.Nakadi.Types.Subscriptions
