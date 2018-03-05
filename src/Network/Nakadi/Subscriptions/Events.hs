@@ -176,6 +176,14 @@ subscriptionSink eventStream = do
         Nothing ->
           pure ()
 
+type CursorsMap = HashMap (EventTypeName, PartitionName) (Int, SubscriptionCursor)
+
+emptyCursorsMap :: CursorsMap
+emptyCursorsMap = HashMap.empty
+
+cursorKey :: SubscriptionCursor -> (EventTypeName, PartitionName)
+cursorKey cursor = (cursor^.L.eventType, cursor^.L.partition)
+
 -- | Main function for the cursor committer thread. Logic depends on
 -- the provided buffering strategy.
 subscriptionCommitter
@@ -208,8 +216,7 @@ subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
   let timerConf = Timer.defaultConf
                   & Timer.setInitDelay (fromIntegral millis)
                   & Timer.setInterval  (fromIntegral millis)
-  cursorsMap <- liftIO . atomically $
-                newTVar (HashMap.empty :: HashMap PartitionName (Int, SubscriptionCursor))
+  cursorsMap <- liftIO . atomically $ newTVar emptyCursorsMap
   withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
     link asyncCursorConsumer
     Timer.withAsyncTimer timerConf $ \ timer -> forever $ do
@@ -220,7 +227,7 @@ subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
         -- cursor to the provided cursorsMap.
         cursorConsumer cursorsMap = forever . liftIO . atomically $ do
           (_, cursor) <- readTBQueue queue
-          modifyTVar cursorsMap (HashMap.insert (cursor^.L.partition) (0, cursor))
+          modifyTVar cursorsMap (HashMap.insert (cursorKey cursor) (0, cursor))
 
 -- | Implementation of the 'CommitSmartBuffer' strategy: We use an
 -- async timer for committing cursors at specified intervals, but if
@@ -240,8 +247,7 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
       timerConf                   = Timer.defaultConf
                                     & Timer.setInitDelay (fromIntegral millisDefault)
                                     & Timer.setInterval  (fromIntegral millisDefault)
-  cursorsMap <- liftIO . atomically $
-                newTVar (HashMap.empty :: HashMap PartitionName (Int, SubscriptionCursor))
+  cursorsMap <- liftIO . atomically $ newTVar emptyCursorsMap
   withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
     link asyncCursorConsumer
     Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap nMaxEvents
@@ -250,7 +256,8 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
         -- each cursor to the provided cursorsMap.
         cursorConsumer cursorsMap = forever . liftIO . atomically $ do
           (nEvents, cursor) <- readTBQueue queue
-          modifyTVar cursorsMap (HashMap.insertWith updateCursor (cursor^.L.partition) (nEvents, cursor))
+          modifyTVar cursorsMap $
+            HashMap.insertWith updateCursor (cursorKey cursor) (nEvents, cursor)
 
         -- | Adds the old number of events to the new entry in the
         -- cursors map.
@@ -289,12 +296,11 @@ subscriptionCommitter CommitSmartBuffer eventStream queue = do
 commitAllCursors
   :: (MonadNakadi b m, MonadIO m)
   => SubscriptionEventStream
-  -> TVar (HashMap PartitionName (Int, SubscriptionCursor))
+  -> TVar CursorsMap
   -> m ()
 commitAllCursors eventStream cursorsMap = do
-  cursors <- liftIO . atomically $ swapTVar cursorsMap HashMap.empty
+  cursors <- liftIO . atomically $ swapTVar cursorsMap emptyCursorsMap
   forM_ cursors $ \ (_nEvents, cursor) -> commitOneCursor eventStream cursor
-
 
 -- | This function takes care of committing a single cursor. Exceptions will be
 -- catched and logged, but the failure will NOT be propagated. This means that
