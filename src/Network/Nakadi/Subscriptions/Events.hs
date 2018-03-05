@@ -93,7 +93,7 @@ subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
     (includeFlowId config
      . setRequestPath path
      . setRequestQueryParameters queryParams) $
-    subscriptionProcessHandler subscriptionId processor
+    subscriptionProcessHandler consumeParams subscriptionId processor
 
   where path = "/subscriptions/"
                <> subscriptionIdToByteString subscriptionId
@@ -123,11 +123,12 @@ subscriptionProcessHandler
      , MonadMask m
      , FromJSON a
      , batch ~ (SubscriptionEventStreamBatch a) )
-  => SubscriptionId                         -- ^ Subscription ID required for committing.
+  => ConsumeParameters
+  -> SubscriptionId                         -- ^ Subscription ID required for committing.
   -> ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
   -> Response (ConduitM () ByteString m ()) -- ^ Streaming response from Nakadi
   -> m ()
-subscriptionProcessHandler subscriptionId processor response = do
+subscriptionProcessHandler consumeParams subscriptionId processor response = do
   config      <- nakadiAsk
   eventStream <- buildSubscriptionEventStream subscriptionId response
   let producer = responseBody response
@@ -147,7 +148,7 @@ subscriptionProcessHandler subscriptionId processor response = do
       -- committer thread reads from this queue and processes the
       -- cursors.
       queue <- liftIO . atomically $ newTBQueue 1024
-      withAsync (subscriptionCommitter bufferingStrategy eventStream queue) $
+      withAsync (subscriptionCommitter bufferingStrategy consumeParams eventStream queue) $
         \ asyncHandle -> do
           link asyncHandle
           runConduit $ producer .| Conduit.mapM_ (sendToQueue queue)
@@ -184,6 +185,36 @@ emptyCursorsMap = HashMap.empty
 cursorKey :: SubscriptionCursor -> (EventTypeName, PartitionName)
 cursorKey cursor = (cursor^.L.eventType, cursor^.L.partition)
 
+-- | Implementation for the 'CommitNoBuffer' strategy: We simply read
+-- every cursor and commit it in order.
+unbufferedCommitLoop
+  :: (MonadNakadi b m, MonadIO m)
+  => SubscriptionEventStream
+  -> TBQueue (Int, SubscriptionCursor)
+  -> m ()
+unbufferedCommitLoop eventStream queue = do
+  config <- nakadiAsk
+  forever $ do
+    (_nEvents, cursor) <- liftIO . atomically . readTBQueue $ queue
+    catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> do
+      nakadiLiftBase $
+        case config^.L.logFunc of
+          Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
+            "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
+          Nothing ->
+            pure ()
+
+cursorBufferSize :: ConsumeParameters -> Int
+cursorBufferSize consumeParams =
+  case consumeParams^.L.maxUncommittedEvents of
+    Nothing -> 1
+    Just n  -> n
+               & fromIntegral
+               & (* safetyFactor)
+               & round
+
+  where safetyFactor     = 0.5
+
 -- | Main function for the cursor committer thread. Logic depends on
 -- the provided buffering strategy.
 subscriptionCommitter
@@ -191,28 +222,19 @@ subscriptionCommitter
      , MonadUnliftIO m
      , MonadMask m )
   => CommitBufferingStrategy
+  -> ConsumeParameters
   -> SubscriptionEventStream
   -> TBQueue (Int, SubscriptionCursor)
   -> m ()
 
 -- | Implementation for the 'CommitNoBuffer' strategy: We simply read
 -- every cursor and commit it in order.
-subscriptionCommitter CommitNoBuffer eventStream queue = loop
-  where loop = do
-          config <- nakadiAsk
-          (_nEvents, cursor) <- liftIO . atomically . readTBQueue $ queue
-          catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> do
-            nakadiLiftBase $
-              case config^.L.logFunc of
-                Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-                  "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
-                Nothing ->
-                  pure ()
-          loop
+subscriptionCommitter CommitNoBuffer _consumeParams eventStream queue =
+  unbufferedCommitLoop eventStream queue
 
 -- | Implementation of the 'CommitTimeBuffer' strategy: We use an
 -- async timer for committing cursors at specified intervals.
-subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
+subscriptionCommitter (CommitTimeBuffer millis) _consumeParams eventStream queue = do
   let timerConf = Timer.defaultConf
                   & Timer.setInitDelay (fromIntegral millis)
                   & Timer.setInterval  (fromIntegral millis)
@@ -234,23 +256,18 @@ subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
 -- the number of uncommitted events reaches some threshold before the
 -- next scheduled commit, a commit is being done right away and the
 -- timer is resetted.
-subscriptionCommitter CommitSmartBuffer eventStream queue = do
-  config <- nakadiAsk
-  let millisDefault               = 1000
-      nMaxUncommitedEventsDefault = 1000
-      consumeParameters           = fromMaybe defaultConsumeParameters $
-                                    config^.L.consumeParameters
-      nMaxUncommittedEvents       = case consumeParameters^.L.maxUncommittedEvents of
-                                      Just n  -> n
-                                      Nothing -> nMaxUncommitedEventsDefault
-      nMaxEvents                  = fromIntegral $ nMaxUncommittedEvents `div` 2
-      timerConf                   = Timer.defaultConf
-                                    & Timer.setInitDelay (fromIntegral millisDefault)
-                                    & Timer.setInterval  (fromIntegral millisDefault)
-  cursorsMap <- liftIO . atomically $ newTVar emptyCursorsMap
-  withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
-    link asyncCursorConsumer
-    Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap nMaxEvents
+subscriptionCommitter CommitSmartBuffer consumeParams eventStream queue = do
+  let millisDefault = 1000
+      nMaxEvents    = cursorBufferSize consumeParams
+      timerConf     = Timer.defaultConf
+                      & Timer.setInitDelay (fromIntegral millisDefault)
+                      & Timer.setInterval  (fromIntegral millisDefault)
+  if nMaxEvents > 1
+    then do cursorsMap <- liftIO . atomically $ newTVar emptyCursorsMap
+            withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
+              link asyncCursorConsumer
+              Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap nMaxEvents
+    else unbufferedCommitLoop eventStream queue
 
   where -- | The cursorsConsumer drains the cursors queue and adds
         -- each cursor to the provided cursorsMap.
