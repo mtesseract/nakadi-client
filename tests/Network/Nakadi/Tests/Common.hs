@@ -8,15 +8,17 @@ module Network.Nakadi.Tests.Common where
 
 import           ClassyPrelude
 
+import           Control.Exception.Safe (MonadThrow, throwM)
 import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
-import           Data.List.Split       (chunksOf)
-import qualified Data.Text             as Text
-import           Data.UUID             (UUID)
+import           Data.List.Split        (chunksOf)
+import qualified Data.Text              as Text
+import           Data.UUID              (UUID)
 import           Network.Nakadi
-import qualified Network.Nakadi.Lenses as L
+import qualified Network.Nakadi.Lenses  as L
 import           System.Random
+import           UnliftIO.Concurrent
 
 type App = LoggingT (ReaderT () IO)
 
@@ -60,7 +62,7 @@ myEventType = EventType
 
 ignoreExnNotFound :: MonadThrow m => a -> NakadiException -> m a
 ignoreExnNotFound a (EventTypeNotFound _) = return a
-ignoreExnNotFound _ exn                   = throw exn
+ignoreExnNotFound _ exn                   = throwM exn
 
 extractCursor :: Partition -> Cursor
 extractCursor Partition { ..} =
@@ -113,7 +115,7 @@ genMyDataChangeEventIdx idx = do
 genRandomUUID :: MonadIO m => m UUID
 genRandomUUID = liftIO randomIO
 
-recreateEvent :: (MonadCatch m, MonadNakadi b m) => EventTypeName -> EventType -> m ()
+recreateEvent :: (MonadUnliftIO m, MonadNakadi b m) => EventTypeName -> EventType -> m ()
 recreateEvent eventTypeName eventType = do
   subscriptionIds <- subscriptionsList Nothing (Just [eventTypeName])
     <&> catMaybes . map (view L.id)

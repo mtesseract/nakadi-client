@@ -15,6 +15,7 @@ import           Network.Nakadi.Examples.Subscription.Process
 import qualified Network.Nakadi.Lenses                        as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty.HUnit
+import           UnliftIO.Concurrent
 
 genEvent :: MonadIO m => m (Nakadi.DataChangeEvent Foo)
 genEvent = do

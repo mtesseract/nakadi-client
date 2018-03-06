@@ -35,7 +35,6 @@ import           Control.Concurrent.STM               (TBQueue, TVar,
                                                        retry, swapTVar,
                                                        writeTBQueue)
 import           Control.Lens
-import           Control.Monad.IO.Unlift
 import           Control.Monad.Logger
 import           Data.Aeson
 import qualified Data.Conduit.List                    as Conduit (mapM_)

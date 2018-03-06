@@ -22,11 +22,9 @@ module Network.Nakadi.Internal.Util
 
 import           Network.Nakadi.Internal.Prelude
 
+import           Conduit                         hiding (throwM)
 import           Data.Aeson
-import           Data.ByteString.Builder
 import qualified Data.ByteString.Lazy            as ByteString.Lazy
-import           Data.Conduit
-import           Data.Conduit.Combinators        hiding (decodeUtf8, map)
 import qualified Data.Text                       as Text
 import           Network.HTTP.Simple
 
@@ -37,7 +35,7 @@ conduitDrainToLazyByteString ::
   => ConduitM () ByteString b ()
   -> b ByteString.Lazy.ByteString
 conduitDrainToLazyByteString conduit =
-  toLazyByteString <$> (conduit $$ sinkBuilder)
+  runConduit $ conduit .| sinkLazy
 
 decodeThrow
   :: (FromJSON a, MonadThrow m)

@@ -14,6 +14,7 @@ import           Network.Wai.Handler.Warp
 import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import           UnliftIO.Concurrent
 
 testConnection :: TestTree
 testConnection = testGroup "Connection"
@@ -75,9 +76,9 @@ testSimpleRetry = do
 
 testResponseTimeoutSuccess :: Assertion
 testResponseTimeoutSuccess = do
-  let timeout = responseTimeoutMicro (5 * 10^6) -- Accept delay of 5s
+  let rspTimeout = responseTimeoutMicro (5 * 10^6) -- Accept delay of 5s
       request = testServerRequest { port = testServerResponseTimeoutPort
-                                  , responseTimeout = timeout }
+                                  , responseTimeout = rspTimeout }
       conf    = newConfigIO request :: ConfigIO
   withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle -> do
     events <- runNakadiT conf eventTypesList
@@ -86,9 +87,9 @@ testResponseTimeoutSuccess = do
 testResponseTimeoutFail :: Assertion
 testResponseTimeoutFail = do
   res <- try $ do
-    let timeout = responseTimeoutMicro (3 * 10^6) -- Accept delay of 3s
+    let rspTimeout = responseTimeoutMicro (3 * 10^6) -- Accept delay of 3s
         request = testServerRequest { port = testServerResponseTimeoutPort
-                                    , responseTimeout = timeout }
+                                    , responseTimeout = rspTimeout }
         conf    = newConfigIO request :: ConfigIO
     withAsync (run testServerResponseTimeoutPort testServerResponseTimeoutApp) $ \_serverHandle ->
       runNakadiT conf eventTypesList
