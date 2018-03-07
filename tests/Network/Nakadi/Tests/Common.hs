@@ -20,6 +20,10 @@ import qualified Network.Nakadi.Lenses  as L
 import           System.Random
 import           UnliftIO.Concurrent
 
+data TerminateConsumption = TerminateConsumption deriving (Eq, Show, Typeable)
+
+instance Exception TerminateConsumption
+
 type App = LoggingT (ReaderT () IO)
 
 runApp :: App a -> IO a
@@ -115,8 +119,9 @@ genMyDataChangeEventIdx idx = do
 genRandomUUID :: MonadIO m => m UUID
 genRandomUUID = liftIO randomIO
 
-recreateEvent :: (MonadUnliftIO m, MonadNakadi b m) => EventTypeName -> EventType -> m ()
-recreateEvent eventTypeName eventType = do
+recreateEvent :: (MonadUnliftIO m, MonadNakadi b m) => EventType -> m ()
+recreateEvent eventType = do
+  let eventTypeName = eventType^.L.name
   subscriptionIds <- subscriptionsList Nothing (Just [eventTypeName])
     <&> catMaybes . map (view L.id)
   mapM_ subscriptionDelete subscriptionIds

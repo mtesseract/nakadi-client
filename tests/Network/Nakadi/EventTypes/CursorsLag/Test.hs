@@ -28,7 +28,7 @@ testCursorsLagZero conf = runApp . runNakadiT conf $ do
   let cursorsMap = Map.fromList $
         map (\Partition { .. } -> (_partition, _newestAvailableOffset)) partitions
   lagMap <- cursorsLag myEventTypeName cursorsMap
-  recreateEvent myEventTypeName myEventType
+  recreateEvent myEventType
   liftIO $ do
     Map.size cursorsMap @=? Map.size lagMap
     forM_ (Map.toList lagMap) $ \(_, lag) ->
@@ -38,7 +38,7 @@ testCursorsLagN :: Config App -> Int64 -> Assertion
 testCursorsLagN conf n = runApp . runNakadiT conf $ do
   now <- liftIO getCurrentTime
   eid <- EventId <$> liftIO genRandomUUID
-  recreateEvent myEventTypeName myEventType
+  recreateEvent myEventType
   partitions <- eventTypePartitions myEventTypeName
   let cursorsMap = Map.fromList $
         map (\Partition { .. } -> (_partition, _newestAvailableOffset)) partitions

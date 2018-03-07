@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -11,19 +12,18 @@ module Network.Nakadi.EventTypes.Test where
 import           ClassyPrelude                                 hiding
                                                                 (withAsync)
 
--- import           Conduit                                       hiding
-                                                                -- (runResourceT)
 import           Control.Lens
 import           Data.Function                                 ((&))
 import           Network.Nakadi
 import           Network.Nakadi.EventTypes.CursorsLag.Test
 import           Network.Nakadi.EventTypes.ShiftedCursors.Test
 import qualified Network.Nakadi.Lenses                         as L
+import qualified Data.Vector as Vector
 import           Network.Nakadi.Tests.Common
--- import           System.IO.Unsafe
 import           Test.Tasty
 import           Test.Tasty.HUnit
--- import           UnliftIO.Async
+import System.IO.Unsafe
+import           UnliftIO.Async
 
 testEventTypes :: Config App -> TestTree
 testEventTypes conf = testGroup "EventTypes"
@@ -33,10 +33,10 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypePartitionsGet" (testEventTypePartitionsGet conf)
   , testCase "EventTypeCursorDistances0" (testEventTypeCursorDistances0 conf)
   , testCase "EventTypeCursorDistances10" (testEventTypeCursorDistances10 conf)
-  -- , testCase "EventTypePublishData" (testEventTypePublishData conf)
-  -- , testCase "EventTypeParseFlowId" (testEventTypeParseFlowId conf)
-  -- , testCase "EventTypeDeserializationFailureException" (testEventTypeDeserializationFailureException conf)
-  -- , testCase "EventTypeDeserializationFailure" (testEventTypeDeserializationFailure conf)
+  , testCase "EventTypePublishData" (testEventTypePublishData conf)
+  , testCase "EventTypeParseFlowId" (testEventTypeParseFlowId conf)
+  , testCase "EventTypeDeserializationFailureException" (testEventTypeDeserializationFailureException conf)
+  , testCase "EventTypeDeserializationFailure" (testEventTypeDeserializationFailure conf)
   , testEventTypesShiftedCursors conf
   , testEventTypesCursorsLag conf
   ]
@@ -102,114 +102,146 @@ testEventTypeCursorDistances10 conf = runApp . runNakadiT conf $ do
   let totalDistances = sum distances
   liftIO $ totalDistances @=? 10
 
+mySubscription :: Subscription
+mySubscription = Subscription
+  { _id = Nothing
+  , _owningApplication = "test-suite"
+  , _eventTypes = [EventTypeName "test.FOO"]
+  , _consumerGroup = Nothing -- ??
+  , _createdAt = Nothing
+  , _readFrom = Just SubscriptionPositionEnd
+  , _initialCursors = Nothing
+  }
+
+createMySubscription :: (MonadUnliftIO m, MonadNakadi b m)
+                     => m SubscriptionId
+createMySubscription = do
+  newSubscription <- subscriptionCreate mySubscription `catch`
+                     \ case
+                       SubscriptionExistsAlready s -> pure s
+                       exn -> throwIO exn
+  let (Just subscriptionId) = newSubscription^.L.id
+  pure subscriptionId
+
 consumeParametersSingle :: ConsumeParameters
 consumeParametersSingle = defaultConsumeParameters
                           & setBatchLimit 1
                           & setBatchFlushTimeout 1
 
--- testEventTypePublishData :: Config App -> Assertion
--- testEventTypePublishData conf = runApp . runNakadiT conf $ do
---   now <- liftIO getCurrentTime
---   eid <- EventId <$> genRandomUUID
---   eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
---   eventTypeCreate myEventType
---   let event = DataChangeEvent { _payload = Foo "Hello!"
---                               , _metadata = EventMetadata { _eid = eid
---                                                           , _occurredAt = Timestamp now
---                                                           , _parentEids = Nothing
---                                                           , _partition  = Nothing
---                                                           }
---                               , _dataType = "test.FOO"
---                               , _dataOp = DataOpUpdate
---                               }
---   withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
---     liftIO $ link asyncHandle
---     (Just batchConsumed) :: Maybe (EventStreamBatch (DataChangeEvent Foo)) <-
---       eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
---     liftIO $ isJust (batchConsumed^.L.events) @=? True
+testEventTypePublishData :: Config App -> Assertion
+testEventTypePublishData conf = runApp . runNakadiT conf $ do
+  now <- liftIO getCurrentTime
+  eid <- EventId <$> genRandomUUID
+  recreateEvent myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = EventMetadata { _eid = eid
+                                                          , _occurredAt = Timestamp now
+                                                          , _parentEids = Nothing
+                                                          , _partition  = Nothing
+                                                          }
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+  subscriptionId <- createMySubscription
+  batchTv <- newTVarIO Nothing
+  res <- try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
+    liftIO $ link asyncHandle
+    subscriptionProcess (Just consumeParametersSingle) subscriptionId (storeBatch batchTv)
+  liftIO $ (Left TerminateConsumption) @=? res
+  Just batch <- atomically $ readTVar batchTv
+  let Just events = batch^.L.events :: Maybe (Vector (DataChangeEvent Foo))
+  liftIO $ True @=? (Vector.length events > 0)
 
--- testEventTypeParseFlowId :: Config App -> Assertion
--- testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
---   now <- liftIO getCurrentTime
---   eid <- EventId <$> genRandomUUID
---   eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
---   eventTypeCreate myEventType
---   let event = DataChangeEvent { _payload = Foo "Hello!"
---                               , _metadata = EventMetadata { _eid = eid
---                                                           , _occurredAt = Timestamp now
---                                                           , _parentEids = Nothing
---                                                           , _partition  = Nothing
---                                                           }
---                               , _dataType = "test.FOO"
---                               , _dataOp = DataOpUpdate
---                               }
---       expectedFlowId = Just $ FlowId "12345"
---   withAsync (delayedPublish expectedFlowId [event]) $ \asyncHandle -> do
---     liftIO $ link asyncHandle
---     Just batchConsumed :: Maybe (EventStreamBatch (DataChangeEventEnriched Foo)) <-
---       eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
---     let (Just events) = (batchConsumed^.L.events)
---     liftIO $ case toList events of
---       [DataChangeEventEnriched _ x _ _] ->
---         x^.L.flowId @=? expectedFlowId
---       [] -> assertFailure "Received no events"
---       _ -> assertFailure "Did not receive a singleton event list"
+storeBatch
+  :: MonadIO m
+  => TVar (Maybe (SubscriptionEventStreamBatch a))
+  -> SubscriptionEventStreamBatch a
+  -> m ()
+storeBatch batchTv batch = do
+  atomically $ writeTVar batchTv (Just batch)
+  throwIO TerminateConsumption
 
--- testEventTypeDeserializationFailureException :: Config App -> Assertion
--- testEventTypeDeserializationFailureException conf = runApp . runNakadiT conf $ do
---   now <- liftIO getCurrentTime
---   eid <- EventId <$> genRandomUUID
---   eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
---   eventTypeCreate myEventType
---   let event = DataChangeEvent { _payload = Foo "Hello!"
---                               , _metadata = EventMetadata { _eid = eid
---                                                           , _occurredAt = Timestamp now
---                                                           , _parentEids = Nothing
---                                                           , _partition  = Nothing
---                                                           }
---                               , _dataType = "test.FOO"
---                               , _dataOp = DataOpUpdate
---                               }
---   res :: Either NakadiException (Maybe (EventStreamBatch WrongFoo)) <- try $
---     withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
---     liftIO $ link asyncHandle
---     eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
---   case res of
---     Left (DeserializationFailure _ _) ->
---       pure ()
---     Left exn ->
---       liftIO $ assertFailure $ "Unexpected exception: " <> show exn
---     Right events ->
---       liftIO $ assertFailure $ "Unexpected success: " <> show events
+testEventTypeParseFlowId :: Config App -> Assertion
+testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
+  now <- liftIO getCurrentTime
+  eid <- EventId <$> genRandomUUID
+  recreateEvent myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = EventMetadata { _eid = eid
+                                                          , _occurredAt = Timestamp now
+                                                          , _parentEids = Nothing
+                                                          , _partition  = Nothing
+                                                          }
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+      expectedFlowId = Just $ FlowId "12345"
+  subscriptionId <- createMySubscription
+  batchTv <- newTVarIO Nothing
+  res <- try $ withAsync (delayedPublish expectedFlowId [event]) $ \ asyncHandle -> do
+    liftIO $ link asyncHandle
+    subscriptionProcess (Just consumeParametersSingle) subscriptionId (storeBatch batchTv)
+  liftIO $ (Left TerminateConsumption) @=? res
+  Just batch <- atomically $ readTVar batchTv
+  let Just (e:_) = toList <$> (batch^.L.events) :: Maybe [DataChangeEventEnriched Foo]
+  liftIO $ expectedFlowId @=? e^.L.metadata.L.flowId
 
--- testEventTypeDeserializationFailure :: Config App -> Assertion
--- testEventTypeDeserializationFailure conf' = runApp . runNakadiT conf $ do
---   now <- liftIO getCurrentTime
---   eid <- EventId <$> genRandomUUID
---   eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
---   eventTypeCreate myEventType
---   let event = DataChangeEvent { _payload = Foo "Hello!"
---                               , _metadata = EventMetadata { _eid = eid
---                                                           , _occurredAt = Timestamp now
---                                                           , _parentEids = Nothing
---                                                           , _partition  = Nothing
---                                                           }
---                               , _dataType = "test.FOO"
---                               , _dataOp = DataOpUpdate
---                               }
---   withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
---     liftIO $ link asyncHandle
---     eventConsumed :: Maybe (EventStreamBatch WrongFoo) <-
---       eventsProcessConduit (Just consumeParametersSingle) myEventTypeName Nothing headC
---     liftIO $ isJust eventConsumed @=? True
+testEventTypeDeserializationFailureException :: Config App -> Assertion
+testEventTypeDeserializationFailureException conf = runApp . runNakadiT conf $ do
+  now <- liftIO getCurrentTime
+  eid <- EventId <$> genRandomUUID
+  recreateEvent myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = EventMetadata { _eid = eid
+                                                          , _occurredAt = Timestamp now
+                                                          , _parentEids = Nothing
+                                                          , _partition  = Nothing
+                                                          }
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+  subscriptionId <- createMySubscription
+  res :: Either NakadiException () <- try $
+    withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
+    liftIO $ link asyncHandle
+    subscriptionProcess (Just consumeParametersSingle) subscriptionId $
+      \ (_batch :: SubscriptionEventStreamBatch ()) -> pure ()
+  case res of
+    Left (DeserializationFailure _ _) ->
+      pure ()
+    Left exn ->
+      liftIO $ assertFailure $ "Unexpected exception: " <> show exn
+    Right events ->
+      liftIO $ assertFailure $ "Unexpected success: " <> show events
 
---   counter <- atomically $ readTVar deserializationFailureCounter
---   liftIO $ 1 @=? counter
+testEventTypeDeserializationFailure :: Config App -> Assertion
+testEventTypeDeserializationFailure conf' = runApp . runNakadiT conf $ do
+  now <- liftIO getCurrentTime
+  eid <- EventId <$> genRandomUUID
+  recreateEvent myEventType
+  let event = DataChangeEvent { _payload = Foo "Hello!"
+                              , _metadata = EventMetadata { _eid = eid
+                                                          , _occurredAt = Timestamp now
+                                                          , _parentEids = Nothing
+                                                          , _partition  = Nothing
+                                                          }
+                              , _dataType = "test.FOO"
+                              , _dataOp = DataOpUpdate
+                              }
+  subscriptionId <- createMySubscription
+  res <- try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
+    liftIO $ link asyncHandle
+    subscriptionProcess (Just consumeParametersSingle) subscriptionId $
+      \ (_batch :: SubscriptionEventStreamBatch WrongFoo) ->
+        throwIO TerminateConsumption
+  liftIO $ Left TerminateConsumption @=? res
+  counter <- atomically $ readTVar deserializationFailureCounter
+  liftIO $ 1 @=? counter
 
---   where conf = conf'
---                & setDeserializationFailureCallback deserializationFailureCb
+  where conf = conf'
+               & setDeserializationFailureCallback deserializationFailureCb
 
---         deserializationFailureCb _ _ =
---           atomically $ modifyTVar deserializationFailureCounter (+ 1)
+        deserializationFailureCb _ _ =
+          atomically $ modifyTVar deserializationFailureCounter (+ 1)
 
---         deserializationFailureCounter = unsafePerformIO $ newTVarIO 0
+        deserializationFailureCounter = unsafePerformIO $ newTVarIO 0

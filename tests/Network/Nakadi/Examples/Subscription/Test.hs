@@ -52,7 +52,7 @@ testConsumption config = Nakadi.runNakadiT config $ do
       liftIO $ assertFailure "Subscription Consumption has logged no received batches"
 
   where before = do
-          recreateEvent myEventTypeName myEventType
+          recreateEvent myEventType
           subscription <- Nakadi.subscriptionCreate Nakadi.Subscription
             { _id = Nothing
             , _owningApplication = "test-suite"

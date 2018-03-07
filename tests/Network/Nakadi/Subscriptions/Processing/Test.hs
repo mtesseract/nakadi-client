@@ -51,7 +51,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
 
   where before :: (MonadUnliftIO m, MonadNakadi App m) => m SubscriptionId
         before = do
-          recreateEvent myEventTypeName myEventType
+          recreateEvent myEventType
           subscription <- subscriptionCreate Subscription
             { _id = Nothing
             , _owningApplication = "test-suite"

@@ -30,7 +30,7 @@ testSubscriptionsList :: Config App -> Assertion
 testSubscriptionsList conf = runApp . runNakadiT conf $ do
   -- Cleanup
   deleteSubscriptionsByAppPrefix prefix
-  recreateEvent myEventTypeName myEventType
+  recreateEvent myEventType
   -- Create new Subscriptions
   maybeSubscriptionIds <- forM [1..n] $ \i -> do
     let owningApp = ApplicationName (prefix <> tshow i)
@@ -74,7 +74,7 @@ mySubscription maybeOwningApp = Subscription
 
 testSubscriptionsCreateDelete :: Config App -> Assertion
 testSubscriptionsCreateDelete conf = runApp . runNakadiT conf $ do
-  recreateEvent myEventTypeName myEventType
+  recreateEvent myEventType
   subscription <- subscriptionCreate (mySubscription Nothing)
   liftIO $ True @=? isJust (subscription^.L.id)
   let (Just subscriptionId) = subscription^.L.id
@@ -83,7 +83,7 @@ testSubscriptionsCreateDelete conf = runApp . runNakadiT conf $ do
 
 testSubscriptionsDoubleDeleteFailure :: Config App -> Assertion
 testSubscriptionsDoubleDeleteFailure conf = runApp . runNakadiT conf $ do
-  recreateEvent myEventTypeName myEventType
+  recreateEvent myEventType
   subscription <- subscriptionCreate (mySubscription Nothing)
   liftIO $ True @=? isJust (subscription^.L.id)
   let (Just subscriptionId) = subscription^.L.id

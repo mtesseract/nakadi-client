@@ -25,7 +25,7 @@ testEventTypesShiftedCursors conf = testGroup "ShiftedCursors"
 
 testShiftedCursorsZero :: Config App -> Assertion
 testShiftedCursorsZero conf = runApp . runNakadiT conf $ do
-  recreateEvent myEventTypeName myEventType
+  recreateEvent myEventType
   partitions <- eventTypePartitions myEventTypeName
   let cursors = map extractCursor partitions
   cursors' <- cursorsShift myEventTypeName cursors 0
@@ -35,7 +35,7 @@ testShiftedCursorsN :: Config App -> Int64 -> Assertion
 testShiftedCursorsN conf n = runApp . runNakadiT conf $ do
   now <- liftIO getCurrentTime
   eid <- EventId <$> liftIO randomIO
-  recreateEvent myEventTypeName myEventType
+  recreateEvent myEventType
   partitions <- eventTypePartitions myEventTypeName
   let cursors = map extractCursor partitions
   liftIO $ length cursors > 0 @=? True
