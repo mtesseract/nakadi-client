@@ -48,6 +48,7 @@ import           Control.Monad.State.Class
 import qualified Control.Monad.State.Lazy                    as State.Lazy
 import qualified Control.Monad.State.Strict                  as State.Strict
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Reader                  (ReaderT (..))
 import           Control.Monad.Trans.Resource
 import qualified Control.Monad.Writer.Lazy                   as Writer.Lazy
@@ -176,6 +177,20 @@ instance (Monad b, MonadUnliftIO m) => MonadUnliftIO (NakadiT b m) where
     NakadiT $ \r ->
     withUnliftIO $ \u ->
     return (UnliftIO (unliftIO u . runNakadiT r))
+
+-- | 'MonadTransControl'
+instance MonadTransControl (NakadiT b) where
+  type StT (NakadiT b) a = a
+  liftWith f = NakadiT $ \r -> f $ \t -> _runNakadiT t r
+  restoreT = NakadiT . const
+  {-# INLINABLE liftWith #-}
+  {-# INLINABLE restoreT #-}
+
+-- | 'MonadBaseControl'
+instance MonadBaseControl b' m => MonadBaseControl b' (NakadiT b m) where
+  type StM (NakadiT b m) a = ComposeSt (NakadiT b) m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM     = defaultRestoreM
 
 -- | 'MonadNakadiBase'
 instance {-# OVERLAPPABLE #-} MonadNakadiBase b m => MonadNakadiBase b (NakadiT b m)
