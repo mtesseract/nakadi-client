@@ -35,7 +35,6 @@ import           Network.Nakadi.Internal.Types.Service
 makeNakadiLenses ''Config
 makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
-makeNakadiLenses ''EventStreamBatch
 makeNakadiLenses ''DataChangeEvent
 makeNakadiLenses ''DataChangeEventEnriched
 makeNakadiLenses ''SubscriptionEventStreamBatch
