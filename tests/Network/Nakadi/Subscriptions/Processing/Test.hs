@@ -8,7 +8,6 @@ module Network.Nakadi.Subscriptions.Processing.Test where
 
 import           ClassyPrelude
 
-import           Control.Concurrent.Async    (link)
 import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
@@ -50,9 +49,9 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
     eventsRead <- readIORef counter
     liftIO $ nEvents @=? eventsRead
 
-  where before :: MonadNakadi App m => m SubscriptionId
+  where before :: (MonadUnliftIO m, MonadNakadi App m) => m SubscriptionId
         before = do
-          recreateEvent myEventTypeName myEventType
+          recreateEvent myEventType
           subscription <- subscriptionCreate Subscription
             { _id = Nothing
             , _owningApplication = "test-suite"
@@ -64,7 +63,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
             }
           pure . fromJust $ subscription^.L.id
 
-        after :: MonadNakadi App m => SubscriptionId -> m ()
+        after :: (MonadUnliftIO m, MonadNakadi App m) => SubscriptionId -> m ()
         after subscriptionId = do
           subscriptionDelete subscriptionId
           eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
@@ -81,14 +80,14 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
           let n = length events
           publisherHandle <- async $ do
             delayedPublish Nothing events
-          liftIO $ link publisherHandle
+          liftIO $ linkAsync publisherHandle
           forever $ do
             subscriptionProcess (Just consumeParameters) subscriptionId $
               \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
                 let eventsReceived = fromMaybe mempty (batch^.L.events)
                 modifyIORef counter (+ (length eventsReceived))
                 eventsRead <- readIORef counter
-                when (n <= eventsRead) $ throwM ConsumptionDone
+                when (n <= eventsRead) $ throwIO ConsumptionDone
             putStrLn $ "Subscription Processing terminated, will restart."
 
         consumeParameters = defaultConsumeParameters

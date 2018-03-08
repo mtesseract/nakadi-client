@@ -27,7 +27,6 @@ module Network.Nakadi.Types.Service
   , StreamId(..)
   , SubscriptionEventStream(..)
   , Timestamp(..)
-  , EventStreamBatch(..)
   , SubscriptionEventStreamBatch(..)
   , EventId(..)
   , Partition(..)

@@ -45,14 +45,14 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Unlift
 import           Control.Monad.Logger
 import           Control.Monad.State.Class
-import qualified Control.Monad.State.Lazy                 as State.Lazy
-import qualified Control.Monad.State.Strict               as State.Strict
+import qualified Control.Monad.State.Lazy                    as State.Lazy
+import qualified Control.Monad.State.Strict                  as State.Strict
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
-import           Control.Monad.Trans.Reader               (ReaderT (..))
+import           Control.Monad.Trans.Reader                  (ReaderT (..))
 import           Control.Monad.Trans.Resource
-import qualified Control.Monad.Writer.Lazy                as Writer.Lazy
-import qualified Control.Monad.Writer.Strict              as Writer.Strict
+import qualified Control.Monad.Writer.Lazy                   as Writer.Lazy
+import qualified Control.Monad.Writer.Strict                 as Writer.Strict
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Types.Base
 import           Network.Nakadi.Internal.Types.Config
@@ -60,8 +60,8 @@ import           Network.Nakadi.Internal.Types.Exceptions
 import           Network.Nakadi.Internal.Types.Logger
 import           Network.Nakadi.Internal.Types.Problem
 import           Network.Nakadi.Internal.Types.Service
-import           Network.Nakadi.Internal.Types.Util
 import           Network.Nakadi.Internal.Types.Subscriptions
+import           Network.Nakadi.Internal.Types.Util
 
 -- * Define Typeclasses
 

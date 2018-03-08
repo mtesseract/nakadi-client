@@ -15,6 +15,7 @@ import           Network.Nakadi.Examples.Subscription.Process
 import qualified Network.Nakadi.Lenses                        as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty.HUnit
+import           UnliftIO.Concurrent
 
 genEvent :: MonadIO m => m (Nakadi.DataChangeEvent Foo)
 genEvent = do
@@ -51,7 +52,7 @@ testConsumption config = Nakadi.runNakadiT config $ do
       liftIO $ assertFailure "Subscription Consumption has logged no received batches"
 
   where before = do
-          recreateEvent myEventTypeName myEventType
+          recreateEvent myEventType
           subscription <- Nakadi.subscriptionCreate Nakadi.Subscription
             { _id = Nothing
             , _owningApplication = "test-suite"

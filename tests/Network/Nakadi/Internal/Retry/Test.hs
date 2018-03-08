@@ -40,7 +40,7 @@ prepareMockResponse successNum = do
       return n
     if current >= successNum
     then return responseSuccess
-    else throwM (HttpExceptionRequest defaultRequest (StatusCodeException responseFailure mempty))
+    else throwIO (HttpExceptionRequest defaultRequest (StatusCodeException responseFailure mempty))
 
   where responseTemplate = Response
           { responseStatus    = status200

@@ -9,7 +9,7 @@
 
 module Network.Nakadi.Config.Test where
 
-import           ClassyPrelude               hiding (catch, throwM)
+import           ClassyPrelude               hiding (catch)
 
 import           Control.Lens
 import           Control.Monad.Catch         (MonadThrow (..))
