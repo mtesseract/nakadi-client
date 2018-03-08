@@ -48,6 +48,8 @@ data Config m where
             , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
             , _flowId                         :: Maybe FlowId
             , _commitStrategy                 :: CommitStrategy
+            , _workerConcurrencyStrategy      :: WorkerConcurrencyStrategy
+            , _worker                         :: WorkerConfig
             } -> Config m
 
 -- | ConsumeParameters
@@ -66,4 +68,9 @@ data HttpBackend b = HttpBackend
   { _httpLbs           :: Config b -> Request -> Maybe Manager -> b (Response LB.ByteString)
   , _httpResponseOpen  :: Config b -> Request -> Maybe Manager -> b (Response (ConduitM () ByteString b ()))
   , _httpResponseClose :: Response () -> b ()
+  }
+
+data WorkerConfig = WorkerConfig
+  { _nThreads      :: Int
+  , _somethingElse :: Int
   }

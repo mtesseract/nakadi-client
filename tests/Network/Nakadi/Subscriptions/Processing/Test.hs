@@ -10,10 +10,11 @@ import           ClassyPrelude
 
 import           Control.Lens
 import           Control.Monad.Logger
+import           Control.Monad.Trans.Resource
 import           Data.Aeson
-import           Data.Maybe                  (fromJust)
+import           Data.Maybe                   (fromJust)
 import           Network.Nakadi
-import qualified Network.Nakadi.Lenses       as L
+import qualified Network.Nakadi.Lenses        as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -82,7 +83,8 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
             delayedPublish Nothing events
           liftIO $ linkAsync publisherHandle
           forever $ do
-            subscriptionProcess (Just consumeParameters) subscriptionId $
+            runResourceT $
+              subscriptionProcess (Just consumeParameters) subscriptionId $
               \ (batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
                 let eventsReceived = fromMaybe mempty (batch^.L.events)
                 modifyIORef counter (+ (length eventsReceived))

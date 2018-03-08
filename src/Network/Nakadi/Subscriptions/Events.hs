@@ -28,14 +28,11 @@ import           Network.Nakadi.Internal.Prelude
 
 import           Conduit                              hiding (throwM)
 import qualified Control.Concurrent.Async.Timer       as Timer
-import           Control.Concurrent.STM               (TBQueue, TVar,
-                                                       atomically, modifyTVar,
-                                                       newTBQueue, newTVar,
-                                                       readTBQueue, readTVar,
-                                                       retry, swapTVar,
-                                                       writeTBQueue)
+import           Control.Concurrent.STM               (retry)
 import           Control.Lens
+import           Control.Monad.IO.Unlift
 import           Control.Monad.Logger
+import qualified Control.Monad.Trans.Resource         as Resource
 import           Data.Aeson
 import qualified Data.Conduit.List                    as Conduit (mapM_)
 import           Data.HashMap.Strict                  (HashMap)
@@ -50,6 +47,7 @@ import           Network.Nakadi.Internal.Http
 import qualified Network.Nakadi.Internal.Lenses       as L
 import           Network.Nakadi.Subscriptions.Cursors
 import           UnliftIO.Async
+import           UnliftIO.STM
 
 -- | Consumes the specified subscription using the commit strategy
 -- contained in the configuration. Each consumed batch of subscription
@@ -59,6 +57,7 @@ subscriptionProcess
   :: ( MonadNakadi b m
      , MonadUnliftIO m
      , MonadMask m
+     , MonadResource m
      , FromJSON a )
   => Maybe ConsumeParameters                  -- ^ 'ConsumeParameters'
                                               -- to use
@@ -77,6 +76,7 @@ subscriptionProcess maybeConsumeParameters subscriptionId processor =
 subscriptionProcessConduit
   :: ( MonadNakadi b m
      , MonadUnliftIO m
+     , MonadResource m
      , MonadMask m
      , FromJSON a
      , batch ~ SubscriptionEventStreamBatch a )
@@ -114,11 +114,14 @@ buildSubscriptionEventStream subscriptionId response =
     Nothing ->
       throwM StreamIdMissing
 
--- | This function processes a subscription, taking care of applying
--- the configured committing strategy.
+-- | This function processes a subscription, taking care of
+-- dispatching to worker threads and applying the configured
+-- committing strategy.
 subscriptionProcessHandler
-  :: ( MonadNakadi b m
+  :: forall a b m batch.
+     ( MonadNakadi b m
      , MonadUnliftIO m
+     , MonadResource m
      , MonadMask m
      , FromJSON a
      , batch ~ (SubscriptionEventStreamBatch a) )
@@ -129,10 +132,35 @@ subscriptionProcessHandler
 subscriptionProcessHandler subscriptionId processor response = do
   config      <- nakadiAsk
   eventStream <- buildSubscriptionEventStream subscriptionId response
-  let producer = responseBody response
-                 .| linesUnboundedAsciiC
-                 .| conduitDecode config
-                 .| processor
+  u <- askUnliftIO
+  queue <- atomically $ newTBQueue 1024
+  let worker = unliftIO u (subscriptionWorker processor eventStream queue)
+  (_, workerHandle) <- Resource.allocate (async worker) cancel
+  streamConsumerHandle <- async $
+    runConduit $
+    responseBody response
+    .| linesUnboundedAsciiC
+    .| conduitDecode config
+    .| mapC (identity :: batch -> batch)
+    .| mapM_C (atomically . writeTBQueue queue)
+  void $ waitAny [streamConsumerHandle, workerHandle]
+
+-- | This function processes a subscription, taking care of applying
+-- the configured committing strategy.
+subscriptionWorker
+  :: ( MonadNakadi b m
+     , MonadUnliftIO m
+     , MonadResource m
+     , MonadMask m
+     , FromJSON a
+     , batch ~ (SubscriptionEventStreamBatch a) )
+  => ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
+  -> SubscriptionEventStream
+  -> TBQueue batch                          -- ^ Streaming response from Nakadi
+  -> m ()
+subscriptionWorker processor eventStream queue = do
+  config      <- nakadiAsk
+  let producer = repeatMC (atomically (readTBQueue queue)) .| processor
   case config^.L.commitStrategy of
     CommitSync ->
       -- Synchronous case: Simply use a Conduit sink that commits
@@ -145,17 +173,17 @@ subscriptionProcessHandler subscriptionId processor response = do
       -- sink that sends cursor information to the queue. The cursor
       -- committer thread reads from this queue and processes the
       -- cursors.
-      queue <- liftIO . atomically $ newTBQueue 1024
-      withAsync (subscriptionCommitter bufferingStrategy eventStream queue) $
+      commitQueue <- liftIO . atomically $ newTBQueue 1024
+      withAsync (subscriptionCommitter bufferingStrategy eventStream commitQueue) $
         \ asyncHandle -> do
           link asyncHandle
-          runConduit $ producer .| Conduit.mapM_ (sendToQueue queue)
+          runConduit $ producer .| Conduit.mapM_ (sendToQueue commitQueue)
 
-  where sendToQueue queue batch = liftIO . atomically $ do
+  where sendToQueue commitQueue batch = liftIO . atomically $ do
           let cursor  = batch^.L.cursor
               events  = fromMaybe Vector.empty (batch^.L.events)
               nEvents = length events
-          writeTBQueue queue (nEvents, cursor)
+          writeTBQueue commitQueue (nEvents, cursor)
 
 -- | Sink which can be used as sink for Conduits processing
 -- subscriptions events. This sink takes care of committing events. It

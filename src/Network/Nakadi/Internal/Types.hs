@@ -170,6 +170,9 @@ instance (Monad b, MonadState s m) => MonadState s (NakadiT b m) where
   get = lift get
   put = lift . put
 
+instance (Monad b, MonadResource m) => MonadResource (NakadiT b m) where
+  liftResourceT = lift . liftResourceT
+
 -- | 'MonadUnliftIO'
 instance (Monad b, MonadUnliftIO m) => MonadUnliftIO (NakadiT b m) where
   {-# INLINE askUnliftIO #-}

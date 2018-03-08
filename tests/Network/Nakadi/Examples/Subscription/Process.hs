@@ -8,10 +8,12 @@ import qualified Network.Nakadi as Nakadi
 import Network.Nakadi (MonadNakadi)
 import Control.Monad.Logger
 import Control.Monad.Catch (MonadMask)
+import Control.Monad.Trans.Resource
 
 dumpSubscription :: (MonadLogger m, MonadNakadi IO m, MonadUnliftIO m, MonadMask m)
                  => Nakadi.SubscriptionId -> m ()
 dumpSubscription subscriptionId =
+  runResourceT $
   Nakadi.subscriptionProcess Nothing subscriptionId processBatch
 
   where processBatch :: MonadLogger m => Nakadi.SubscriptionEventStreamBatch Value -> m ()
