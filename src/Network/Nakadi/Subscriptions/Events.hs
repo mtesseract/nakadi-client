@@ -26,33 +26,34 @@ module Network.Nakadi.Subscriptions.Events
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Conduit                                   hiding (throwM)
-import qualified Control.Concurrent.Async.Timer            as Timer
-import           Control.Concurrent.STM                    (retry)
+import           Conduit                             hiding (throwM)
 import           Control.Lens
-import           Control.Monad.IO.Unlift
-import           Control.Monad.Logger
-import qualified Control.Monad.Trans.Resource              as Resource
 import           Data.Aeson
-import qualified Data.Conduit.List                         as Conduit (mapM_)
-import           Data.HashMap.Strict                       (HashMap)
-import qualified Data.HashMap.Strict                       as HashMap
-import           Data.List.NonEmpty                        (NonEmpty (..))
-import qualified Data.List.NonEmpty                        as NonEmpty
-import qualified Data.Vector                               as Vector
-import           Network.HTTP.Client                       (responseBody)
+import           Network.HTTP.Client                 (responseBody)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
 import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
-import qualified Network.Nakadi.Internal.Lenses            as L
-import           Network.Nakadi.Subscriptions.Cursors
+import qualified Network.Nakadi.Internal.Lenses      as L
+import           Network.Nakadi.Internal.Worker
 import           UnliftIO.Async
-import           UnliftIO.STM
 
-import           Network.Nakadi.EventTypes.Partitions
-import           Network.Nakadi.Subscriptions.Subscription
+-- For dispatching batches to workers, we maintain an integer-indexed
+-- (non-empty) list of workers. Thus, we need have a way for mapping a
+-- subscription batch, more precisely the cursors belonging to a
+-- subscription batch, to some worker index. Mapping a cursor to an
+-- Integer is sufficient, as we can simply take the reminder modulo
+-- number of workers in our workers list.
+--
+-- Nakadi subscription cursors contain a partition reference and an
+-- event type name — both given as strings. How do we derive an
+-- integer from this data? The idea is to built a 'PartitionIndexMap'
+-- upfrom, which allows us to establish this mapping. It is expected
+-- that this map contains an entry for every valid @(PartitionName,
+-- EventTypeName)@ combination for the subscription to be consumed.
+-- If, for some reason, we receive cursors not contained in this map,
+-- we map it to the zero index.
 
 -- | Consumes the specified subscription using the commit strategy
 -- contained in the configuration. Each consumed batch of subscription
@@ -119,10 +120,6 @@ buildSubscriptionEventStream subscriptionId response =
     Nothing ->
       throwM StreamIdMissing
 
-data Worker a = Worker { _queue :: TBQueue (SubscriptionEventStreamBatch a)
-                       , _async :: Async ()
-                       }
-
 -- | This function processes a subscription, taking care of
 -- dispatching to worker threads and applying the configured
 -- committing strategy.
@@ -139,271 +136,13 @@ subscriptionProcessHandler
   -> Response (ConduitM () ByteString m ()) -- ^ Streaming response from Nakadi
   -> m ()
 subscriptionProcessHandler subscriptionId processor response = do
- -- Here we create a NonEmpty list of "worker indices".
- -- This list will later be used for constructing a NonEmpty list of
- -- async workers. We use NonEmpty to make sure that we always have at
- -- least one worker.
- eventStream       <- buildSubscriptionEventStream subscriptionId response
- partitionIndexMap <- retrievePartitionIndexMap subscriptionId
- workerIndices     <- createWorkerIndices
- workers           <- spawnWorkers eventStream workerIndices
- dispatcher        <- dispatcherThread partitionIndexMap workers
- void . waitAny $ dispatcher : NonEmpty.toList (NonEmpty.map _async workers)
-
- where spawnWorkers eventStream workerIndices =
-         forM workerIndices (\_idx -> spawnWorker eventStream processor)
-
-       dispatcherThread partitionIndexMap workers = async . runConduit $
-         responseBody response
-         .| linesUnboundedAsciiC
-         .| conduitDecode
-         .| mapC (identity :: batch -> batch)
-         .| mapM_C (sendBatchToWorker partitionIndexMap workers)
-
-       sendBatchToWorker partitionIndexMap workers batch =
-         let worker = pickWorker workers partitionIndexMap batch
-         in atomically $ writeTBQueue (_queue worker) batch
-
-       createWorkerIndices = do
-         config <- nakadiAsk
-         let nWorkers      = config^.L.worker.L.nThreads
-         pure $ fromMaybe (1 :| []) (NonEmpty.nonEmpty [1 .. nWorkers])
-
-spawnWorker
-  :: ( MonadNakadi b m
-     , MonadResource m
-     , MonadUnliftIO m
-     , MonadMask m
-     , MonadIO m
-     , FromJSON a
-     , batch ~ (SubscriptionEventStreamBatch a) )
-  => SubscriptionEventStream
-  -> ConduitM batch batch m ()
-  -> m (Worker a)
-spawnWorker eventStream processor = do
-  u <- askUnliftIO
-  workerQueue <- atomically $ newTBQueue 1024
-  let workerIO = unliftIO u (subscriptionWorker processor eventStream workerQueue)
-  (_, workerAsync) <- Resource.allocate (async workerIO) cancel
-  pure Worker { _queue = workerQueue
-              , _async = workerAsync }
-
-type PartitionIndexMap = HashMap (PartitionName, EventTypeName) Int
-
-pickWorker
-  :: NonEmpty (Worker a)
-  -> PartitionIndexMap
-  -> SubscriptionEventStreamBatch a
-  -> Worker a
-pickWorker workers partitionIndexMap batch =
-  let nWorkers = NonEmpty.length workers
-      partition = batch^.L.cursor^.L.partition
-      eventType = batch^.L.cursor^.L.eventType
-  in case HashMap.lookup (partition, eventType) partitionIndexMap of
-       Nothing  -> NonEmpty.head workers
-       Just idx -> workers NonEmpty.!! (idx `div` nWorkers)
-
-retrievePartitionIndexMap :: MonadNakadi b m => SubscriptionId -> m PartitionIndexMap
-retrievePartitionIndexMap subscriptionId = do
-  eventTypes <- (view L.eventTypes) <$> subscriptionGet subscriptionId
-  eventTypesWithPartition <- concat <$> forM eventTypes extractPartitionsForEventType
-  pure . HashMap.fromList $ zip eventTypesWithPartition [0..]
-
-  where extractPartitionsForEventType eventType = do
-          partitions <- map (view L.partition) <$> eventTypePartitions eventType
-          pure (zip partitions (repeat eventType))
-
--- | This function processes a subscription, taking care of applying
--- the configured committing strategy.
-subscriptionWorker
-  :: ( MonadNakadi b m
-     , MonadUnliftIO m
-     , MonadResource m
-     , MonadMask m
-     , FromJSON a
-     , batch ~ (SubscriptionEventStreamBatch a) )
-  => ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
-  -> SubscriptionEventStream
-  -> TBQueue batch                          -- ^ Streaming response from Nakadi
-  -> m ()
-subscriptionWorker processor eventStream queue = do
-  config      <- nakadiAsk
-  let producer = repeatMC (atomically (readTBQueue queue)) .| processor
-  case config^.L.commitStrategy of
-    CommitSync ->
-      -- Synchronous case: Simply use a Conduit sink that commits
-      -- every cursor.
-      runConduit $ producer .| subscriptionSink eventStream
-    CommitAsync bufferingStrategy -> do
-      -- Asynchronous case: Create a new queue and spawn a cursor
-      -- committer thread depending on the configured commit buffering
-      -- method. Then execute the provided Conduit processor with a
-      -- sink that sends cursor information to the queue. The cursor
-      -- committer thread reads from this queue and processes the
-      -- cursors.
-      commitQueue <- liftIO . atomically $ newTBQueue 1024
-      withAsync (subscriptionCommitter bufferingStrategy eventStream commitQueue) $
-        \ asyncHandle -> do
-          link asyncHandle
-          runConduit $ producer .| Conduit.mapM_ (sendToQueue commitQueue)
-
-  where sendToQueue commitQueue batch = liftIO . atomically $ do
-          let cursor  = batch^.L.cursor
-              events  = fromMaybe Vector.empty (batch^.L.events)
-              nEvents = length events
-          writeTBQueue commitQueue (nEvents, cursor)
-
--- | Sink which can be used as sink for Conduits processing
--- subscriptions events. This sink takes care of committing events. It
--- can consume any values which contain Subscription Cursors.
-subscriptionSink
-  :: (MonadIO m, MonadNakadi b m)
-  => SubscriptionEventStream
-  -> ConduitM (SubscriptionEventStreamBatch a) void m ()
-subscriptionSink eventStream = do
-  config <- lift nakadiAsk
-  awaitForever $ \ batch -> lift $ do
-    let cursor  = batch^.L.cursor
-    catchAny (commitOneCursor eventStream cursor) $ \ exn -> nakadiLiftBase $
-      case config^.L.logFunc of
-        Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-          "Failed to synchronously commit cursor: " <> tshow exn
-        Nothing ->
-          pure ()
-
--- | Main function for the cursor committer thread. Logic depends on
--- the provided buffering strategy.
-subscriptionCommitter
-  :: ( MonadNakadi b m
-     , MonadUnliftIO m
-     , MonadMask m )
-  => CommitBufferingStrategy
-  -> SubscriptionEventStream
-  -> TBQueue (Int, SubscriptionCursor)
-  -> m ()
-
--- | Implementation for the 'CommitNoBuffer' strategy: We simply read
--- every cursor and commit it in order.
-subscriptionCommitter CommitNoBuffer eventStream queue = loop
-  where loop = do
-          config <- nakadiAsk
-          (_nEvents, cursor) <- liftIO . atomically . readTBQueue $ queue
-          catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> do
-            nakadiLiftBase $
-              case config^.L.logFunc of
-                Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-                  "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
-                Nothing ->
-                  pure ()
-          loop
-
--- | Implementation of the 'CommitTimeBuffer' strategy: We use an
--- async timer for committing cursors at specified intervals.
-subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
-  let timerConf = Timer.defaultConf
-                  & Timer.setInitDelay (fromIntegral millis)
-                  & Timer.setInterval  (fromIntegral millis)
-  cursorsMap <- liftIO . atomically $
-                newTVar (HashMap.empty :: HashMap PartitionName (Int, SubscriptionCursor))
-  withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
-    link asyncCursorConsumer
-    Timer.withAsyncTimer timerConf $ \ timer -> forever $ do
-      Timer.wait timer
-      commitAllCursors eventStream cursorsMap
-
-  where -- | The cursorsConsumer drains the cursors queue and adds each
-        -- cursor to the provided cursorsMap.
-        cursorConsumer cursorsMap = forever . liftIO . atomically $ do
-          (_, cursor) <- readTBQueue queue
-          modifyTVar cursorsMap (HashMap.insert (cursor^.L.partition) (0, cursor))
-
--- | Implementation of the 'CommitSmartBuffer' strategy: We use an
--- async timer for committing cursors at specified intervals, but if
--- the number of uncommitted events reaches some threshold before the
--- next scheduled commit, a commit is being done right away and the
--- timer is resetted.
-subscriptionCommitter CommitSmartBuffer eventStream queue = do
   config <- nakadiAsk
-  let millisDefault               = 1000
-      nMaxUncommitedEventsDefault = 1000
-      consumeParameters           = fromMaybe defaultConsumeParameters $
-                                    config^.L.consumeParameters
-      nMaxUncommittedEvents       = case consumeParameters^.L.maxUncommittedEvents of
-                                      Just n  -> n
-                                      Nothing -> nMaxUncommitedEventsDefault
-      nMaxEvents                  = fromIntegral $ nMaxUncommittedEvents `div` 2
-      timerConf                   = Timer.defaultConf
-                                    & Timer.setInitDelay (fromIntegral millisDefault)
-                                    & Timer.setInterval  (fromIntegral millisDefault)
-  cursorsMap <- liftIO . atomically $
-                newTVar (HashMap.empty :: HashMap PartitionName (Int, SubscriptionCursor))
-  withAsync (cursorConsumer cursorsMap) $ \ asyncCursorConsumer -> do
-    link asyncCursorConsumer
-    Timer.withAsyncTimer timerConf $ cursorCommitter cursorsMap nMaxEvents
-
-  where -- | The cursorsConsumer drains the cursors queue and adds
-        -- each cursor to the provided cursorsMap.
-        cursorConsumer cursorsMap = forever . liftIO . atomically $ do
-          (nEvents, cursor) <- readTBQueue queue
-          modifyTVar cursorsMap (HashMap.insertWith updateCursor (cursor^.L.partition) (nEvents, cursor))
-
-        -- | Adds the old number of events to the new entry in the
-        -- cursors map.
-        updateCursor cursorNew _cursorOld @ (nEventsOld, _) =
-          cursorNew & _1 %~ (+ nEventsOld)
-
-        -- | Committer loop.
-        cursorCommitter cursorsMap nMaxEvents timer = forever $  do
-          race (Timer.wait timer) (maxEventsReached cursorsMap nMaxEvents) >>= \ case
-            Left _ ->
-              -- Timer has elapsed, simply commit all currently
-              -- buffered cursors.
-              commitAllCursors eventStream cursorsMap
-            Right _ -> do
-              -- Events processed since last cursor commit have
-              -- crosses configured threshold for at least one
-              -- partition. Commit cursors on all such partitions.
-              Timer.reset timer
-              commitAllCursors eventStream cursorsMap
-
-        -- | Returns list of cursors that should be committed
-        -- considering the number of events processed on the
-        -- respective partition since the last commit. Blocks until at
-        -- least one such cursor is found.
-        maxEventsReached cursorsMap nMaxEvents = liftIO . atomically $ do
-          cursorsList <- HashMap.toList <$> readTVar cursorsMap
-          let cursorsCommit = filter (shouldBeCommitted nMaxEvents) cursorsList
-          if null cursorsCommit
-            then retry
-            else pure ()
-
-        -- | Returns True if the provided cursor should be committed.
-        shouldBeCommitted nMaxEvents cursor = cursor^._2._1  >= nMaxEvents
-
--- | This function commits all cursors in the provided cursorsMap.
-commitAllCursors
-  :: (MonadNakadi b m, MonadIO m)
-  => SubscriptionEventStream
-  -> TVar (HashMap PartitionName (Int, SubscriptionCursor))
-  -> m ()
-commitAllCursors eventStream cursorsMap = do
-  cursors <- liftIO . atomically $ swapTVar cursorsMap HashMap.empty
-  forM_ cursors $ \ (_nEvents, cursor) -> commitOneCursor eventStream cursor
-
-
--- | This function takes care of committing a single cursor. Exceptions will be
--- catched and logged, but the failure will NOT be propagated. This means that
--- Nakadi itself is in control of disconnecting us.
-commitOneCursor
-  :: (MonadIO m, MonadNakadi b m)
-  => SubscriptionEventStream
-  -> SubscriptionCursor
-  -> m ()
-commitOneCursor eventStream cursor = do
-  config <- nakadiAsk
-  catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
-    case config^.L.logFunc of
-      Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-        "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
-      Nothing ->
-        pure ()
+  let nWorkers = config^.L.worker.L.nThreads
+  eventStream    <- buildSubscriptionEventStream subscriptionId response
+  workerRegistry <- spawnWorkers subscriptionId eventStream nWorkers processor
+  race_ (workersWait workerRegistry) $ runConduit $
+    responseBody response
+    .| linesUnboundedAsciiC
+    .| conduitDecode
+    .| mapC (identity :: batch -> batch)
+    .| workerDispatchSink workerRegistry

@@ -21,17 +21,26 @@ import           Test.Tasty.HUnit
 
 testSubscriptionsProcessing :: Config App -> TestTree
 testSubscriptionsProcessing confTemplate =
-  let mkConf commitStrategy = confTemplate
-                              & setCommitStrategy commitStrategy
+  let mkConf commitStrategy nWorkers = confTemplate
+                                       & setCommitStrategy commitStrategy
+                                       & setWorkerThreads nWorkers
   in testGroup "Processing"
-     [ testCase "SubscriptionProcessing/async/TimeBuffer" $
-       testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)))
-     , testCase "SubscriptionProcessing/sync" $
-       testSubscriptionHighLevelProcessing (mkConf CommitSync)
-     , testCase "SubscriptionProcessing/async/NoBuffer" $
-       testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer))
-     , testCase "SubscriptionProcessing/async/SmartBuffer" $
-       testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitSmartBuffer))
+     [ testCase "SubscriptionProcessing/async/TimeBuffer/singleWorker" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)) 1)
+     , testCase "SubscriptionProcessing/sync/singleWorker" $
+       testSubscriptionHighLevelProcessing (mkConf CommitSync 1)
+     , testCase "SubscriptionProcessing/async/NoBuffer/singleWorker" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer) 1)
+     , testCase "SubscriptionProcessing/async/SmartBuffer/singleWorker" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitSmartBuffer) 1)
+     , testCase "SubscriptionProcessing/async/TimeBuffer/concurrentWorkers" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)) 8)
+     , testCase "SubscriptionProcessing/sync/concurrentWorkers" $
+       testSubscriptionHighLevelProcessing (mkConf CommitSync 8)
+     , testCase "SubscriptionProcessing/async/NoBuffer/concurrentWorkers" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer) 8)
+     , testCase "SubscriptionProcessing/async/SmartBuffer/concurrentWorkers" $
+       testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitSmartBuffer) 8)
      ]
 
 data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
@@ -70,7 +79,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
           eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
 
         nEvents :: Int
-        nEvents = 10000
+        nEvents = 5000
 
         publishAndConsume :: (ToJSON a, FromJSON a, Show a)
                           => [DataChangeEvent a]

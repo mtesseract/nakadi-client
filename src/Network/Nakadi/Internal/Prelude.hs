@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Prelude
 Description : Nakadi Client Prelude (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -12,6 +12,7 @@ Internal custom Prelude.
 
 module Network.Nakadi.Internal.Prelude
   ( module Prelude
+  , module Control.Monad.IO.Unlift
   , module Data.Int
   , module Data.Monoid
   , module Data.Maybe
@@ -27,8 +28,6 @@ module Network.Nakadi.Internal.Prelude
   , identity
   , undefined
   , error
-  , MonadIO
-  , liftIO
   , Request
   , Response
   ) where
@@ -36,6 +35,7 @@ module Network.Nakadi.Internal.Prelude
 import           Control.Exception.Safe
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Monad.IO.Unlift
 import           Control.Monad.Reader.Class
 import           Data.ByteString
 import           Data.Int

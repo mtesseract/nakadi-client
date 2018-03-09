@@ -22,6 +22,7 @@ module Network.Nakadi.Config
   , setHttpErrorCallback
   , setLogFunc
   , setRetryPolicy
+  , setWorkerThreads
   , setMaxUncommittedEvents
   , setBatchLimit
   , setStreamLimit
@@ -173,6 +174,9 @@ setCommitStrategy
   -> Config m
   -> Config m
 setCommitStrategy = (L.commitStrategy .~)
+
+setWorkerThreads :: Int -> Config m -> Config m
+setWorkerThreads n  = (L.worker.L.nThreads .~ n)
 
 -- | Set maximum number of uncommitted events in the provided value of
 -- consumption parameters.
