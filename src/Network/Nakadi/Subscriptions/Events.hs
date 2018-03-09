@@ -26,28 +26,33 @@ module Network.Nakadi.Subscriptions.Events
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Conduit                              hiding (throwM)
-import qualified Control.Concurrent.Async.Timer       as Timer
-import           Control.Concurrent.STM               (retry)
+import           Conduit                                   hiding (throwM)
+import qualified Control.Concurrent.Async.Timer            as Timer
+import           Control.Concurrent.STM                    (retry)
 import           Control.Lens
 import           Control.Monad.IO.Unlift
 import           Control.Monad.Logger
-import qualified Control.Monad.Trans.Resource         as Resource
+import qualified Control.Monad.Trans.Resource              as Resource
 import           Data.Aeson
-import qualified Data.Conduit.List                    as Conduit (mapM_)
-import           Data.HashMap.Strict                  (HashMap)
-import qualified Data.HashMap.Strict                  as HashMap
-import qualified Data.Vector                          as Vector
-import           Network.HTTP.Client                  (responseBody)
+import qualified Data.Conduit.List                         as Conduit (mapM_)
+import           Data.HashMap.Strict                       (HashMap)
+import qualified Data.HashMap.Strict                       as HashMap
+import           Data.List.NonEmpty                        (NonEmpty (..))
+import qualified Data.List.NonEmpty                        as NonEmpty
+import qualified Data.Vector                               as Vector
+import           Network.HTTP.Client                       (responseBody)
 import           Network.HTTP.Simple
 import           Network.HTTP.Types
 import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
-import qualified Network.Nakadi.Internal.Lenses       as L
+import qualified Network.Nakadi.Internal.Lenses            as L
 import           Network.Nakadi.Subscriptions.Cursors
 import           UnliftIO.Async
 import           UnliftIO.STM
+
+import           Network.Nakadi.EventTypes.Partitions
+import           Network.Nakadi.Subscriptions.Subscription
 
 -- | Consumes the specified subscription using the commit strategy
 -- contained in the configuration. Each consumed batch of subscription
@@ -114,6 +119,10 @@ buildSubscriptionEventStream subscriptionId response =
     Nothing ->
       throwM StreamIdMissing
 
+data Worker a = Worker { _queue :: TBQueue (SubscriptionEventStreamBatch a)
+                       , _async :: Async ()
+                       }
+
 -- | This function processes a subscription, taking care of
 -- dispatching to worker threads and applying the configured
 -- committing strategy.
@@ -130,20 +139,79 @@ subscriptionProcessHandler
   -> Response (ConduitM () ByteString m ()) -- ^ Streaming response from Nakadi
   -> m ()
 subscriptionProcessHandler subscriptionId processor response = do
-  config      <- nakadiAsk
-  eventStream <- buildSubscriptionEventStream subscriptionId response
+ -- Here we create a NonEmpty list of "worker indices".
+ -- This list will later be used for constructing a NonEmpty list of
+ -- async workers. We use NonEmpty to make sure that we always have at
+ -- least one worker.
+ eventStream       <- buildSubscriptionEventStream subscriptionId response
+ partitionIndexMap <- retrievePartitionIndexMap subscriptionId
+ workerIndices     <- createWorkerIndices
+ workers           <- spawnWorkers eventStream workerIndices
+ dispatcher        <- dispatcherThread partitionIndexMap workers
+ void . waitAny $ dispatcher : NonEmpty.toList (NonEmpty.map _async workers)
+
+ where spawnWorkers eventStream workerIndices =
+         forM workerIndices (\_idx -> spawnWorker eventStream processor)
+
+       dispatcherThread partitionIndexMap workers = async . runConduit $
+         responseBody response
+         .| linesUnboundedAsciiC
+         .| conduitDecode
+         .| mapC (identity :: batch -> batch)
+         .| mapM_C (sendBatchToWorker partitionIndexMap workers)
+
+       sendBatchToWorker partitionIndexMap workers batch =
+         let worker = pickWorker workers partitionIndexMap batch
+         in atomically $ writeTBQueue (_queue worker) batch
+
+       createWorkerIndices = do
+         config <- nakadiAsk
+         let nWorkers      = config^.L.worker.L.nThreads
+         pure $ fromMaybe (1 :| []) (NonEmpty.nonEmpty [1 .. nWorkers])
+
+spawnWorker
+  :: ( MonadNakadi b m
+     , MonadResource m
+     , MonadUnliftIO m
+     , MonadMask m
+     , MonadIO m
+     , FromJSON a
+     , batch ~ (SubscriptionEventStreamBatch a) )
+  => SubscriptionEventStream
+  -> ConduitM batch batch m ()
+  -> m (Worker a)
+spawnWorker eventStream processor = do
   u <- askUnliftIO
-  queue <- atomically $ newTBQueue 1024
-  let worker = unliftIO u (subscriptionWorker processor eventStream queue)
-  (_, workerHandle) <- Resource.allocate (async worker) cancel
-  streamConsumerHandle <- async $
-    runConduit $
-    responseBody response
-    .| linesUnboundedAsciiC
-    .| conduitDecode config
-    .| mapC (identity :: batch -> batch)
-    .| mapM_C (atomically . writeTBQueue queue)
-  void $ waitAny [streamConsumerHandle, workerHandle]
+  workerQueue <- atomically $ newTBQueue 1024
+  let workerIO = unliftIO u (subscriptionWorker processor eventStream workerQueue)
+  (_, workerAsync) <- Resource.allocate (async workerIO) cancel
+  pure Worker { _queue = workerQueue
+              , _async = workerAsync }
+
+type PartitionIndexMap = HashMap (PartitionName, EventTypeName) Int
+
+pickWorker
+  :: NonEmpty (Worker a)
+  -> PartitionIndexMap
+  -> SubscriptionEventStreamBatch a
+  -> Worker a
+pickWorker workers partitionIndexMap batch =
+  let nWorkers = NonEmpty.length workers
+      partition = batch^.L.cursor^.L.partition
+      eventType = batch^.L.cursor^.L.eventType
+  in case HashMap.lookup (partition, eventType) partitionIndexMap of
+       Nothing  -> NonEmpty.head workers
+       Just idx -> workers NonEmpty.!! (idx `div` nWorkers)
+
+retrievePartitionIndexMap :: MonadNakadi b m => SubscriptionId -> m PartitionIndexMap
+retrievePartitionIndexMap subscriptionId = do
+  eventTypes <- (view L.eventTypes) <$> subscriptionGet subscriptionId
+  eventTypesWithPartition <- concat <$> forM eventTypes extractPartitionsForEventType
+  pure . HashMap.fromList $ zip eventTypesWithPartition [0..]
+
+  where extractPartitionsForEventType eventType = do
+          partitions <- map (view L.partition) <$> eventTypePartitions eventType
+          pure (zip partitions (repeat eventType))
 
 -- | This function processes a subscription, taking care of applying
 -- the configured committing strategy.
