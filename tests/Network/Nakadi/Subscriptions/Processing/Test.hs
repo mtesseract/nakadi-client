@@ -18,6 +18,7 @@ import qualified Network.Nakadi.Lenses        as L
 import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import           UnliftIO.Concurrent
 
 testSubscriptionsProcessing :: Config App -> TestTree
 testSubscriptionsProcessing confTemplate =
@@ -89,6 +90,7 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
           bracket before after $ \ subscriptionId -> do
           let n = length events
           publisherHandle <- async $ do
+            threadDelay (3 * 10^6)
             delayedPublish Nothing events
           liftIO $ linkAsync publisherHandle
           forever $ do
