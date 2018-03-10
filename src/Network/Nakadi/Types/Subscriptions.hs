@@ -14,7 +14,6 @@ subscriptions, which are not modelled after the Nakadi API.
 module Network.Nakadi.Types.Subscriptions
   ( CommitStrategy(..)
   , CommitBufferingStrategy(..)
-  , WorkerConcurrencyStrategy(..)
   ) where
 
 import           Network.Nakadi.Internal.Types.Subscriptions

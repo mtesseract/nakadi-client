@@ -38,7 +38,3 @@ data CommitBufferingStrategy
                            -- number of events processed since the
                            -- last commit crosses a threshold derived
                            -- from @maxUncommittedEvents@.
-
-data WorkerConcurrencyStrategy
-  = WorkerConcurrencyNone      -- ^ Just one worker
-  | WorkerConcurrencyFixed Int -- ^ Fixed number of workers

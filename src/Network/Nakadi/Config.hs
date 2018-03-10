@@ -57,8 +57,7 @@ defaultCommitStrategy = CommitSync
 -- | Default worker configuration.
 defaultWorkerConfig :: WorkerConfig
 defaultWorkerConfig =
-  WorkerConfig { _nThreads      = 1
-               , _somethingElse = 0 }
+  WorkerConfig { _nThreads      = 1 }
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
@@ -80,7 +79,6 @@ newConfig httpBackend request =
          , _httpErrorCallback              = Nothing
          , _flowId                         = Nothing
          , _commitStrategy                 = defaultCommitStrategy
-         , _workerConcurrencyStrategy      = WorkerConcurrencyNone
          , _worker                         = defaultWorkerConfig
          }
 
