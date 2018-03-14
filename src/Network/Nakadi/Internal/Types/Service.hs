@@ -727,6 +727,15 @@ data EventMetadataEnriched = EventMetadataEnriched
 
 deriveJSON nakadiJsonOptions ''EventMetadataEnriched
 
+-- | EventStreamBatch
+
+data EventStreamBatch a = EventStreamBatch
+  { _cursor :: Cursor -- ^ Cursor for this batch
+  , _events :: Maybe (Vector a) -- ^ Events in this batch
+  } deriving (Show, Generic)
+
+deriveJSON nakadiJsonOptions ''EventStreamBatch
+
 -- | SubscriptionEventStreamBatch
 
 data SubscriptionEventStreamBatch a = SubscriptionEventStreamBatch
