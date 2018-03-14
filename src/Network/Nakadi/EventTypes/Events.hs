@@ -48,10 +48,10 @@ eventsProcess
   => Maybe ConsumeParameters
   -> EventTypeName
   -> Maybe [Cursor]
-  -> (EventStreamBatch a -> m r)
-  -> m r
+  -> (EventStreamBatch a -> m ())
+  -> m ()
 eventsProcess maybeConsumeParameters eventTypeName maybeCursors processor =
-  eventsProcess maybeConsumeParameters eventTypeName maybeCursors processor
+  eventsProcessConduit maybeConsumeParameters eventTypeName maybeCursors (mapM_C processor)
 
 {-# DEPRECATED eventsProcessConduit "Use the Subscription API instead" #-}
 eventsProcessConduit
@@ -61,8 +61,8 @@ eventsProcessConduit
   => Maybe ConsumeParameters
   -> EventTypeName
   -> Maybe [Cursor]
-  -> ConduitM (EventStreamBatch a) Void m r
-  -> m r
+  -> ConduitM (EventStreamBatch a) Void m ()
+  -> m ()
 eventsProcessConduit maybeConsumeParameters eventTypeName maybeCursors consumer = do
   config <- nakadiAsk
   let consumeParams = fromMaybe defaultConsumeParameters maybeConsumeParameters
