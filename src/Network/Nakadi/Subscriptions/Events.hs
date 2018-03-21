@@ -98,7 +98,7 @@ subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
     (includeFlowId config
      . setRequestPath path
      . setRequestQueryParameters queryParams) $
-    subscriptionProcessHandler subscriptionId processor
+    subscriptionProcessHandler subscriptionId consumeParams processor
 
   where path = "/subscriptions/"
                <> subscriptionIdToByteString subscriptionId
@@ -132,14 +132,15 @@ subscriptionProcessHandler
      , FromJSON a
      , batch ~ (SubscriptionEventStreamBatch a) )
   => SubscriptionId                         -- ^ Subscription ID required for committing.
+  -> ConsumeParameters
   -> ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
   -> Response (ConduitM () ByteString m ()) -- ^ Streaming response from Nakadi
   -> m ()
-subscriptionProcessHandler subscriptionId processor response = do
+subscriptionProcessHandler subscriptionId consumeParams processor response = do
   config <- nakadiAsk
   let nWorkers = config^.L.worker.L.nThreads
   eventStream    <- buildSubscriptionEventStream subscriptionId response
-  workerRegistry <- spawnWorkers subscriptionId eventStream nWorkers processor
+  workerRegistry <- spawnWorkers subscriptionId eventStream consumeParams nWorkers processor
   race_ (workersWait workerRegistry) $ runConduit $
     responseBody response
     .| linesUnboundedAsciiC

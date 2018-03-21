@@ -24,11 +24,12 @@ module Network.Nakadi.Internal.Lenses where
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
-import           Data.Text                             (Text)
+import           Data.Text                               (Text)
 import           Data.Time.Clock
-import           Data.UUID                             (UUID)
+import           Data.UUID                               (UUID)
 import           Network.Nakadi.Internal.TH
 
+import           Network.Nakadi.Internal.Types.Committer
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Service
 
@@ -58,6 +59,8 @@ makeNakadiLenses ''CursorCommit
 makeNakadiLenses ''SubscriptionsListResponse
 makeNakadiLenses ''Subscription
 makeNakadiLenses ''WorkerConfig
+makeNakadiLenses ''StagedCursor
+makeNakadiLenses ''StagedCursors
 
 instance HasNakadiId StreamId Text where
   id f (StreamId a) = StreamId <$> f a

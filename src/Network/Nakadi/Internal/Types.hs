@@ -26,6 +26,7 @@ Exports all types for internal usage.
 
 module Network.Nakadi.Internal.Types
   ( module Network.Nakadi.Internal.Types.Config
+  , module Network.Nakadi.Internal.Types.Committer
   , module Network.Nakadi.Internal.Types.Exceptions
   , module Network.Nakadi.Internal.Types.Logger
   , module Network.Nakadi.Internal.Types.Problem
@@ -55,6 +56,7 @@ import qualified Control.Monad.Writer.Lazy                   as Writer.Lazy
 import qualified Control.Monad.Writer.Strict                 as Writer.Strict
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Types.Base
+import           Network.Nakadi.Internal.Types.Committer
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Exceptions
 import           Network.Nakadi.Internal.Types.Logger

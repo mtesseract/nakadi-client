@@ -67,12 +67,13 @@ spawnWorker
      , FromJSON a
      , batch ~ (SubscriptionEventStreamBatch a) )
   => SubscriptionEventStream
+  -> ConsumeParameters
   -> ConduitM batch batch m ()
   -> m (Worker a)
-spawnWorker eventStream processor = do
+spawnWorker eventStream consumeParams processor = do
   u <- askUnliftIO
   workerQueue <- atomically $ newTBQueue 1024
-  let workerIO = unliftIO u (subscriptionWorker processor eventStream workerQueue)
+  let workerIO = unliftIO u (subscriptionWorker processor eventStream consumeParams workerQueue)
   (_, workerAsync) <- Resource.allocate (async workerIO) cancel
   pure Worker { _queue = workerQueue
               , _async = workerAsync }
@@ -87,12 +88,13 @@ spawnWorkers
      , batch ~ SubscriptionEventStreamBatch a )
   => SubscriptionId
   -> SubscriptionEventStream
+  -> ConsumeParameters
   -> Int
   -> ConduitM batch batch m ()
   -> m (WorkerRegistry a)
-spawnWorkers subscriptionId eventStream nWorkers processor = do
+spawnWorkers subscriptionId eventStream consumeParams nWorkers processor = do
   let workerIndices = fromMaybe (1 :| []) (NonEmpty.nonEmpty [1 .. nWorkers])
-  workers           <- forM workerIndices (\_idx -> spawnWorker eventStream processor)
+  workers           <- forM workerIndices (\_idx -> spawnWorker eventStream consumeParams processor)
   partitionIndexMap <- retrievePartitionIndexMap subscriptionId
   pure WorkerRegistry { _workers = workers
                       , _partitionIndexMap = partitionIndexMap }
@@ -108,9 +110,10 @@ subscriptionWorker
      , batch ~ (SubscriptionEventStreamBatch a) )
   => ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
   -> SubscriptionEventStream
+  -> ConsumeParameters
   -> TBQueue batch                          -- ^ Streaming response from Nakadi
   -> m ()
-subscriptionWorker processor eventStream queue = do
+subscriptionWorker processor eventStream consumeParams queue = do
   config      <- nakadiAsk
   let producer = repeatMC (atomically (readTBQueue queue)) .| processor
   case config^.L.commitStrategy of
@@ -126,7 +129,7 @@ subscriptionWorker processor eventStream queue = do
       -- committer thread reads from this queue and processes the
       -- cursors.
       commitQueue <- liftIO . atomically $ newTBQueue 1024
-      withAsync (subscriptionCommitter bufferingStrategy eventStream commitQueue) $
+      withAsync (subscriptionCommitter bufferingStrategy consumeParams eventStream commitQueue) $
         \ asyncHandle -> do
           link asyncHandle
           runConduit $ producer .| mapM_C (sendToQueue commitQueue)
@@ -158,21 +161,22 @@ workerDispatchSink
   => WorkerRegistry a
   -> ConduitM (SubscriptionEventStreamBatch a) Void m ()
 workerDispatchSink registry = awaitForever $ \ batch -> do
-  let worker = pickWorker (_workers registry) (_partitionIndexMap registry) batch
+  let  partition = batch^.L.cursor^.L.partition
+       eventType = batch^.L.cursor^.L.eventType
+       worker    = pickWorker registry eventType partition
   atomically $ writeTBQueue (_queue worker) batch
 
 -- | Given a 'SubscriptionEventStreamBatch', produce the worker that
 -- should handle the batch.
 pickWorker
-  :: NonEmpty (Worker a)
-  -> PartitionIndexMap
-  -> SubscriptionEventStreamBatch a
+  :: WorkerRegistry a
+  -> EventTypeName
+  -> PartitionName
   -> Worker a
-pickWorker workers partitionIndexMap batch =
-  let nWorkers = NonEmpty.length workers
-      partition = batch^.L.cursor^.L.partition
-      eventType = batch^.L.cursor^.L.eventType
-  in case HashMap.lookup (partition, eventType) partitionIndexMap of
+pickWorker registry eventType partition =
+  let workers   = _workers registry
+      nWorkers  = NonEmpty.length workers
+  in case HashMap.lookup (partition, eventType) (_partitionIndexMap registry) of
        Nothing  -> NonEmpty.head workers
        Just idx -> workers NonEmpty.!! (idx `mod` nWorkers)
 
