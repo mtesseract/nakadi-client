@@ -29,7 +29,6 @@ import           Conduit
 import           Control.Lens
 import qualified Control.Monad.Trans.Resource              as Resource
 import           Data.Aeson
-import           Data.HashMap.Strict                       (HashMap)
 import qualified Data.HashMap.Strict                       as HashMap
 import           Data.List.NonEmpty                        (NonEmpty (..))
 import qualified Data.List.NonEmpty                        as NonEmpty
@@ -42,20 +41,6 @@ import qualified Network.Nakadi.Internal.Lenses            as L
 import           Network.Nakadi.Internal.Types
 import           UnliftIO.Async
 import           UnliftIO.STM
-
--- | Data type denoting an asynchronous worker.
-data Worker a = Worker { _queue :: TBQueue (SubscriptionEventStreamBatch a)
-                       , _async :: Async ()
-                       }
-
--- | Data type containing a non-empty list of worker references.
-data WorkerRegistry a =
-  WorkerRegistry { _workers           :: NonEmpty (Worker a)
-                 , _partitionIndexMap :: PartitionIndexMap }
-
--- | Map used for mapping subscription batch cursors to worked
--- indices.
-type PartitionIndexMap = HashMap (PartitionName, EventTypeName) Int
 
 -- | Spawn a single worker.
 spawnWorker
@@ -174,14 +159,14 @@ pickWorker
   -> PartitionName
   -> Worker a
 pickWorker registry eventType partition =
-  let workers   = _workers registry
+  let workers   = registry^.L.workers
       nWorkers  = NonEmpty.length workers
-  in case HashMap.lookup (partition, eventType) (_partitionIndexMap registry) of
+  in case HashMap.lookup (partition, eventType) (registry^.L.partitionIndexMap) of
        Nothing  -> NonEmpty.head workers
        Just idx -> workers NonEmpty.!! (idx `mod` nWorkers)
 
 -- | Block as long no worker finishes.
 workersWait :: MonadIO m => WorkerRegistry a -> m ()
 workersWait registry = do
-  let workerHandles = map _async $ NonEmpty.toList (_workers registry)
+  let workerHandles = map _async $ NonEmpty.toList (registry^.L.workers)
   void . waitAny $ workerHandles

@@ -34,6 +34,7 @@ module Network.Nakadi.Internal.Types
   , module Network.Nakadi.Internal.Types.Util
   , module Network.Nakadi.Internal.Types.Base
   , module Network.Nakadi.Internal.Types.Subscriptions
+  , module Network.Nakadi.Internal.Types.Worker
   , HasNakadiConfig(..)
   , MonadNakadi(..)
   , MonadNakadiIO
@@ -64,6 +65,7 @@ import           Network.Nakadi.Internal.Types.Problem
 import           Network.Nakadi.Internal.Types.Service
 import           Network.Nakadi.Internal.Types.Subscriptions
 import           Network.Nakadi.Internal.Types.Util
+import           Network.Nakadi.Internal.Types.Worker
 
 -- * Define Typeclasses
 

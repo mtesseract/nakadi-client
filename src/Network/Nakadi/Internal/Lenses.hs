@@ -32,6 +32,7 @@ import           Network.Nakadi.Internal.TH
 import           Network.Nakadi.Internal.Types.Committer
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Service
+import           Network.Nakadi.Internal.Types.Worker
 
 makeNakadiLenses ''Config
 makeNakadiLenses ''HttpBackend
@@ -61,6 +62,8 @@ makeNakadiLenses ''Subscription
 makeNakadiLenses ''WorkerConfig
 makeNakadiLenses ''StagedCursor
 makeNakadiLenses ''StagedCursors
+makeNakadiLenses ''Worker
+makeNakadiLenses ''WorkerRegistry
 
 instance HasNakadiId StreamId Text where
   id f (StreamId a) = StreamId <$> f a

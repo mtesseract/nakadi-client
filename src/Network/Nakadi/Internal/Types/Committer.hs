@@ -1,5 +1,7 @@
 module Network.Nakadi.Internal.Types.Committer where
 
+{-# LANGUAGE StrictData            #-}
+
 import           Data.HashMap.Strict                   (HashMap)
 
 import           Network.Nakadi.Internal.Types.Service
