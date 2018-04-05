@@ -54,8 +54,8 @@ commitOneCursor eventStream cursor = do
       Nothing ->
         pure ()
 
--- | Implementation for the 'CommitNoBuffer' strategy: We simply read
--- every cursor and commit it in order.
+-- | Naive cursor commit loop: We simply read every cursor and commit
+-- it in order.
 unbufferedCommitLoop
   :: (MonadNakadi b m, MonadIO m)
   => SubscriptionEventStream
