@@ -124,10 +124,9 @@ maxEventsReached stagedCursorsTv nMaxEvents = liftIO . atomically $ do
     then retry
     else pure ()
 
--- | Returns True if the provided staged cursor with should be
--- committed. It is expected that the provided staged cursor
--- carries an integral enrichment of the same type as
--- @nMaxEvents@.
+-- | Returns True if the provided staged cursor should be committed.
+-- It is expected that the provided staged cursor carries an integral
+-- enrichment of the same type as @nMaxEvents@.
 shouldBeCommitted :: Int -> StagedCursor Int -> Bool
 shouldBeCommitted nMaxEvents stagedCursor =
   stagedCursor^.L.enrichment >= nMaxEvents
