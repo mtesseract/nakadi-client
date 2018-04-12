@@ -14,6 +14,7 @@ used by the subscription API.
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 module Network.Nakadi.Internal.Worker
@@ -38,6 +39,7 @@ import           Network.Nakadi.Subscriptions.Subscription
 
 import           Network.Nakadi.Internal.Committer
 import qualified Network.Nakadi.Internal.Lenses            as L
+import           Network.Nakadi.Internal.Logging
 import           Network.Nakadi.Internal.Types
 import           UnliftIO.Async
 import           UnliftIO.STM
@@ -80,6 +82,7 @@ spawnWorkers
 spawnWorkers subscriptionId eventStream consumeParams nWorkers processor = do
   let workerIndices = fromMaybe (1 :| []) (NonEmpty.nonEmpty [1 .. nWorkers])
   workers           <- forM workerIndices (\_idx -> spawnWorker eventStream consumeParams processor)
+  nakadiLogDebug [fmt|Number of workers spawned for subscription consumption: $nWorkers|]
   partitionIndexMap <- retrievePartitionIndexMap subscriptionId
   pure WorkerRegistry { _workers = workers
                       , _partitionIndexMap = partitionIndexMap }

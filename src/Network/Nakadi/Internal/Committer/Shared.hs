@@ -9,16 +9,17 @@ Portability : POSIX
 -}
 
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes           #-}
 
 module Network.Nakadi.Internal.Committer.Shared where
 
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
-import           Control.Monad.Logger
 import qualified Data.HashMap.Strict                  as HashMap
 
 import qualified Network.Nakadi.Internal.Lenses       as L
+import           Network.Nakadi.Internal.Logging
 import           Network.Nakadi.Internal.Types
 import           Network.Nakadi.Subscriptions.Cursors
 
@@ -45,14 +46,9 @@ commitOneCursor
   => SubscriptionEventStream
   -> SubscriptionCursor
   -> m ()
-commitOneCursor eventStream cursor = do
-  config <- nakadiAsk
-  catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> nakadiLiftBase $
-    case config^.L.logFunc of
-      Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-        "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
-      Nothing ->
-        pure ()
+commitOneCursor eventStream cursor =
+  catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn ->
+    nakadiLogWarn [fmt|Failed to commit cursor ${tshow cursor}: $exn|]
 
 -- | Naive cursor commit loop: We simply read every cursor and commit
 -- it in order.
@@ -61,17 +57,10 @@ unbufferedCommitLoop
   => SubscriptionEventStream
   -> TBQueue (Int, SubscriptionCursor)
   -> m ()
-unbufferedCommitLoop eventStream queue = do
-  config <- nakadiAsk
-  forever $ do
-    (_nEvents, cursor) <- liftIO . atomically . readTBQueue $ queue
-    catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn -> do
-      nakadiLiftBase $
-        case config^.L.logFunc of
-          Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-            "Failed to commit cursor " <> tshow cursor <> ": " <> tshow exn
-          Nothing ->
-            pure ()
+unbufferedCommitLoop eventStream queue = forever $ do
+  (_nEvents, cursor) <- liftIO . atomically . readTBQueue $ queue
+  catchAny (subscriptionCursorCommit eventStream [cursor]) $ \ exn ->
+    nakadiLogWarn [fmt|Failed to commit cursor ${tshow cursor}: $exn|]
 
 cursorKey :: SubscriptionCursor -> (EventTypeName, PartitionName)
 cursorKey cursor = (cursor^.L.eventType, cursor^.L.partition)

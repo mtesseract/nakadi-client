@@ -16,6 +16,7 @@ This module implements a high level interface for the
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -36,6 +37,7 @@ import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.Conversions
 import           Network.Nakadi.Internal.Http
 import qualified Network.Nakadi.Internal.Lenses      as L
+import           Network.Nakadi.Internal.Logging
 import           Network.Nakadi.Internal.Worker
 import           UnliftIO.Async
 
@@ -140,6 +142,7 @@ subscriptionProcessHandler subscriptionId consumeParams processor response = do
   config <- nakadiAsk
   let nWorkers = config^.L.worker.L.nThreads
   eventStream    <- buildSubscriptionEventStream subscriptionId response
+  nakadiLogDebug [fmt|Consuming Subscription: ${tshow eventStream}|]
   workerRegistry <- spawnWorkers subscriptionId eventStream consumeParams nWorkers processor
   race_ (workersWait workerRegistry) $ runConduit $
     responseBody response

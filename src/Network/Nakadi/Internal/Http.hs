@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Http
 Description : Nakadi Client HTTP (Internal)
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -14,6 +14,7 @@ Internal module containing HTTP client relevant code.
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -62,6 +63,7 @@ import           Network.HTTP.Simple             hiding (Proxy)
 import           Network.HTTP.Types
 import           Network.HTTP.Types.Status
 import qualified Network.Nakadi.Internal.Lenses  as L
+import           Network.Nakadi.Internal.Logging
 import           Network.Nakadi.Internal.Types
 import           Network.Nakadi.Internal.Util
 
@@ -118,6 +120,7 @@ httpExecRequest
 httpExecRequest requestDef = do
   config <- nakadiAsk
   req    <- httpBuildRequest requestDef
+  nakadiLogDebug [fmt|Executing Request: ${tshow req}|]
   nakadiLiftBase $ nakadiHttpLbs config req (config^.L.manager)
 
 nakadiHttpLbs :: Config b
@@ -207,7 +210,6 @@ httpJsonBodyStream successStatus exceptionMap requestDef handler = do
 
         exceptionMap' = exceptionMap ++ defaultExceptionMap
 
-        -- connectCallback :: s -> t -> m ()
         connectCallback config response =
           nakadiLiftBase $ case config^.L.streamConnectCallback of
                          Just cb -> cb response

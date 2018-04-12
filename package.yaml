@@ -71,6 +71,7 @@ dependencies:
 - async-timer >= 0.2.0.0 && < 0.3
 - async >= 2.2.1 && < 2.3.0
 - resourcet >= 1.2.0 && < 1.3
+- th-format >= 0.1.1 && < 0.2
 library:
   source-dirs: src
   exposed-modules:

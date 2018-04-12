@@ -14,6 +14,7 @@ used by the subscription API.
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 module Network.Nakadi.Internal.Committer where
@@ -22,10 +23,10 @@ import           Network.Nakadi.Internal.Prelude
 
 import           Conduit
 import           Control.Lens
-import           Control.Monad.Logger
 import           UnliftIO.STM
 
 import qualified Network.Nakadi.Internal.Lenses                as L
+import           Network.Nakadi.Internal.Logging
 import           Network.Nakadi.Internal.Types
 
 import           Network.Nakadi.Internal.Committer.NoBuffer
@@ -59,13 +60,8 @@ subscriptionSink
   :: (MonadIO m, MonadNakadi b m)
   => SubscriptionEventStream
   -> ConduitM (SubscriptionEventStreamBatch a) void m ()
-subscriptionSink eventStream = do
-  config <- lift nakadiAsk
-  awaitForever $ \ batch -> lift $ do
-    let cursor  = batch^.L.cursor
-    catchAny (commitOneCursor eventStream cursor) $ \ exn -> nakadiLiftBase $
-      case config^.L.logFunc of
-        Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-          "Failed to synchronously commit cursor: " <> tshow exn
-        Nothing ->
-          pure ()
+subscriptionSink eventStream =
+  awaitForever $ \ batch -> lift $
+    let cursor = batch^.L.cursor
+    in catchAny (commitOneCursor eventStream cursor) $ \ exn ->
+      nakadiLogWarn [fmt|Failed to commit cursor ${tshow cursor}: $exn|]
