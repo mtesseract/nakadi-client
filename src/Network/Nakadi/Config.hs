@@ -173,6 +173,10 @@ setCommitStrategy
   -> Config m
 setCommitStrategy = (L.commitStrategy .~)
 
+-- | Set number of worker threads that should be spawned on
+-- subscription consumption. The (per event-type) partitions of the
+-- subscription to be consumed will then be mapped onto this finite
+-- set of workers.
 setWorkerThreads :: Int -> Config m -> Config m
 setWorkerThreads n  = (L.worker.L.nThreads .~ n)
 
