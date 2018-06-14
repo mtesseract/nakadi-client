@@ -36,7 +36,7 @@ path :: SubscriptionId -> ByteString
 path subscriptionId =
   "/subscriptions/" <> subscriptionIdToByteString subscriptionId <> "/stats"
 
--- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. Low level
+-- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/stats@. Low level
 -- interface for Subscriptions Statistics retrieval.
 subscriptionStats'
   :: MonadNakadi b m
@@ -52,7 +52,7 @@ subscriptionStats' subscriptionId showTimeLag = httpJsonBody
   )
   where queryParameters = [("show_time_lag", encodeStrict (Bool showTimeLag))]
 
--- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/cursors@. High level
+-- | @GET@ to @\/subscriptions\/SUBSCRIPTION\/stats@. High level
 -- interface for Subscription Statistics retrieval.
 subscriptionStats
   :: MonadNakadi b m
