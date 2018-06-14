@@ -54,7 +54,8 @@ module Network.Nakadi.Types.Service
   , PartitionState(..)
   , PartitionStat(..)
   , SubscriptionEventTypeStats(..)
-  , SubscriptionEventTypeStatsResult(..)
+  , SubscriptionStats(..)
+  , SubscriptionStatsParameter(..)
   , EventTypeCategory(..)
   , PartitionStrategy(..)
   , EnrichmentStrategy(..)
@@ -68,6 +69,7 @@ module Network.Nakadi.Types.Service
   , EventMetadataEnriched(..)
   , EventTypeStatistics(..)
   , EventTypeOptions(..)
-  ) where
+  )
+where
 
 import           Network.Nakadi.Internal.Types.Service
