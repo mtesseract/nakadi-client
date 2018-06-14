@@ -57,7 +57,7 @@ subscriptionStats' subscriptionId showTimeLag = httpJsonBody
 subscriptionStats
   :: MonadNakadi b m
   => SubscriptionId                        -- ^ Subscription ID
-  -> [SubscriptionStatsParameter]
+  -> [SubscriptionStatsParameter]          -- ^ Optional parameters, currently only `ShowTimeLag` is supported.
   -> m (Map EventTypeName [PartitionStat]) -- ^ Subscription
                                            -- Statistics as a 'Map'.
 subscriptionStats subscriptionId parameters = do
