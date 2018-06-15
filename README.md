@@ -25,8 +25,8 @@ Please note that the **API is not considered stable yet**.
 
 - A type-safe API for interacting with Nakadi. For example, the name
   of an event type has type `EventTypeName`, not `Text` or something
-  generic. Correct types for values like `CursorOffset` (which must
-  be treated as opaque strings).
+  generic. Correct types for values like `CursorOffset` are provided
+  (which must be treated as opaque strings).
 
 - Integrated and configurable retry mechanism.
 
