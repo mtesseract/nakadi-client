@@ -24,47 +24,40 @@ testSubscriptions conf = testGroup
   "Subscriptions"
   [ testSubscriptionsStats conf
   , testSubscriptionsProcessing conf
-  , testCase "SubscriptionsList"         (testSubscriptionsList conf)
-  , testCase "SubscriptionsCreateDelete" (testSubscriptionsCreateDelete conf)
-  , testCase "SubscriptionDoubleDeleteFailure"
-             (testSubscriptionsDoubleDeleteFailure conf)
+  , testCase "SubscriptionsList"               (testSubscriptionsList conf)
+  , testCase "SubscriptionsCreateDelete"       (testSubscriptionsCreateDelete conf)
+  , testCase "SubscriptionDoubleDeleteFailure" (testSubscriptionsDoubleDeleteFailure conf)
   ]
 
 testSubscriptionsList :: Config App -> Assertion
-testSubscriptionsList conf =
-  runApp
-    . runNakadiT conf
-    $ do
+testSubscriptionsList conf = run $ do
   -- Cleanup
-        deleteSubscriptionsByAppPrefix prefix
-        recreateEvent myEventType
-        -- Create new Subscriptions
-        maybeSubscriptionIds <- forM [1 .. n] $ \i -> do
-          let owningApp = ApplicationName (prefix <> tshow i)
-          subscription <- subscriptionCreate (mySubscription (Just owningApp))
-          return (subscription ^. L.id)
-        let subscriptionIds = catMaybes maybeSubscriptionIds
-        liftIO $ n @=? length subscriptionIds
-        -- Retrieve list of all Subscriptions
-        subscriptions' <- subscriptionsList Nothing Nothing
-        -- Filter for the subscriptions we have created above
-        let subscriptionsFiltered =
-              filter (subscriptionAppHasPrefix prefix) subscriptions'
-            subscriptionIdsFiltered =
-              catMaybes . map (view L.id) $ subscriptionsFiltered
-        liftIO $ n @=? length subscriptionIdsFiltered
-        liftIO $ sort subscriptionIds @=? sort subscriptionIdsFiltered
+  deleteSubscriptionsByAppPrefix prefix
+  recreateEvent myEventType
+  -- Create new Subscriptions
+  maybeSubscriptionIds <- forM [1 .. n] $ \i -> do
+    let owningApp = ApplicationName (prefix <> tshow i)
+    subscription <- subscriptionCreate (mySubscription (Just owningApp))
+    return (subscription ^. L.id)
+  let subscriptionIds = catMaybes maybeSubscriptionIds
+  liftIO $ n @=? length subscriptionIds
+  -- Retrieve list of all Subscriptions
+  subscriptions' <- subscriptionsList Nothing Nothing
+  -- Filter for the subscriptions we have created above
+  let subscriptionsFiltered   = filter (subscriptionAppHasPrefix prefix) subscriptions'
+      subscriptionIdsFiltered = catMaybes . map (view L.id) $ subscriptionsFiltered
+  liftIO $ n @=? length subscriptionIdsFiltered
+  liftIO $ sort subscriptionIds @=? sort subscriptionIdsFiltered
  where
   n      = 100
   prefix = "test-suite-list-"
+  run    = runApp . runNakadiT conf
 
 deleteSubscriptionsByAppPrefix :: MonadNakadi b m => Text -> m ()
 deleteSubscriptionsByAppPrefix prefix = do
   subscriptions <- subscriptionsList Nothing Nothing
-  let subscriptionsFiltered =
-        filter (subscriptionAppHasPrefix prefix) subscriptions
-      subscriptionIdsFiltered =
-        catMaybes . map (view L.id) $ subscriptionsFiltered
+  let subscriptionsFiltered   = filter (subscriptionAppHasPrefix prefix) subscriptions
+      subscriptionIdsFiltered = catMaybes . map (view L.id) $ subscriptionsFiltered
   forM_ subscriptionIdsFiltered subscriptionDelete
 
 subscriptionAppHasPrefix :: Text -> Subscription -> Bool
