@@ -57,13 +57,16 @@ subscriptionStats' subscriptionId showTimeLag = httpJsonBody
 subscriptionStats
   :: MonadNakadi b m
   => SubscriptionId                        -- ^ Subscription ID
-  -> [SubscriptionStatsParameter]          -- ^ Optional parameters, currently only `ShowTimeLag` is supported.
   -> m (Map EventTypeName [PartitionStat]) -- ^ Subscription
                                            -- Statistics as a 'Map'.
-subscriptionStats subscriptionId parameters = do
-  items <- subscriptionStats' subscriptionId showTimeLag <&> view L.items
+subscriptionStats subscriptionId = do
+  subscriptionStatsConf  <- nakadiAsk <&> (^. L.subscriptionStats)
+  items <- subscriptionStats' subscriptionId (showTimeLag subscriptionStatsConf) <&> view L.items
   return
     . Map.fromList
     . map (\SubscriptionEventTypeStats {..} -> (_eventType, _partitions))
     $ items
-  where showTimeLag = ShowTimeLag `elem` parameters
+ where
+  showTimeLag :: Maybe SubscriptionStatsConf -> Bool
+  showTimeLag Nothing = False
+  showTimeLag (Just conf) = conf ^. L.showTimeLag

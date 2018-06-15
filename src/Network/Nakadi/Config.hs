@@ -31,18 +31,22 @@ module Network.Nakadi.Config
   , setFlowId
   , setCommitStrategy
   , defaultConsumeParameters
-  ) where
+  , setShowTimeLag
+  )
+where
 
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
 import           Control.Retry
-import           Network.HTTP.Client                   (Manager,
-                                                        ManagerSettings)
-import           Network.HTTP.Client.TLS               (newTlsManagerWith)
+import           Network.HTTP.Client            ( Manager
+                                                , ManagerSettings
+                                                )
+import           Network.HTTP.Client.TLS        ( newTlsManagerWith )
 import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.HttpBackendIO
-import qualified Network.Nakadi.Internal.Lenses        as L
+import qualified Network.Nakadi.Internal.Lenses
+                                               as L
 import           Network.Nakadi.Internal.Types
 
 -- | Default retry policy.
@@ -60,20 +64,21 @@ newConfig
   => HttpBackend b
   -> Request           -- ^ Request Template
   -> Config b          -- ^ Resulting Configuration
-newConfig httpBackend request =
-  Config { _consumeParameters              = Nothing
-         , _manager                        = Nothing
-         , _requestTemplate                = request
-         , _requestModifier                = pure
-         , _deserializationFailureCallback = Nothing
-         , _streamConnectCallback          = Nothing
-         , _logFunc                        = Nothing
-         , _retryPolicy                    = defaultRetryPolicy
-         , _http                           = httpBackend
-         , _httpErrorCallback              = Nothing
-         , _flowId                         = Nothing
-         , _commitStrategy                 = defaultCommitStrategy
-         }
+newConfig httpBackend request = Config
+  { _consumeParameters              = Nothing
+  , _manager                        = Nothing
+  , _requestTemplate                = request
+  , _requestModifier                = pure
+  , _deserializationFailureCallback = Nothing
+  , _streamConnectCallback          = Nothing
+  , _logFunc                        = Nothing
+  , _retryPolicy                    = defaultRetryPolicy
+  , _http                           = httpBackend
+  , _httpErrorCallback              = Nothing
+  , _flowId                         = Nothing
+  , _commitStrategy                 = defaultCommitStrategy
+  , _subscriptionStats              = Nothing
+  }
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
@@ -84,8 +89,8 @@ newConfigIO = newConfig httpBackendIO
 
 -- | Produce a new configuration, with optional HTTP manager settings
 -- and mandatory HTTP request template.
-newConfigWithDedicatedManager ::
-  (MonadIO b, MonadMask b, MonadIO m)
+newConfigWithDedicatedManager
+  :: (MonadIO b, MonadMask b, MonadIO m)
   => ManagerSettings -- ^ Optional 'ManagerSettings'
   -> Request         -- ^ Request template for Nakadi requests
   -> m (Config b)    -- ^ Resulting Configuration
@@ -95,36 +100,26 @@ newConfigWithDedicatedManager mngrSettings request = do
 
 -- | Install an HTTP Manager in the provided configuration. If not
 -- set, HTTP requests will use a global default manager.
-setHttpManager
-  :: Manager
-  -> Config m
-  -> Config m
+setHttpManager :: Manager -> Config m -> Config m
 setHttpManager mngr = L.manager .~ Just mngr
 
 -- | Install a request modifier in the provided configuration. This
 -- can be used for e.g. including access tokens in HTTP requests to
 -- Nakadi.
-setRequestModifier ::
-  (Request -> m Request)
-  -> Config m
-  -> Config m
+setRequestModifier :: (Request -> m Request) -> Config m -> Config m
 setRequestModifier = (L.requestModifier .~)
 
 -- | Install a callback in the provided configuration to use in case
 -- of deserialization failures when consuming events.
-setDeserializationFailureCallback ::
-  (ByteString -> Text -> m ())
-  -> Config m
-  -> Config m
-setDeserializationFailureCallback cb = L.deserializationFailureCallback .~ Just cb
+setDeserializationFailureCallback
+  :: (ByteString -> Text -> m ()) -> Config m -> Config m
+setDeserializationFailureCallback cb =
+  L.deserializationFailureCallback .~ Just cb
 
 -- | Install a callback in the provided configuration which is used
 -- after having successfully established a streaming Nakadi
 -- connection.
-setStreamConnectCallback ::
-  StreamConnectCallback m
-  -> Config m
-  -> Config m
+setStreamConnectCallback :: StreamConnectCallback m -> Config m -> Config m
 setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
 
 -- | Install a callback in the provided configuration which is called
@@ -132,38 +127,23 @@ setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
 -- conditions by e.g. logging errors or updating metrics. Note that
 -- this callback is called synchronously, thus blocking in this
 -- callback delays potential retry attempts.
-setHttpErrorCallback ::
-  HttpErrorCallback m
-  -> Config m
-  -> Config m
+setHttpErrorCallback :: HttpErrorCallback m -> Config m -> Config m
 setHttpErrorCallback cb = L.httpErrorCallback .~ Just cb
 
 -- | Install a logger callback in the provided configuration.
-setLogFunc ::
-  LogFunc m
-  -> Config m
-  -> Config m
+setLogFunc :: LogFunc m -> Config m -> Config m
 setLogFunc logFunc = L.logFunc .~ Just logFunc
 
 -- | Set a custom retry policy in the provided configuration.
-setRetryPolicy ::
-  RetryPolicyM IO
-  -> Config m
-  -> Config m
+setRetryPolicy :: RetryPolicyM IO -> Config m -> Config m
 setRetryPolicy = (L.retryPolicy .~)
 
 -- | Set flow ID in the provided configuration.
-setFlowId
-  :: FlowId
-  -> Config m
-  -> Config m
+setFlowId :: FlowId -> Config m -> Config m
 setFlowId flowId = L.flowId .~ Just flowId
 
 -- | Set flow ID in the provided configuration.
-setCommitStrategy
-  :: CommitStrategy
-  -> Config m
-  -> Config m
+setCommitStrategy :: CommitStrategy -> Config m -> Config m
 setCommitStrategy = (L.commitStrategy .~)
 
 -- | Set maximum number of uncommitted events in the provided value of
@@ -192,3 +172,7 @@ setStreamTimeout n params = params & L.streamTimeout .~ Just n
 -- parameters.
 setStreamKeepAliveLimit :: Int32 -> ConsumeParameters -> ConsumeParameters
 setStreamKeepAliveLimit n params = params & L.streamKeepAliveLimit .~ Just n
+
+setShowTimeLag :: Bool -> Config m -> Config m
+setShowTimeLag flag =
+  L.subscriptionStats ?~ SubscriptionStatsConf {_showTimeLag = flag}

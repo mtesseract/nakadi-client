@@ -33,6 +33,7 @@ import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Service
 
 makeNakadiLenses ''Config
+makeNakadiLenses ''SubscriptionStatsConf
 makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
 makeNakadiLenses ''DataChangeEvent
@@ -41,6 +42,7 @@ makeNakadiLenses ''SubscriptionEventStreamBatch
 makeNakadiLenses ''EventMetadata
 makeNakadiLenses ''EventMetadataEnriched
 makeNakadiLenses ''Partition
+makeNakadiLenses ''PartitionStat
 makeNakadiLenses ''CursorDistanceQuery
 makeNakadiLenses ''CursorDistanceResult
 makeNakadiLenses ''Timestamp

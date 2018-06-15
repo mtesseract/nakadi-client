@@ -543,10 +543,9 @@ instance FromJSON PartitionState where
 data PartitionStat = PartitionStat
   { _partition          :: PartitionName
   , _state              :: PartitionState
-  , _unconsumedEvents   :: Int64
-  , _streamId           :: StreamId
-  , _consumerLagSeconds :: Maybe Int64
+  , _unconsumedEvents   :: Maybe Int64
   , _streamId           :: Maybe StreamId
+  , _consumerLagSeconds :: Maybe Int64
   } deriving (Show, Eq, Ord, Generic)
 
 deriveJSON nakadiJsonOptions ''PartitionStat
@@ -568,14 +567,6 @@ newtype SubscriptionStats = SubscriptionStats
   } deriving (Show, Eq, Ord, Generic)
 
 deriveJSON nakadiJsonOptions ''SubscriptionStats
-
--- Retrieving of per-subscriptions statistics supports a single flag currently: @show_time_lag@. For future
--- extendability, we provide a type for such parameters instead of simply encoding this as a boolean. This
--- is then used by the high-level API calls `subscriptionStats`, while the low-level call `subscriptionStats'`
--- simply expects the @show_time_lag@ boolean to be provided.
-
-data SubscriptionStatsParameter = ShowTimeLag
-  deriving (Show, Eq, Ord, Generic)
 
 --  | Type for the category of an 'EventType'.
 

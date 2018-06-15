@@ -55,7 +55,6 @@ module Network.Nakadi.Types.Service
   , PartitionStat(..)
   , SubscriptionEventTypeStats(..)
   , SubscriptionStats(..)
-  , SubscriptionStatsParameter(..)
   , EventTypeCategory(..)
   , PartitionStrategy(..)
   , EnrichmentStrategy(..)
