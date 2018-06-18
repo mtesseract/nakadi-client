@@ -24,15 +24,16 @@ module Network.Nakadi.Internal.Lenses where
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
-import           Data.Text                             (Text)
+import           Data.Text                      ( Text )
 import           Data.Time.Clock
-import           Data.UUID                             (UUID)
+import           Data.UUID                      ( UUID )
 import           Network.Nakadi.Internal.TH
 
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Service
 
 makeNakadiLenses ''Config
+makeNakadiLenses ''SubscriptionStatsConf
 makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
 makeNakadiLenses ''DataChangeEvent
@@ -41,6 +42,7 @@ makeNakadiLenses ''SubscriptionEventStreamBatch
 makeNakadiLenses ''EventMetadata
 makeNakadiLenses ''EventMetadataEnriched
 makeNakadiLenses ''Partition
+makeNakadiLenses ''PartitionStat
 makeNakadiLenses ''CursorDistanceQuery
 makeNakadiLenses ''CursorDistanceResult
 makeNakadiLenses ''Timestamp
@@ -50,7 +52,7 @@ makeNakadiLenses ''EventType
 makeNakadiLenses ''EventTypeSchemasResponse
 makeNakadiLenses ''PaginationLink
 makeNakadiLenses ''PaginationLinks
-makeNakadiLenses ''SubscriptionEventTypeStatsResult
+makeNakadiLenses ''SubscriptionStats
 makeNakadiLenses ''ConsumeParameters
 makeNakadiLenses ''SubscriptionCursorCommit
 makeNakadiLenses ''SubscriptionCursor

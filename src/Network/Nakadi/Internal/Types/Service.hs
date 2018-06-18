@@ -26,11 +26,11 @@ import           Data.Aeson.TH
 import           Data.Aeson.Types
 import           Data.Hashable
 import           Data.String
-import qualified Data.Text                          as Text
+import qualified Data.Text                     as Text
 import           Data.Time
 import           Data.Time.ISO8601
 import           Data.UUID
-import           Data.Vector                        (Vector)
+import           Data.Vector                    ( Vector )
 import           GHC.Generics
 
 import           Network.Nakadi.Internal.Json
@@ -541,10 +541,11 @@ instance FromJSON PartitionState where
 -- | Type for per-partition statistics.
 
 data PartitionStat = PartitionStat
-  { _partition        :: PartitionName
-  , _state            :: PartitionState
-  , _unconsumedEvents :: Int64
-  , _streamId         :: StreamId
+  { _partition          :: PartitionName
+  , _state              :: PartitionState
+  , _unconsumedEvents   :: Maybe Int64
+  , _streamId           :: Maybe StreamId
+  , _consumerLagSeconds :: Maybe Int64
   } deriving (Show, Eq, Ord, Generic)
 
 deriveJSON nakadiJsonOptions ''PartitionStat
@@ -558,15 +559,16 @@ data SubscriptionEventTypeStats = SubscriptionEventTypeStats
 
 deriveJSON nakadiJsonOptions ''SubscriptionEventTypeStats
 
--- | SubscriptionEventTypeStatsResult
+-- | Type modelling per-subscription statistics. Objects of this type are returned by
+-- requests to /subscriptions/SUBSCRIPTION-ID/stats.
 
-newtype SubscriptionEventTypeStatsResult = SubscriptionEventTypeStatsResult
+newtype SubscriptionStats = SubscriptionStats
   { _items :: [SubscriptionEventTypeStats]
   } deriving (Show, Eq, Ord, Generic)
 
-deriveJSON nakadiJsonOptions ''SubscriptionEventTypeStatsResult
+deriveJSON nakadiJsonOptions ''SubscriptionStats
 
--- | Type for the category of an 'EventType'.
+--  | Type for the category of an 'EventType'.
 
 data EventTypeCategory = EventTypeCategoryUndefined
                        | EventTypeCategoryData

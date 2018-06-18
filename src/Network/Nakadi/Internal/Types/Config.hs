@@ -18,7 +18,7 @@ module Network.Nakadi.Internal.Types.Config where
 
 import           Conduit
 import           Control.Retry
-import qualified Data.ByteString.Lazy                        as LB
+import qualified Data.ByteString.Lazy          as LB
 import           Network.HTTP.Client
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Types.Logger
@@ -48,6 +48,7 @@ data Config m where
             , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
             , _flowId                         :: Maybe FlowId
             , _commitStrategy                 :: CommitStrategy
+            , _subscriptionStats              :: Maybe SubscriptionStatsConf
             } -> Config m
 
 -- | ConsumeParameters
@@ -61,9 +62,12 @@ data ConsumeParameters = ConsumeParameters
   , _streamKeepAliveLimit :: Maybe Int32
   } deriving (Show, Eq, Ord)
 
-
 data HttpBackend b = HttpBackend
   { _httpLbs           :: Config b -> Request -> Maybe Manager -> b (Response LB.ByteString)
   , _httpResponseOpen  :: Config b -> Request -> Maybe Manager -> b (Response (ConduitM () ByteString b ()))
   , _httpResponseClose :: Response () -> b ()
+  }
+
+data SubscriptionStatsConf = SubscriptionStatsConf
+  { _showTimeLag :: Bool
   }
