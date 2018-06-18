@@ -49,20 +49,18 @@ produceSubscriptionStats conf =
 testSubscriptionStatsWithoutTimeLag :: Config App -> Assertion
 testSubscriptionStatsWithoutTimeLag conf = do
   stats <- produceSubscriptionStats (setShowTimeLag False conf)
-  let withTimeLags =
-        stats & toList & concat & map (^. L.consumerLagSeconds) & filter isJust
-  liftIO $ [] @=? withTimeLags
+  let (Just partitionStats) = lookup myEventTypeName stats
+      noConsumerLagSeconds =
+        partitionStats & map (^. L.consumerLagSeconds) & filter isNothing
+  liftIO $ length partitionStats @=? length noConsumerLagSeconds
 
 testSubscriptionStatsWithTimeLag :: Config App -> Assertion
 testSubscriptionStatsWithTimeLag conf = do
   stats <- produceSubscriptionStats (setShowTimeLag True conf)
-  let withoutTimeLags =
-        stats
-          & toList
-          & concat
-          & map (^. L.consumerLagSeconds)
-          & filter isNothing
-  liftIO $ [] @=? withoutTimeLags
+  let (Just partitionStats) = lookup myEventTypeName stats
+      consumerLagSeconds =
+        partitionStats & map (^. L.consumerLagSeconds) & filter isJust
+  liftIO $ length partitionStats @=? length consumerLagSeconds
 
 before :: (MonadUnliftIO m, MonadNakadi App m) => m SubscriptionId
 before = do
