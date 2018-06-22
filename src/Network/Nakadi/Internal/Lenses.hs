@@ -38,6 +38,8 @@ makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
 makeNakadiLenses ''DataChangeEvent
 makeNakadiLenses ''DataChangeEventEnriched
+makeNakadiLenses ''BusinessEvent
+makeNakadiLenses ''BusinessEventEnriched
 makeNakadiLenses ''SubscriptionEventStreamBatch
 makeNakadiLenses ''EventMetadata
 makeNakadiLenses ''EventMetadataEnriched
