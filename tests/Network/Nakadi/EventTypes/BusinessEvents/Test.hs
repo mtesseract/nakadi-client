@@ -27,9 +27,11 @@ data TestEventA = TestEventA
 instance FromJSON TestEventA
 instance ToJSON TestEventA
 
-data EventSpec a = EventSpec
+data EventSpec a b c = EventSpec
   { eventGenerator :: IO a
   , eventType :: EventType
+  , eventPayload :: a -> c
+  , eventEnrichedPayload :: b -> c
   }
 
 eventTypeA :: EventType
@@ -58,8 +60,8 @@ eventTypeA = EventType
   , _options              = Nothing
   }
 
-eventSpecA :: EventSpec (BusinessEvent TestEventA)
-eventSpecA = EventSpec genBusinessEventA eventTypeA
+eventSpecA :: EventSpec (BusinessEvent TestEventA) (BusinessEventEnriched TestEventA) TestEventA
+eventSpecA = EventSpec genBusinessEventA eventTypeA (view L.payload) (view L.payload)
 
 genBusinessEventA :: IO (BusinessEvent TestEventA)
 genBusinessEventA = do
@@ -78,23 +80,22 @@ genBusinessEventA = do
 
 testBusinessEvents :: Config App -> TestTree
 testBusinessEvents conf =
-  testEvents conf "BusinessEvents" eventSpecA (view L.payload)
+  testEvents conf "BusinessEvents" eventSpecA
 
 testEvents
-  :: (FromJSON a, ToJSON a, Eq a, Show a, Show b, Eq b)
+  :: (FromJSON a, ToJSON a, FromJSON b, ToJSON b, Eq c, Show c)
   => Config App
   -> String
-  -> EventSpec a
-  -> (a -> b)
+  -> EventSpec a b c
   -> TestTree
-testEvents conf label eventSpec f = testGroup
+testEvents conf label eventSpec = testGroup
   label
   [ testCase "createAndDeleteEvent" (createAndDeleteEvent conf eventSpec)
-  , testCase "publishAndConsume"    (publishAndConsume conf eventSpec f)
+  , testCase "publishAndConsume"    (publishAndConsume conf eventSpec)
   ]
 
 createEventTypeFromSpec
-  :: (MonadUnliftIO m, MonadNakadi b m) => EventSpec a -> m ()
+  :: (MonadUnliftIO m, MonadNakadi base m) => EventSpec a b c -> m ()
 createEventTypeFromSpec eventSpec = do
   subscriptionIds <-
     subscriptionsList Nothing (Just [eventSpec & eventType & _name])
@@ -103,18 +104,17 @@ createEventTypeFromSpec eventSpec = do
   eventTypeDelete (eventSpec & eventType & _name) `catch` (ignoreExnNotFound ())
   eventTypeCreate (eventType eventSpec)
 
-deleteEventTypeFromSpec :: MonadNakadi b m => EventSpec a -> m ()
+deleteEventTypeFromSpec :: MonadNakadi base m => EventSpec a b c -> m ()
 deleteEventTypeFromSpec eventSpec =
   eventTypeDelete (eventSpec & eventType & _name)
 
 publishAndConsume
-  :: forall a b
-   . (FromJSON a, ToJSON a, Eq a, Show a, Eq b, Show b)
+  :: forall a b c
+   . (FromJSON a, ToJSON a, FromJSON b, ToJSON b, Eq c, Show c)
   => Config App
-  -> EventSpec a
-  -> (a -> b)
+  -> EventSpec a b c
   -> Assertion
-publishAndConsume conf eventSpec f =
+publishAndConsume conf eventSpec =
   runApp
     . runNakadiT conf
     $ bracket_ (createEventTypeFromSpec eventSpec)
@@ -123,12 +123,12 @@ publishAndConsume conf eventSpec f =
     $ \subscriptionId -> do
         events :: [a] <- liftIO $ replicateM 10 (eventSpec & eventGenerator)
         eventsPublish (eventSpec & eventType & _name) events
-        consumed :: [a] <-
+        consumed :: [b] <-
           runConduit
           $  subscriptionSourceEvents subscriptionId
           .| takeC 10
           .| sinkList
-        liftIO $ map f events @=? map f consumed
+        liftIO $ map (eventPayload eventSpec) events @=? map (eventEnrichedPayload eventSpec) consumed
 
 subscriptionSourceEvents
   :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, FromJSON a)
@@ -158,7 +158,7 @@ subscriptionSource subscriptionId = do
     yield batch
   where consumeParams = defaultConsumeParameters & setBatchFlushTimeout 1
 
-createSubscription :: MonadNakadi b m => EventSpec a -> m SubscriptionId
+createSubscription :: MonadNakadi base m => EventSpec a b c -> m SubscriptionId
 createSubscription eventSpec = do
   subscription <- subscriptionCreate Subscription
     { _id                = Nothing
@@ -172,11 +172,10 @@ createSubscription eventSpec = do
   let (Just subscriptionId) = subscription & _id
   pure subscriptionId
 
-createAndDeleteEvent :: Config App -> EventSpec a -> Assertion
+createAndDeleteEvent :: Config App -> EventSpec a b c -> Assertion
 createAndDeleteEvent conf eventSpec =
   runApp
     . runNakadiT conf
     $ bracket_ (createEventTypeFromSpec eventSpec)
                (deleteEventTypeFromSpec eventSpec)
     $ pure ()
-
