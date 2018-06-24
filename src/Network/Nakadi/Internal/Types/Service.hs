@@ -797,7 +797,7 @@ deriveJSON nakadiJsonOptions ''DataChangeEventEnriched
 
 data BusinessEvent a = BusinessEvent
   { _payload  :: a             -- ^ Event Payload.
-  , _metadata :: EventMetadata -- ^ Even Metadata.
+  , _metadata :: EventMetadata -- ^ Event Metadata.
   } deriving (Eq, Show, Generic)
 
 instance FromJSON a => FromJSON (BusinessEvent a) where
