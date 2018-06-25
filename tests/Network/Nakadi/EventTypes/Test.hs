@@ -17,6 +17,7 @@ import           Data.Function                                 ((&))
 import           Network.Nakadi
 import           Network.Nakadi.EventTypes.CursorsLag.Test
 import           Network.Nakadi.EventTypes.ShiftedCursors.Test
+import           Network.Nakadi.EventTypes.BusinessEvents.Test
 import qualified Network.Nakadi.Lenses                         as L
 import qualified Data.Vector as Vector
 import           Network.Nakadi.Tests.Common
@@ -39,6 +40,7 @@ testEventTypes conf = testGroup "EventTypes"
   , testCase "EventTypeDeserializationFailure" (testEventTypeDeserializationFailure conf)
   , testEventTypesShiftedCursors conf
   , testEventTypesCursorsLag conf
+  , testBusinessEvents conf
   ]
 
 testEventTypesPrepare :: Config App -> Assertion
