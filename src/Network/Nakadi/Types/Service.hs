@@ -64,6 +64,8 @@ module Network.Nakadi.Types.Service
   , EventType(..)
   , DataChangeEvent(..)
   , DataChangeEventEnriched(..)
+  , BusinessEvent(..)
+  , BusinessEventEnriched(..)
   , DataOp(..)
   , EventMetadata(..)
   , EventMetadataEnriched(..)

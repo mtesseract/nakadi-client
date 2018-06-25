@@ -34,6 +34,7 @@ import           Data.Time.ISO8601
 import           Data.UUID
 import           Data.Vector                    ( Vector )
 import           GHC.Generics
+import qualified Data.HashMap.Strict           as HashMap
 
 import           Network.Nakadi.Internal.Json
 import           Network.Nakadi.Internal.Types.Util
@@ -874,3 +875,56 @@ data DataChangeEventEnriched a = DataChangeEventEnriched
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''DataChangeEventEnriched
+
+-- | Type modelling a "Business Event". Their JSON encodings are special since the payload
+-- object is directly enriched with a @metadata@ field. "Data Change Events" on the other side
+-- are JSON-encoded such that the complete event payload is contained in a seperate object field.
+--
+-- On the Haskell API side we split payload from meta data, which requires us to write custom
+-- 'ToJSON' and 'FromJSON' implementations.
+
+data BusinessEvent a = BusinessEvent
+  { _payload  :: a             -- ^ Event Payload.
+  , _metadata :: EventMetadata -- ^ Event Metadata.
+  } deriving (Eq, Show, Generic)
+
+instance FromJSON a => FromJSON (BusinessEvent a) where
+  parseJSON = withObject "BusinessEvent" $ \obj ->
+    BusinessEvent <$> parseJSON (Object obj) <*> obj .: "metadata"
+
+instance ToJSON a => ToJSON (BusinessEvent a) where
+  toJSON BusinessEvent {..} =
+    case toJSON _payload of
+      Object o ->
+        -- If the JSON encoding of the event payload is an object, extend
+        -- the object with metadata.
+        Object (o <> metadata)
+      _ ->
+        -- Otherwise, produce an object that only contains metadata.
+        Object metadata
+    where metadata = HashMap.fromList [("metadata", toJSON _metadata)]
+
+-- | Type modelling a Nakadi-enriched "Business Event". JSON encoding is basically the same as
+-- for the non-enriched Business Events.
+data BusinessEventEnriched a = BusinessEventEnriched
+  { _payload  :: a -- Cannot be named '_data', as this this would
+                   -- cause the lense 'data' to be created, which is a
+                   -- reserved keyword.
+  , _metadata :: EventMetadataEnriched
+  } deriving (Eq, Show, Generic)
+
+instance FromJSON a => FromJSON (BusinessEventEnriched a) where
+  parseJSON = withObject "BusinessEventEnriched" $ \obj ->
+    BusinessEventEnriched <$> parseJSON (Object obj) <*> obj .: "metadata"
+
+instance ToJSON a => ToJSON (BusinessEventEnriched a) where
+  toJSON BusinessEventEnriched {..} =
+    case toJSON _payload of
+      Object o ->
+        -- If the JSON encoding of the event payload is an object, extend
+        -- the object with metadata.
+        Object (o <> metadata)
+      _ ->
+        -- Otherwise, produce an object that only contains metadata.
+        Object metadata
+    where metadata = HashMap.fromList [("metadata", toJSON _metadata)]

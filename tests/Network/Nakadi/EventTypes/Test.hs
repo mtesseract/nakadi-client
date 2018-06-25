@@ -1,11 +1,8 @@
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE StandaloneDeriving    #-}
 
 module Network.Nakadi.EventTypes.Test where
 
@@ -40,6 +37,7 @@ testEventTypes conf = testGroup
   , testCase "EventTypeDeserializationFailure" (testEventTypeDeserializationFailure conf)
   , testEventTypesShiftedCursors conf
   , testEventTypesCursorsLag conf
+  , testBusinessEvents conf
   ]
 
 testEventTypesPrepare :: Config App -> Assertion
