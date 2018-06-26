@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Subscriptions.Stats
 Description : Implementation of Nakadi Subscription API
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -47,7 +47,7 @@ path = "/subscriptions"
 
 -- | @POST@ to @\/subscriptions@. Creates a new subscription. Low
 -- level interface.
-subscriptionCreate' :: MonadNakadi b m => Subscription -> m Subscription
+subscriptionCreate' :: MonadNakadi b m => SubscriptionRequest -> m Subscription
 subscriptionCreate' subscription = httpJsonBody
   status201
   [(ok200, errorSubscriptionExistsAlready)]
@@ -59,7 +59,7 @@ subscriptionCreate' subscription = httpJsonBody
 -- | @POST@ to @\/subscriptions@. Creates a new subscription. Does not
 -- fail if the requested subscription does already exist.
 subscriptionCreate
-  :: (MonadNakadi b m, MonadCatch m) => Subscription -> m Subscription
+  :: (MonadNakadi b m, MonadCatch m) => SubscriptionRequest -> m Subscription
 subscriptionCreate subscription = Safe.catchJust
   exceptionPredicate
   (subscriptionCreate' subscription)

@@ -123,7 +123,7 @@ recreateEvent :: (MonadUnliftIO m, MonadNakadi b m) => EventType -> m ()
 recreateEvent eventType = do
   let eventTypeName = eventType^.L.name
   subscriptionIds <- subscriptionsList Nothing (Just [eventTypeName])
-    <&> catMaybes . map (view L.id)
+    <&> map (view L.id)
   mapM_ subscriptionDelete subscriptionIds
   eventTypeDelete eventTypeName `catch` (ignoreExnNotFound ())
   eventTypeCreate eventType

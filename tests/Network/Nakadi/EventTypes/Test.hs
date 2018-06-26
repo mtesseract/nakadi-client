@@ -45,7 +45,7 @@ testEventTypes conf = testGroup
 testEventTypesPrepare :: Config App -> Assertion
 testEventTypesPrepare conf = runApp . runNakadiT conf $ do
   subscriptions <- subscriptionsList Nothing Nothing
-  let subscriptionIds = catMaybes . map (view L.id) $ subscriptions
+  let subscriptionIds = map (view L.id) $ subscriptions
   forM_ subscriptionIds subscriptionDelete
 
 testEventTypesGet :: Config App -> Assertion
@@ -101,15 +101,12 @@ testEventTypeCursorDistances10 conf = runApp . runNakadiT conf $ do
   let totalDistances = sum distances
   liftIO $ totalDistances @=? 10
 
-mySubscription :: Subscription
-mySubscription = Subscription
-  { _id                = Nothing
-  , _owningApplication = "test-suite"
-  , _eventTypes        = [EventTypeName "test.FOO"]
-  , _consumerGroup     = Nothing -- ??
-  , _createdAt         = Nothing
-  , _readFrom          = Just SubscriptionPositionEnd
-  , _initialCursors    = Nothing
+mySubscription :: SubscriptionRequest
+mySubscription = SubscriptionRequest
+  { _owningApplication    = "test-suite"
+  , _eventTypes           = [EventTypeName "test.FOO"]
+  , _consumerGroup        = Nothing
+  , _subscriptionPosition = Nothing
   }
 
 createMySubscription :: (MonadUnliftIO m, MonadNakadi b m) => m SubscriptionId
@@ -117,8 +114,7 @@ createMySubscription = do
   newSubscription <- subscriptionCreate mySubscription `catch` \case
     SubscriptionExistsAlready s -> pure s
     exn                         -> throwIO exn
-  let (Just subscriptionId) = newSubscription ^. L.id
-  pure subscriptionId
+  pure (newSubscription ^. L.id)
 
 consumeParametersSingle :: ConsumeParameters
 consumeParametersSingle =

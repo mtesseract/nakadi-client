@@ -60,8 +60,13 @@ eventTypeA = EventType
   , _options              = Nothing
   }
 
-eventSpecA :: EventSpec (BusinessEvent TestEventA) (BusinessEventEnriched TestEventA) TestEventA
-eventSpecA = EventSpec genBusinessEventA eventTypeA (view L.payload) (view L.payload)
+eventSpecA
+  :: EventSpec
+       (BusinessEvent TestEventA)
+       (BusinessEventEnriched TestEventA)
+       TestEventA
+eventSpecA =
+  EventSpec genBusinessEventA eventTypeA (view L.payload) (view L.payload)
 
 genBusinessEventA :: IO (BusinessEvent TestEventA)
 genBusinessEventA = do
@@ -79,8 +84,7 @@ genBusinessEventA = do
     }
 
 testBusinessEvents :: Config App -> TestTree
-testBusinessEvents conf =
-  testEvents conf "BusinessEvents" eventSpecA
+testBusinessEvents conf = testEvents conf "BusinessEvents" eventSpecA
 
 testEvents
   :: (FromJSON a, ToJSON a, FromJSON b, ToJSON b, Eq c, Show c)
@@ -99,7 +103,7 @@ createEventTypeFromSpec
 createEventTypeFromSpec eventSpec = do
   subscriptionIds <-
     subscriptionsList Nothing (Just [eventSpec & eventType & _name])
-      <&> mapMaybe (view L.id)
+      <&> map (view L.id)
   mapM_ subscriptionDelete subscriptionIds
   eventTypeDelete (eventSpec & eventType & _name) `catch` (ignoreExnNotFound ())
   eventTypeCreate (eventType eventSpec)
@@ -128,7 +132,9 @@ publishAndConsume conf eventSpec =
           $  subscriptionSourceEvents subscriptionId
           .| takeC 10
           .| sinkList
-        liftIO $ map (eventPayload eventSpec) events @=? map (eventEnrichedPayload eventSpec) consumed
+        liftIO
+          $   map (eventPayload eventSpec)         events
+          @=? map (eventEnrichedPayload eventSpec) consumed
 
 subscriptionSourceEvents
   :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, FromJSON a)
@@ -160,17 +166,13 @@ subscriptionSource subscriptionId = do
 
 createSubscription :: MonadNakadi base m => EventSpec a b c -> m SubscriptionId
 createSubscription eventSpec = do
-  subscription <- subscriptionCreate Subscription
-    { _id                = Nothing
-    , _owningApplication = "test-suite"
-    , _eventTypes        = [eventSpec & eventType & _name]
-    , _consumerGroup     = Nothing
-    , _createdAt         = Nothing
-    , _readFrom          = Just SubscriptionPositionBegin
-    , _initialCursors    = Nothing
+  subscription <- subscriptionCreate SubscriptionRequest
+    { _owningApplication    = "test-suite"
+    , _eventTypes           = [eventSpec & eventType & _name]
+    , _consumerGroup        = Nothing
+    , _subscriptionPosition = Just SubscriptionPositionBegin
     }
-  let (Just subscriptionId) = subscription & _id
-  pure subscriptionId
+  pure (subscription ^. L.id)
 
 createAndDeleteEvent :: Config App -> EventSpec a b c -> Assertion
 createAndDeleteEvent conf eventSpec =

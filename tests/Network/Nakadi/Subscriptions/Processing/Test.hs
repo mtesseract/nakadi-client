@@ -11,7 +11,6 @@ import           ClassyPrelude
 import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
-import           Data.Maybe                     ( fromJust )
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses         as L
 import           Network.Nakadi.Tests.Common
@@ -60,16 +59,13 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
   before :: (MonadUnliftIO m, MonadNakadi App m) => m SubscriptionId
   before = do
     recreateEvent myEventType
-    subscription <- subscriptionCreate Subscription
-      { _id                = Nothing
-      , _owningApplication = "test-suite"
-      , _eventTypes        = [myEventTypeName]
-      , _consumerGroup     = Nothing -- ??
-      , _createdAt         = Nothing
-      , _readFrom          = Just SubscriptionPositionEnd
-      , _initialCursors    = Nothing
+    subscription <- subscriptionCreate SubscriptionRequest
+      { _owningApplication    = "test-suite"
+      , _eventTypes           = [myEventTypeName]
+      , _consumerGroup        = Nothing -- ??
+      , _subscriptionPosition = Just SubscriptionPositionEnd
       }
-    pure . fromJust $ subscription ^. L.id
+    pure $ subscription ^. L.id
 
   after :: (MonadUnliftIO m, MonadNakadi App m) => SubscriptionId -> m ()
   after subscriptionId = do
