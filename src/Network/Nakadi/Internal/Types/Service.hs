@@ -348,6 +348,17 @@ instance FromJSON ConsumerGroup where
   parseJSON = parseString "ConsumerGroup" ConsumerGroup
 
 -- | Type for a Subscription which has already been created.
+--
+-- When a subscription object is retrieved from Nakadi the following fields
+-- are regarded as mandatory:
+--
+--   * @id@
+--   * @owning_application@
+--   * @event_types@
+--   * @consumer_group@
+--   * @created_at@
+--   * @read_from@
+--   * depending on @read_from@ also @cursors@.
 data Subscription = Subscription
   { _id                   :: SubscriptionId
   , _owningApplication    :: ApplicationName
@@ -377,6 +388,19 @@ instance ToJSON Subscription where
       in Object obj
 
 -- | Type for a Subscription which is to be created.
+--
+-- When a subscription is to be created the following fields
+-- are regarded as mandatory in the subscription object:
+--
+--   * @owning_application@
+--   * @event_types@
+--
+-- The remaining fields are regarded as optional:
+--
+--   * @consumer_group@
+--   * @read_from@
+--   * depending on @read_from@ the field @cursors@ might
+--     have to be present as well.
 data SubscriptionRequest = SubscriptionRequest
   { _owningApplication    :: ApplicationName
   , _eventTypes           :: [EventTypeName]
