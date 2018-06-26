@@ -36,6 +36,7 @@ module Network.Nakadi.Types.Service
   , SubscriptionPosition(..)
   , Subscription(..)
   , SubscriptionRequest(..)
+  , ConsumerGroup(..)
   , PublishingStatus(..)
   , Step(..)
   , BatchItemResponse(..)
@@ -72,6 +73,6 @@ module Network.Nakadi.Types.Service
   , EventTypeStatistics(..)
   , EventTypeOptions(..)
   )
-where
+  where
 
 import           Network.Nakadi.Internal.Types.Service
