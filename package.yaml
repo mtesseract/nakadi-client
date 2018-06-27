@@ -132,3 +132,4 @@ tests:
     - unliftio
     - monad-logger
     - fast-logger
+    - aeson-qq >= 0.8.2 && < 0.9
