@@ -15,8 +15,6 @@ import           System.Random
 import           Control.Lens
 import qualified Data.Set                      as Set
 import           Data.Aeson
-import           UnliftIO.Async                 ( async )
-import           Control.Monad.Catch            ( MonadMask )
 
 import           Conduit
 
