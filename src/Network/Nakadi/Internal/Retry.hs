@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Retry
 Description : Nakadi Client Retry Mechanism
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental

@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Lenses
 Description : Nakadi Client Library Lenses
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Clasmeier 2017
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
