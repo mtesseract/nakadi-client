@@ -67,11 +67,11 @@ testDecodeCursorCommitResults = do
   let eventType = "http4s-nakadi.test-event"
       offset =  "001-0001-000000000000007598"
       cursorToken = "3bb3a590-ede5-43a9-981e-2bea26347c99"
-      partition = "0"
+      partitionName = "0"
       result = CursorCommitResultOutdated
       cursorCommitResultsJson
        = encode [aesonQQ|
-          { items: [ { cursor: { partition: #{partition}
+          { items: [ { cursor: { partition: #{partitionName}
                                , offset: #{offset}
                                , event_type: #{eventType}
                                , cursor_token: #{cursorToken}
@@ -81,7 +81,7 @@ testDecodeCursorCommitResults = do
                    ]
           }
         |]
-      cursor = SubscriptionCursor { _partition = partition
+      cursor = SubscriptionCursor { _partition = partitionName
                                   , _offset = offset
                                   , _eventType = eventType
                                   , _cursorToken = cursorToken}
