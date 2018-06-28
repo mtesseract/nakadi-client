@@ -10,7 +10,6 @@ where
 import           ClassyPrelude
 import           Control.Lens
 import           Control.Monad.Logger
-import           Data.Maybe                     ( fromJust )
 import qualified Network.Nakadi                as Nakadi
 import           Network.Nakadi.Examples.Subscription.Process
 import qualified Network.Nakadi.Lenses         as L
@@ -53,16 +52,13 @@ testConsumption config = Nakadi.runNakadiT config $ do
  where
   before = do
     recreateEvent myEventType
-    subscription <- Nakadi.subscriptionCreate Nakadi.Subscription
-      { _id                = Nothing
-      , _owningApplication = "test-suite"
-      , _eventTypes        = [myEventTypeName]
-      , _consumerGroup     = Nothing -- ??
-      , _createdAt         = Nothing
-      , _readFrom          = Just Nakadi.SubscriptionPositionEnd
-      , _initialCursors    = Nothing
+    subscription <- Nakadi.subscriptionCreate Nakadi.SubscriptionRequest
+      { _owningApplication    = "test-suite"
+      , _eventTypes           = [myEventTypeName]
+      , _consumerGroup        = Nothing -- ??
+      , _subscriptionPosition = Just Nakadi.SubscriptionPositionEnd
       }
-    pure . fromJust $ subscription ^. L.id
+    pure $ subscription ^. L.id
 
   after subscriptionId = do
     Nakadi.subscriptionDelete subscriptionId

@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Types.Util
 Description : Nakadi Client Utilities for Types (Internal)
-Copyright   : (c) Moritz Schulte 2017
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -14,6 +14,7 @@ module Network.Nakadi.Internal.Types.Util where
 
 import           Data.Aeson
 import           Data.Aeson.Types
+import           Data.Text                      ( Text )
 import           Data.Maybe
 import           Data.Scientific                ( toBoundedInteger )
 import qualified Data.Text                     as Text
@@ -37,3 +38,7 @@ parseInteger label constructor val@(Number n) = case toBoundedInteger n of
   Just i  -> return $ constructor i
   Nothing -> typeMismatch label val
 parseInteger label _ val = typeMismatch label val
+
+parseString :: String -> (Text -> a) -> Value -> Parser a
+parseString _label ctor (String s) = pure (ctor s)
+parseString label  _    val        = typeMismatch label val

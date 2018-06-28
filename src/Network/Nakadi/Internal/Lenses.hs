@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Lenses
 Description : Nakadi Client Library Lenses (Internal)
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -61,6 +61,7 @@ makeNakadiLenses ''SubscriptionCursor
 makeNakadiLenses ''CursorCommit
 makeNakadiLenses ''SubscriptionsListResponse
 makeNakadiLenses ''Subscription
+makeNakadiLenses ''SubscriptionRequest
 
 instance HasNakadiId StreamId Text where
   id f (StreamId a) = StreamId <$> f a
