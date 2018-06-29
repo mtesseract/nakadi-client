@@ -116,12 +116,8 @@ createMySubscription = do
     exn                         -> throwIO exn
   pure (newSubscription ^. L.id)
 
-consumeParametersSingle :: ConsumeParameters
-consumeParametersSingle =
-  defaultConsumeParameters & setBatchLimit 1 & setBatchFlushTimeout 1
-
 testEventTypePublishData :: Config App -> Assertion
-testEventTypePublishData conf = runApp . runNakadiT conf $ do
+testEventTypePublishData conf' = runApp . runNakadiT conf $ do
   now <- liftIO getCurrentTime
   eid <- EventId <$> genRandomUUID
   recreateEvent myEventType
@@ -140,13 +136,13 @@ testEventTypePublishData conf = runApp . runNakadiT conf $ do
   batchTv <- newTVarIO Nothing
   res <- try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    subscriptionProcess (Just consumeParametersSingle)
-                        subscriptionId
-                        (storeBatch batchTv)
+    subscriptionProcess subscriptionId (storeBatch batchTv)
   liftIO $ (Left TerminateConsumption) @=? res
   Just batch <- atomically $ readTVar batchTv
   let Just events = batch ^. L.events :: Maybe (Vector (DataChangeEvent Foo))
   liftIO $ True @=? (Vector.length events > 0)
+
+  where conf = conf' & setBatchLimit 1 & setBatchFlushTimeout 1
 
 storeBatch
   :: MonadIO m
@@ -179,9 +175,7 @@ testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
   res            <-
     try $ withAsync (delayedPublish expectedFlowId [event]) $ \asyncHandle -> do
       liftIO $ link asyncHandle
-      subscriptionProcess (Just consumeParametersSingle)
-                          subscriptionId
-                          (storeBatch batchTv)
+      subscriptionProcess subscriptionId (storeBatch batchTv)
   liftIO $ (Left TerminateConsumption) @=? res
   Just batch <- atomically $ readTVar batchTv
   let Just (e : _) =
@@ -189,7 +183,7 @@ testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
   liftIO $ expectedFlowId @=? e ^. L.metadata . L.flowId
 
 testEventTypeDeserializationFailureException :: Config App -> Assertion
-testEventTypeDeserializationFailureException conf =
+testEventTypeDeserializationFailureException conf' =
   runApp . runNakadiT conf $ do
     now <- liftIO getCurrentTime
     eid <- EventId <$> genRandomUUID
@@ -209,13 +203,14 @@ testEventTypeDeserializationFailureException conf =
     res :: Either NakadiException () <-
       try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
         liftIO $ link asyncHandle
-        subscriptionProcess (Just consumeParametersSingle) subscriptionId
+        subscriptionProcess subscriptionId
           $ \(_batch :: SubscriptionEventStreamBatch ()) -> pure ()
     case res of
       Left (DeserializationFailure _ _) -> pure ()
       Left exn -> liftIO $ assertFailure $ "Unexpected exception: " <> show exn
       Right events ->
         liftIO $ assertFailure $ "Unexpected success: " <> show events
+  where conf = conf' & setBatchLimit 1 & setBatchFlushTimeout 1
 
 testEventTypeDeserializationFailure :: Config App -> Assertion
 testEventTypeDeserializationFailure conf' = runApp . runNakadiT conf $ do
@@ -236,7 +231,7 @@ testEventTypeDeserializationFailure conf' = runApp . runNakadiT conf $ do
   subscriptionId <- createMySubscription
   res <- try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    subscriptionProcess (Just consumeParametersSingle) subscriptionId
+    subscriptionProcess subscriptionId
       $ \(_batch :: SubscriptionEventStreamBatch WrongFoo) ->
           throwIO TerminateConsumption
   liftIO $ Left TerminateConsumption @=? res

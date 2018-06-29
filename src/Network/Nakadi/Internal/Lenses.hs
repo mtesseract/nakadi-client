@@ -55,7 +55,6 @@ makeNakadiLenses ''EventTypeSchemasResponse
 makeNakadiLenses ''PaginationLink
 makeNakadiLenses ''PaginationLinks
 makeNakadiLenses ''SubscriptionStats
-makeNakadiLenses ''ConsumeParameters
 makeNakadiLenses ''SubscriptionCursorCommit
 makeNakadiLenses ''SubscriptionCursor
 makeNakadiLenses ''CursorCommit
