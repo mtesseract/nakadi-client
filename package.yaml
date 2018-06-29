@@ -69,6 +69,7 @@ dependencies:
 - stm
 - unliftio >= 0.2.4.0 && < 0.3
 - async-timer >= 0.2.0.0 && < 0.3
+- stm-chans
 library:
   source-dirs: src
   exposed-modules:

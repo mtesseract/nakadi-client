@@ -28,12 +28,18 @@ where
 
 import           Network.Nakadi.Internal.Prelude
 
+import           Control.Concurrent.STM.TBMQueue
+                                                ( newTBMQueue
+                                                , writeTBMQueue
+                                                , closeTBMQueue
+                                                , readTBMQueue
+                                                )
 import           UnliftIO.STM                   ( TBQueue
                                                 , TVar
-                                                , atomically
                                                 , newTBQueue
                                                 , writeTBQueue
                                                 , readTBQueue
+                                                , atomically
                                                 , modifyTVar
                                                 , newTVar
                                                 , readTVar
@@ -93,7 +99,7 @@ subscriptionProcessConduit
   -> m ()
 subscriptionProcessConduit subscriptionId processor = do
   config <- nakadiAsk
-  let queryParams   = buildConsumeQueryParameters config
+  let queryParams = buildConsumeQueryParameters config
   httpJsonBodyStream
       ok200
       [(status404, errorSubscriptionNotFound)]
@@ -143,10 +149,9 @@ subscriptionProcessHandler subscriptionId processor response = do
       -- committer thread reads from this queue and processes the
       -- cursors.
       queue <- atomically $ newTBQueue 1024
-      withAsync (subscriptionCommitter bufferingStrategy eventStream queue)
-        $ \asyncHandle -> do
-            link asyncHandle
-            runConduit $ producer .| Conduit.mapM_ (sendToQueue queue)
+      withAsync (subscriptionCommitter bufferingStrategy eventStream queue) $ \asyncHandle -> do
+        link asyncHandle
+        runConduit $ producer .| Conduit.mapM_ (sendToQueue queue)
  where
   sendToQueue queue batch = atomically $ do
     let cursor  = batch ^. L.cursor
@@ -221,8 +226,7 @@ subscriptionCommitter
 
 -- | Implementation for the 'CommitNoBuffer' strategy: We simply read
 -- every cursor and commit it in order.
-subscriptionCommitter CommitNoBuffer eventStream queue =
-  unbufferedCommitLoop eventStream queue
+subscriptionCommitter CommitNoBuffer eventStream queue = unbufferedCommitLoop eventStream queue
 
 -- | Implementation of the 'CommitTimeBuffer' strategy: We use an
 -- async timer for committing cursors at specified intervals.
@@ -335,12 +339,18 @@ subscriptionSource
   => SubscriptionId                                    -- ^ Subscription to consume.
   -> ConduitM () (SubscriptionEventStreamBatch a) m () -- ^ Conduit source.
 subscriptionSource subscriptionId = do
-  queue       <- atomically $ newTBQueue queueSize
-  asyncHandle <-
-    lift . async $ subscriptionProcess subscriptionId $ void . atomically . writeTBQueue queue
+  queue       <- atomically $ newTBMQueue queueSize
+  asyncHandle <- lift . async $ do
+    subscriptionProcess subscriptionId $ void . atomically . writeTBMQueue queue
+    atomically $ closeTBMQueue queue
   link asyncHandle
-  forever $ atomically (readTBQueue queue) >>= yield
-  where queueSize = 2048
+  drain queue
+ where
+  queueSize = 2048
+  drain queue =
+    atomically (readTBMQueue queue) >>= \case
+      Just a  -> yield a >> drain queue
+      Nothing -> pure ()
 
 -- | Experimental API.
 
