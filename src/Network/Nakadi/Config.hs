@@ -147,9 +147,6 @@ setFlowId flowId = L.flowId .~ Just flowId
 setCommitStrategy :: CommitStrategy -> Config m -> Config m
 setCommitStrategy = (L.commitStrategy .~)
 
-setShowTimeLag :: Bool -> Config m -> Config m
-setShowTimeLag flag = L.subscriptionStats ?~ SubscriptionStatsConf {_showTimeLag = flag}
-
 -- | Set maximum number of uncommitted events.
 setMaxUncommittedEvents :: Int32 -> Config m -> Config m
 setMaxUncommittedEvents = (L.maxUncommittedEvents ?~)
@@ -173,3 +170,6 @@ setStreamTimeout = (L.streamTimeout ?~)
 -- | Set stream-keep-alive-limit.
 setStreamKeepAliveLimit :: Int32 -> Config m -> Config m
 setStreamKeepAliveLimit = (L.streamKeepAliveLimit ?~)
+
+setShowTimeLag :: Bool -> Config m -> Config m
+setShowTimeLag flag = L.subscriptionStats ?~ SubscriptionStatsConf {_showTimeLag = flag}

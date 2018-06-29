@@ -43,6 +43,7 @@ import           UnliftIO.STM                   ( TBQueue
                                                 , modifyTVar
                                                 , newTVar
                                                 , readTVar
+                                                , readTVarIO
                                                 , swapTVar
                                                 )
 
@@ -339,21 +340,35 @@ subscriptionSource
   => SubscriptionId                                    -- ^ Subscription to consume.
   -> ConduitM () (SubscriptionEventStreamBatch a) m () -- ^ Conduit source.
 subscriptionSource subscriptionId = do
+  streamLimit <- lift nakadiAsk <&> (fmap fromIntegral . view L.streamLimit)
   queue       <- atomically $ newTBMQueue queueSize
-  asyncHandle <- lift . async $ do
-    subscriptionProcess subscriptionId $ void . atomically . writeTBMQueue queue
-    atomically $ closeTBMQueue queue
+  asyncHandle <- lift . async $ subscriptionConsumer streamLimit queue
   link asyncHandle
   drain queue
  where
   queueSize = 2048
-  drain queue =
-    atomically (readTBMQueue queue) >>= \case
-      Just a  -> yield a >> drain queue
-      Nothing -> pure ()
+  drain queue = atomically (readTBMQueue queue) >>= \case
+    Just a  -> yield a >> drain queue
+    Nothing -> pure ()
+
+  subscriptionConsumer maybeStreamLimit queue = do
+    eventCounter <- atomically $ newTVar 0
+    go eventCounter `finally` atomically (closeTBMQueue queue)
+   where
+    go eventCounter = do
+      subscriptionProcess subscriptionId $ \batch -> do
+        let nEvents = maybe 0 length (batch ^. L.events)
+        void . atomically $ do
+          writeTBMQueue queue batch
+          modifyTVar eventCounter (+ nEvents)
+      nEventsConsumed <- readTVarIO eventCounter
+      let shallContinue = case maybeStreamLimit of
+            Just limit -> nEventsConsumed >= limit
+            Nothing    -> True
+      when shallContinue $ go eventCounter
 
 -- | Experimental API.
-
+--
 -- Similar to `subscriptionSource`, but the created Conduit source provides events instead
 -- of event batches.
 subscriptionSourceEvents
