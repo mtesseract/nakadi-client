@@ -344,14 +344,15 @@ subscriptionSource
   => SubscriptionId                                    -- ^ Subscription to consume.
   -> ConduitM () (SubscriptionEventStreamBatch a) m () -- ^ Conduit source.
 subscriptionSource subscriptionId = do
-  queue <- atomically $ newTBQueue queueSize
-  void
-    . lift
+  queue       <- atomically $ newTBQueue queueSize
+  asyncHandle <-
+    lift
     . async
     $ subscriptionProcess (Just consumeParams) subscriptionId
     $ void
     . atomically
     . writeTBQueue queue
+  link asyncHandle
   forever $ atomically (readTBQueue queue) >>= yield
  where
   consumeParams = defaultConsumeParameters & setBatchFlushTimeout 1
