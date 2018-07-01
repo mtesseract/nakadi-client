@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.EventTypes.ShiftedCursors
 Description : Implementation of Nakadi ShiftedCursors API
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental

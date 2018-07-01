@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Types.Logger
 Description : Nakadi Client Logger Types (Internal)
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental

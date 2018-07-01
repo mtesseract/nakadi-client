@@ -60,13 +60,8 @@ eventTypeA = EventType
   , _options              = Nothing
   }
 
-eventSpecA
-  :: EventSpec
-       (BusinessEvent TestEventA)
-       (BusinessEventEnriched TestEventA)
-       TestEventA
-eventSpecA =
-  EventSpec genBusinessEventA eventTypeA (view L.payload) (view L.payload)
+eventSpecA :: EventSpec (BusinessEvent TestEventA) (BusinessEventEnriched TestEventA) TestEventA
+eventSpecA = EventSpec genBusinessEventA eventTypeA (view L.payload) (view L.payload)
 
 genBusinessEventA :: IO (BusinessEvent TestEventA)
 genBusinessEventA = do
@@ -98,19 +93,16 @@ testEvents conf label eventSpec = testGroup
   , testCase "publishAndConsume"    (publishAndConsume conf eventSpec)
   ]
 
-createEventTypeFromSpec
-  :: (MonadUnliftIO m, MonadNakadi base m) => EventSpec a b c -> m ()
+createEventTypeFromSpec :: (MonadUnliftIO m, MonadNakadi base m) => EventSpec a b c -> m ()
 createEventTypeFromSpec eventSpec = do
-  subscriptionIds <-
-    subscriptionsList Nothing (Just [eventSpec & eventType & _name])
-      <&> map (view L.id)
+  subscriptionIds <- subscriptionsList Nothing (Just [eventSpec & eventType & _name])
+    <&> map (view L.id)
   mapM_ subscriptionDelete subscriptionIds
   eventTypeDelete (eventSpec & eventType & _name) `catch` (ignoreExnNotFound ())
   eventTypeCreate (eventType eventSpec)
 
 deleteEventTypeFromSpec :: MonadNakadi base m => EventSpec a b c -> m ()
-deleteEventTypeFromSpec eventSpec =
-  eventTypeDelete (eventSpec & eventType & _name)
+deleteEventTypeFromSpec eventSpec = eventTypeDelete (eventSpec & eventType & _name)
 
 publishAndConsume
   :: forall a b c
@@ -121,17 +113,13 @@ publishAndConsume
 publishAndConsume conf eventSpec =
   runApp
     . runNakadiT conf
-    $ bracket_ (createEventTypeFromSpec eventSpec)
-               (deleteEventTypeFromSpec eventSpec)
+    $ bracket_ (createEventTypeFromSpec eventSpec) (deleteEventTypeFromSpec eventSpec)
     $ bracket (createSubscription eventSpec) subscriptionDelete
     $ \subscriptionId -> do
         events :: [a] <- liftIO $ replicateM 10 (eventSpec & eventGenerator)
         eventsPublish (eventSpec & eventType & _name) events
         consumed :: [b] <-
-          runConduit
-          $  subscriptionSourceEvents subscriptionId
-          .| takeC 10
-          .| sinkList
+          runConduit $ subscriptionSourceEvents subscriptionId .| takeC 10 .| sinkList
         liftIO
           $   map (eventPayload eventSpec)         events
           @=? map (eventEnrichedPayload eventSpec) consumed
@@ -140,8 +128,8 @@ subscriptionSourceEvents
   :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, FromJSON a)
   => SubscriptionId            -- ^ Subscription to consume
   -> ConduitM () a m () -- ^ Conduit processor.
-subscriptionSourceEvents subscriptionId = subscriptionSource subscriptionId
-  .| concatMapC (\batch -> fromMaybe mempty (batch & _events))
+subscriptionSourceEvents subscriptionId =
+  subscriptionSource subscriptionId .| concatMapC (\batch -> fromMaybe mempty (batch & _events))
 
 subscriptionSource
   :: ( MonadNakadi b m
@@ -154,11 +142,8 @@ subscriptionSource
   -> ConduitM () batch m () -- ^ Conduit processor.
 subscriptionSource subscriptionId = do
   queue <- atomically newTQueue
-  void
-    . lift
-    . async
-    $ subscriptionProcess (Just consumeParams) subscriptionId
-    $ \batch -> void . atomically $ writeTQueue queue batch
+  void . lift . async $ subscriptionProcess (Just consumeParams) subscriptionId $ \batch ->
+    void . atomically $ writeTQueue queue batch
   forever $ do
     batch <- atomically $ readTQueue queue
     yield batch
@@ -178,6 +163,5 @@ createAndDeleteEvent :: Config App -> EventSpec a b c -> Assertion
 createAndDeleteEvent conf eventSpec =
   runApp
     . runNakadiT conf
-    $ bracket_ (createEventTypeFromSpec eventSpec)
-               (deleteEventTypeFromSpec eventSpec)
+    $ bracket_ (createEventTypeFromSpec eventSpec) (deleteEventTypeFromSpec eventSpec)
     $ pure ()
