@@ -17,6 +17,7 @@ This module implements a high level interface for the
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE RecordWildCards       #-}
 
 module Network.Nakadi.Subscriptions.Events
   ( subscriptionProcessConduit
@@ -28,8 +29,10 @@ where
 
 import           Network.Nakadi.Internal.Prelude
 
+import Control.Monad.IO.Unlift
 import           Control.Concurrent.STM.TBMQueue
-                                                ( newTBMQueue
+                                                ( TBMQueue
+                                                , newTBMQueue
                                                 , writeTBMQueue
                                                 , closeTBMQueue
                                                 , readTBMQueue
@@ -54,6 +57,7 @@ import           Control.Concurrent.STM         ( retry )
 import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
+import Control.Monad.Trans.Resource (allocate)
 import qualified Data.Conduit.List             as Conduit
                                                 ( mapM_ )
 import           Data.HashMap.Strict            ( HashMap )
@@ -336,13 +340,14 @@ commitOneCursor eventStream cursor = do
 -- any event processing logic. Use this function only if the guarantees provided by Nakadi
 -- for event processing and cursor committing are not required or not desired.
 subscriptionSource
-  :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, FromJSON a)
+  :: forall a b m. (MonadNakadi b m, MonadUnliftIO m, MonadMask m, MonadResource m, FromJSON a)
   => SubscriptionId                                    -- ^ Subscription to consume.
   -> ConduitM () (SubscriptionEventStreamBatch a) m () -- ^ Conduit source.
 subscriptionSource subscriptionId = do
+  UnliftIO {..} <- lift askUnliftIO
   streamLimit <- lift nakadiAsk <&> (fmap fromIntegral . view L.streamLimit)
   queue       <- atomically $ newTBMQueue queueSize
-  asyncHandle <- lift . async $ subscriptionConsumer streamLimit queue
+  (_releaseKey, asyncHandle) <- allocate (unliftIO (async (subscriptionConsumer streamLimit queue))) cancel
   link asyncHandle
   drain queue
  where
@@ -351,6 +356,7 @@ subscriptionSource subscriptionId = do
     Just a  -> yield a >> drain queue
     Nothing -> pure ()
 
+  subscriptionConsumer :: Maybe Int -> TBMQueue (SubscriptionEventStreamBatch a) -> m ()
   subscriptionConsumer maybeStreamLimit queue = do
     eventCounter <- atomically $ newTVar 0
     go eventCounter `finally` atomically (closeTBMQueue queue)
@@ -363,7 +369,7 @@ subscriptionSource subscriptionId = do
           modifyTVar eventCounter (+ nEvents)
       nEventsConsumed <- readTVarIO eventCounter
       let shallContinue = case maybeStreamLimit of
-            Just limit -> nEventsConsumed >= limit
+            Just limit -> nEventsConsumed < limit
             Nothing    -> True
       when shallContinue $ go eventCounter
 
@@ -372,7 +378,7 @@ subscriptionSource subscriptionId = do
 -- Similar to `subscriptionSource`, but the created Conduit source provides events instead
 -- of event batches.
 subscriptionSourceEvents
-  :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, FromJSON a)
+  :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, MonadResource m, FromJSON a)
   => SubscriptionId     -- ^ Subscription to consume
   -> ConduitM () a m () -- ^ Conduit processor.
 subscriptionSourceEvents subscriptionId =

@@ -109,7 +109,7 @@ publishAndConsume
   => Config App
   -> EventSpec a b c
   -> Assertion
-publishAndConsume conf eventSpec =
+publishAndConsume conf' eventSpec =
   runApp
     . runNakadiT conf
     $ bracket_ (createEventTypeFromSpec eventSpec) (deleteEventTypeFromSpec eventSpec)
@@ -121,10 +121,11 @@ publishAndConsume conf eventSpec =
         events :: [a] <- liftIO $ replicateM 10 (eventSpec & eventGenerator)
         eventsPublish (eventSpec & eventType & _name) events
         consumed :: [b] <-
-          runConduit $ subscriptionSourceEvents (subscription ^. L.id) .| takeC 10 .| sinkList
+          runConduitRes $ subscriptionSourceEvents (subscription ^. L.id) .| sinkList
         liftIO
           $   map (eventPayload eventSpec)         events
           @=? map (eventEnrichedPayload eventSpec) consumed
+  where conf = conf' & setBatchFlushTimeout 1 & setStreamLimit 10
 
 createAndDeleteEvent :: Config App -> EventSpec a b c -> Assertion
 createAndDeleteEvent conf eventSpec =
