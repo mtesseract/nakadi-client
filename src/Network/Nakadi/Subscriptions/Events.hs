@@ -29,7 +29,7 @@ where
 
 import           Network.Nakadi.Internal.Prelude
 
-import Control.Monad.IO.Unlift
+import           Control.Monad.IO.Unlift
 import           Control.Concurrent.STM.TBMQueue
                                                 ( TBMQueue
                                                 , newTBMQueue
@@ -46,7 +46,6 @@ import           UnliftIO.STM                   ( TBQueue
                                                 , modifyTVar
                                                 , newTVar
                                                 , readTVar
-                                                , readTVarIO
                                                 , swapTVar
                                                 )
 
@@ -57,7 +56,7 @@ import           Control.Concurrent.STM         ( retry )
 import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
-import Control.Monad.Trans.Resource (allocate)
+import           Control.Monad.Trans.Resource   ( allocate )
 import qualified Data.Conduit.List             as Conduit
                                                 ( mapM_ )
 import           Data.HashMap.Strict            ( HashMap )
@@ -340,14 +339,17 @@ commitOneCursor eventStream cursor = do
 -- any event processing logic. Use this function only if the guarantees provided by Nakadi
 -- for event processing and cursor committing are not required or not desired.
 subscriptionSource
-  :: forall a b m. (MonadNakadi b m, MonadUnliftIO m, MonadMask m, MonadResource m, FromJSON a)
+  :: forall a b m
+   . (MonadNakadi b m, MonadUnliftIO m, MonadMask m, MonadResource m, FromJSON a)
   => SubscriptionId                                    -- ^ Subscription to consume.
   -> ConduitM () (SubscriptionEventStreamBatch a) m () -- ^ Conduit source.
 subscriptionSource subscriptionId = do
-  UnliftIO {..} <- lift askUnliftIO
-  streamLimit <- lift nakadiAsk <&> (fmap fromIntegral . view L.streamLimit)
-  queue       <- atomically $ newTBMQueue queueSize
-  (_releaseKey, asyncHandle) <- allocate (unliftIO (async (subscriptionConsumer streamLimit queue))) cancel
+  UnliftIO {..}              <- lift askUnliftIO
+  streamLimit                <- lift nakadiAsk <&> (fmap fromIntegral . view L.streamLimit)
+  queue                      <- atomically $ newTBMQueue queueSize
+  (_releaseKey, asyncHandle) <- allocate
+    (unliftIO (async (subscriptionConsumer streamLimit queue)))
+    cancel
   link asyncHandle
   drain queue
  where
@@ -357,21 +359,15 @@ subscriptionSource subscriptionId = do
     Nothing -> pure ()
 
   subscriptionConsumer :: Maybe Int -> TBMQueue (SubscriptionEventStreamBatch a) -> m ()
-  subscriptionConsumer maybeStreamLimit queue = do
-    eventCounter <- atomically $ newTVar 0
-    go eventCounter `finally` atomically (closeTBMQueue queue)
+  subscriptionConsumer maybeStreamLimit queue = go `finally` atomically (closeTBMQueue queue)
    where
-    go eventCounter = do
-      subscriptionProcess subscriptionId $ \batch -> do
-        let nEvents = maybe 0 length (batch ^. L.events)
-        void . atomically $ do
-          writeTBMQueue queue batch
-          modifyTVar eventCounter (+ nEvents)
-      nEventsConsumed <- readTVarIO eventCounter
-      let shallContinue = case maybeStreamLimit of
-            Just limit -> nEventsConsumed < limit
-            Nothing    -> True
-      when shallContinue $ go eventCounter
+    go = do
+      subscriptionProcess subscriptionId (void . atomically . writeTBMQueue queue)
+      -- We only reconnect automatically when no stream limit is set.
+      -- This effectively means that we don't try to reach @streamLimit@ events exactly.
+      -- We simply regard @streamLimit@ as an upper bound and in case Nakadi disconnects us
+      -- earlier or the connection breaks, we produce less than @streamLimit@ events.
+      when (isNothing maybeStreamLimit) $ go
 
 -- | Experimental API.
 --
