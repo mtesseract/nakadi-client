@@ -34,8 +34,6 @@ import           Network.Nakadi.Internal.Types
 import           UnliftIO.Async
 import           UnliftIO.STM
 
-type StagedCursorsWithCounter = StagedCursors Int
-
 -- | Implementation of the 'CommitSmartBuffer' strategy: We use an
 -- async timer for committing cursors at specified intervals, but if
 -- the number of uncommitted events reaches some threshold before the
@@ -59,7 +57,7 @@ committerSmartBuffer eventStream queue = do
           (fromIntegral millisDefault)
   if nMaxEvents > 1
     then do
-      cursorsMap <- liftIO . atomically $ newTVar (StagedCursors HashMap.empty)
+      cursorsMap <- liftIO . atomically $ newTVar HashMap.empty
       withAsync (cursorConsumer queue cursorsMap) $ \asyncCursorConsumer -> do
         link asyncCursorConsumer
         Timer.withAsyncTimer timerConf $ cursorCommitter eventStream cursorsMap nMaxEvents
@@ -68,55 +66,62 @@ committerSmartBuffer eventStream queue = do
 -- | The cursorsConsumer drains the cursors queue and adds
 -- each cursor to the provided cursorsMap.
 cursorConsumer
-  :: (MonadIO m) => TBQueue (Int, SubscriptionCursor) -> TVar StagedCursorsWithCounter -> m ()
+  :: (MonadIO m)
+  => TBQueue (Int, SubscriptionCursor)
+  -> TVar (StagedCursorsMap SubscriptionCursorWithCounter)
+  -> m ()
 cursorConsumer queue cursorsMap = forever . liftIO . atomically $ do
   (nEvents, cursor) <- readTBQueue queue
   let key          = cursorKey cursor
-      stagedCursor = StagedCursor cursor nEvents
-  modifyTVar cursorsMap $ L.cursorsMap %~ (HashMap.insertWith updateCursor key stagedCursor)
+      stagedCursor = SubscriptionCursorWithCounter cursor nEvents
+  modifyTVar cursorsMap $ HashMap.insertWith updateCursor key stagedCursor
 
 -- | Adds the old number of events to the new entry in the
 -- cursors map.
-updateCursor :: StagedCursor Int -> StagedCursor Int -> StagedCursor Int
-updateCursor cursorNew cursorOld = cursorNew & L.enrichment %~ (+ (cursorOld ^. L.enrichment))
+updateCursor
+  :: SubscriptionCursorWithCounter -> SubscriptionCursorWithCounter -> SubscriptionCursorWithCounter
+updateCursor cursorNew cursorOld = cursorNew & L.nEvents %~ (+ (cursorOld ^. L.nEvents))
 
 -- | Committer loop.
 cursorCommitter
   :: (MonadNakadi b m, MonadUnliftIO m)
   => SubscriptionEventStream
-  -> TVar StagedCursorsWithCounter
+  -> TVar (StagedCursorsMap SubscriptionCursorWithCounter)
   -> Int
   -> Timer
   -> m ()
-cursorCommitter eventStream cursorsMap nMaxEvents timer = forever $ do
-  race (Timer.wait timer) (maxEventsReached cursorsMap nMaxEvents) >>= \case
-    Left _ ->
-      -- Timer has elapsed, simply commit all currently
-      -- buffered cursors.
-      commitAllCursors eventStream cursorsMap
-    Right _ -> do
-      -- Events processed since last cursor commit have
-      -- crosses configured threshold for at least one
-      -- partition. Commit cursors on all such partitions.
-      Timer.reset timer
-      commitAllCursors eventStream cursorsMap
+cursorCommitter eventStream cursorsMap nMaxEvents timer =
+  forever
+    $   race (Timer.wait timer) (maxEventsReached cursorsMap nMaxEvents)
+    >>= \case
+          Left _ ->
+            -- Timer has elapsed, simply commit all currently
+            -- buffered cursors.
+            commitAllCursors (view L.cursor) eventStream cursorsMap
+          Right _ -> do
+            -- Events processed since last cursor commit have
+            -- crosses configured threshold for at least one
+            -- partition. Commit cursors on all such partitions.
+            Timer.reset timer
+            commitAllCursors (view L.cursor) eventStream cursorsMap
 
 -- | Returns list of cursors that should be committed
 -- considering the number of events processed on the
 -- respective partition since the last commit. Blocks until at
 -- least one such cursor is found.
-maxEventsReached :: MonadIO m => TVar StagedCursorsWithCounter -> Int -> m ()
+maxEventsReached
+  :: MonadIO m => TVar (StagedCursorsMap SubscriptionCursorWithCounter) -> Int -> m ()
 maxEventsReached stagedCursorsTv nMaxEvents = liftIO . atomically $ do
   stagedCursors <- readTVar stagedCursorsTv
-  let cursorsList   = HashMap.elems (stagedCursors ^. L.cursorsMap)
+  let cursorsList   = HashMap.elems stagedCursors
       cursorsCommit = filter (shouldBeCommitted nMaxEvents) cursorsList
   if null cursorsCommit then retry else pure ()
 
 -- | Returns True if the provided staged cursor should be committed.
 -- It is expected that the provided staged cursor carries an integral
 -- enrichment of the same type as @nMaxEvents@.
-shouldBeCommitted :: Int -> StagedCursor Int -> Bool
-shouldBeCommitted nMaxEvents stagedCursor = stagedCursor ^. L.enrichment >= nMaxEvents
+shouldBeCommitted :: Int -> SubscriptionCursorWithCounter -> Bool
+shouldBeCommitted nMaxEvents stagedCursor = stagedCursor ^. L.nEvents >= nMaxEvents
 
 cursorBufferSize :: MonadNakadi b m => m Int
 cursorBufferSize = do

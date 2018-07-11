@@ -12,7 +12,6 @@ used by the subscription API.
 -}
 
 {-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -43,14 +42,13 @@ subscriptionCommitter
   -> SubscriptionEventStream
   -> TBQueue (Int, SubscriptionCursor)
   -> m ()
-subscriptionCommitter CommitNoBuffer eventStream queue = committerNoBuffer eventStream queue
-subscriptionCommitter (CommitTimeBuffer millis) eventStream queue =
-  committerTimeBuffer millis eventStream queue
-subscriptionCommitter CommitSmartBuffer eventStream queue = committerSmartBuffer eventStream queue
+subscriptionCommitter CommitNoBuffer            = committerNoBuffer
+subscriptionCommitter (CommitTimeBuffer millis) = committerTimeBuffer millis
+subscriptionCommitter CommitSmartBuffer         = committerSmartBuffer
 
 -- | Sink which can be used as sink for Conduits processing
--- subscriptions events. This sink takes care of committing events. It
--- can consume any values which contain Subscription Cursors.
+-- subscription batches. This sink takes care of committing
+-- all cursors synchronously, one after the other.
 subscriptionSink
   :: (MonadIO m, MonadNakadi b m)
   => SubscriptionEventStream

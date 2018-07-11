@@ -56,7 +56,7 @@ defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 defaultCommitStrategy :: CommitStrategy
 defaultCommitStrategy = CommitSync
 
--- | Default worker configuration.
+-- | Default worker configuration. This specifies single-threaded consumption of subscriptions.
 defaultWorkerConfig :: WorkerConfig
 defaultWorkerConfig = WorkerConfig {_nThreads = 1}
 

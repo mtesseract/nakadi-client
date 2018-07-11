@@ -7,8 +7,7 @@ Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
 Portability : POSIX
 
-This internal module implements cursor committing strategies to be
-used by the subscription API.
+This internal module implements dispatching of batches to workers.
 -}
 
 {-# LANGUAGE FlexibleContexts      #-}

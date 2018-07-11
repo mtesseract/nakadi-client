@@ -63,11 +63,10 @@ makeNakadiLenses ''CursorCommit
 makeNakadiLenses ''SubscriptionsListResponse
 makeNakadiLenses ''Subscription
 makeNakadiLenses ''WorkerConfig
-makeNakadiLenses ''StagedCursor
-makeNakadiLenses ''StagedCursors
 makeNakadiLenses ''Worker
 makeNakadiLenses ''WorkerRegistry
 makeNakadiLenses ''SubscriptionRequest
+makeNakadiLenses ''SubscriptionCursorWithCounter
 
 instance HasNakadiId StreamId Text where
   id f (StreamId a) = StreamId <$> f a

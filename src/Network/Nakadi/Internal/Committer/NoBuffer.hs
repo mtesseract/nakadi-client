@@ -23,9 +23,7 @@ import           UnliftIO.STM
 -- | Implementation for the 'CommitNoBuffer' strategy: We simply read
 -- every cursor and commit it in order.
 committerNoBuffer
-  :: ( MonadNakadi b m
-     , MonadUnliftIO m
-     , MonadMask m )
+  :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m)
   => SubscriptionEventStream
   -> TBQueue (Int, SubscriptionCursor)
   -> m ()
