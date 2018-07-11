@@ -22,6 +22,7 @@ module Network.Nakadi.Config
   , setHttpErrorCallback
   , setLogFunc
   , setRetryPolicy
+  , setWorkerThreads
   , setMaxUncommittedEvents
   , setBatchLimit
   , setStreamLimit
@@ -55,6 +56,10 @@ defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 defaultCommitStrategy :: CommitStrategy
 defaultCommitStrategy = CommitSync
 
+-- | Default worker configuration.
+defaultWorkerConfig :: WorkerConfig
+defaultWorkerConfig = WorkerConfig {_nThreads = 1}
+
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
 newConfig
@@ -81,6 +86,7 @@ newConfig httpBackend request = Config
   , _batchFlushTimeout              = Nothing
   , _streamTimeout                  = Nothing
   , _streamKeepAliveLimit           = Nothing
+  , _worker                         = defaultWorkerConfig
   }
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
@@ -146,6 +152,13 @@ setFlowId flowId = L.flowId .~ Just flowId
 -- | Set flow ID in the provided configuration.
 setCommitStrategy :: CommitStrategy -> Config m -> Config m
 setCommitStrategy = (L.commitStrategy .~)
+
+-- | Set number of worker threads that should be spawned on
+-- subscription consumption. The (per event-type) partitions of the
+-- subscription to be consumed will then be mapped onto this finite
+-- set of workers.
+setWorkerThreads :: Int -> Config m -> Config m
+setWorkerThreads n = (L.worker . L.nThreads .~ n)
 
 -- | Set maximum number of uncommitted events.
 setMaxUncommittedEvents :: Int32 -> Config m -> Config m
