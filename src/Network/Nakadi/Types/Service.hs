@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Types.Service
 Description : Nakadi Service Types
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -35,6 +35,8 @@ module Network.Nakadi.Types.Service
   , CursorDistanceResult(..)
   , SubscriptionPosition(..)
   , Subscription(..)
+  , SubscriptionRequest(..)
+  , ConsumerGroup(..)
   , PublishingStatus(..)
   , Step(..)
   , BatchItemResponse(..)
@@ -54,7 +56,7 @@ module Network.Nakadi.Types.Service
   , PartitionState(..)
   , PartitionStat(..)
   , SubscriptionEventTypeStats(..)
-  , SubscriptionEventTypeStatsResult(..)
+  , SubscriptionStats(..)
   , EventTypeCategory(..)
   , PartitionStrategy(..)
   , EnrichmentStrategy(..)
@@ -63,11 +65,14 @@ module Network.Nakadi.Types.Service
   , EventType(..)
   , DataChangeEvent(..)
   , DataChangeEventEnriched(..)
+  , BusinessEvent(..)
+  , BusinessEventEnriched(..)
   , DataOp(..)
   , EventMetadata(..)
   , EventMetadataEnriched(..)
   , EventTypeStatistics(..)
   , EventTypeOptions(..)
-  ) where
+  )
+  where
 
 import           Network.Nakadi.Internal.Types.Service

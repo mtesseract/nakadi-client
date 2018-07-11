@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Lenses
 Description : Nakadi Client Library Lenses (Internal)
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -24,9 +24,9 @@ module Network.Nakadi.Internal.Lenses where
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
-import           Data.Text                               (Text)
+import           Data.Text                      ( Text )
 import           Data.Time.Clock
-import           Data.UUID                               (UUID)
+import           Data.UUID                      ( UUID )
 import           Network.Nakadi.Internal.TH
 
 import           Network.Nakadi.Internal.Types.Committer
@@ -35,14 +35,18 @@ import           Network.Nakadi.Internal.Types.Service
 import           Network.Nakadi.Internal.Types.Worker
 
 makeNakadiLenses ''Config
+makeNakadiLenses ''SubscriptionStatsConf
 makeNakadiLenses ''HttpBackend
 makeNakadiLenses ''Cursor
 makeNakadiLenses ''DataChangeEvent
 makeNakadiLenses ''DataChangeEventEnriched
+makeNakadiLenses ''BusinessEvent
+makeNakadiLenses ''BusinessEventEnriched
 makeNakadiLenses ''SubscriptionEventStreamBatch
 makeNakadiLenses ''EventMetadata
 makeNakadiLenses ''EventMetadataEnriched
 makeNakadiLenses ''Partition
+makeNakadiLenses ''PartitionStat
 makeNakadiLenses ''CursorDistanceQuery
 makeNakadiLenses ''CursorDistanceResult
 makeNakadiLenses ''Timestamp
@@ -52,8 +56,7 @@ makeNakadiLenses ''EventType
 makeNakadiLenses ''EventTypeSchemasResponse
 makeNakadiLenses ''PaginationLink
 makeNakadiLenses ''PaginationLinks
-makeNakadiLenses ''SubscriptionEventTypeStatsResult
-makeNakadiLenses ''ConsumeParameters
+makeNakadiLenses ''SubscriptionStats
 makeNakadiLenses ''SubscriptionCursorCommit
 makeNakadiLenses ''SubscriptionCursor
 makeNakadiLenses ''CursorCommit
@@ -64,6 +67,7 @@ makeNakadiLenses ''StagedCursor
 makeNakadiLenses ''StagedCursors
 makeNakadiLenses ''Worker
 makeNakadiLenses ''WorkerRegistry
+makeNakadiLenses ''SubscriptionRequest
 
 instance HasNakadiId StreamId Text where
   id f (StreamId a) = StreamId <$> f a

@@ -25,7 +25,8 @@ import           Control.Lens
 import           Control.Monad.Logger
 import           UnliftIO.STM
 
-import qualified Network.Nakadi.Internal.Lenses                as L
+import qualified Network.Nakadi.Internal.Lenses
+                                               as L
 import           Network.Nakadi.Internal.Types
 
 import           Network.Nakadi.Internal.Committer.NoBuffer
@@ -37,20 +38,15 @@ import           Network.Nakadi.Internal.Committer.TimeBuffer
 -- the provided buffering strategy.
 subscriptionCommitter
   :: forall b m
-   . ( MonadNakadi b m
-     , MonadUnliftIO m
-     , MonadMask m )
+   . (MonadNakadi b m, MonadUnliftIO m, MonadMask m)
   => CommitBufferingStrategy
-  -> ConsumeParameters
   -> SubscriptionEventStream
   -> TBQueue (Int, SubscriptionCursor)
   -> m ()
-subscriptionCommitter CommitNoBuffer _consumeParams eventStream queue =
-  committerNoBuffer eventStream queue
-subscriptionCommitter (CommitTimeBuffer millis) _consumeParams eventStream queue =
+subscriptionCommitter CommitNoBuffer eventStream queue = committerNoBuffer eventStream queue
+subscriptionCommitter (CommitTimeBuffer millis) eventStream queue =
   committerTimeBuffer millis eventStream queue
-subscriptionCommitter CommitSmartBuffer consumeParams eventStream queue =
-  committerSmartBuffer consumeParams eventStream queue
+subscriptionCommitter CommitSmartBuffer eventStream queue = committerSmartBuffer eventStream queue
 
 -- | Sink which can be used as sink for Conduits processing
 -- subscriptions events. This sink takes care of committing events. It
@@ -61,11 +57,13 @@ subscriptionSink
   -> ConduitM (SubscriptionEventStreamBatch a) void m ()
 subscriptionSink eventStream = do
   config <- lift nakadiAsk
-  awaitForever $ \ batch -> lift $ do
-    let cursor  = batch^.L.cursor
-    catchAny (commitOneCursor eventStream cursor) $ \ exn -> nakadiLiftBase $
-      case config^.L.logFunc of
-        Just logFunc -> logFunc "nakadi-client" LevelWarn $ toLogStr $
-          "Failed to synchronously commit cursor: " <> tshow exn
-        Nothing ->
-          pure ()
+  awaitForever $ \batch -> lift $ do
+    let cursor = batch ^. L.cursor
+    catchAny (commitOneCursor eventStream cursor) $ \exn ->
+      nakadiLiftBase $ case config ^. L.logFunc of
+        Just logFunc ->
+          logFunc "nakadi-client" LevelWarn
+            $  toLogStr
+            $  "Failed to synchronously commit cursor: "
+            <> tshow exn
+        Nothing -> pure ()

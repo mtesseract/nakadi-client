@@ -30,7 +30,8 @@ module Network.Nakadi.Internal.Prelude
   , error
   , Request
   , Response
-  ) where
+  )
+where
 
 import           Control.Exception.Safe
 import           Control.Monad
@@ -39,14 +40,19 @@ import           Control.Monad.IO.Unlift
 import           Control.Monad.Reader.Class
 import           Data.ByteString
 import           Data.Int
-import           Data.Map                   (Map)
+import           Data.Map                       ( Map )
 import           Data.Maybe
 import           Data.Monoid
-import           Data.Text                  (Text)
-import qualified Data.Text                  as Text
+import           Data.Text                      ( Text )
+import qualified Data.Text                     as Text
 import           Data.Text.Encoding
-import           Network.HTTP.Client        (Request, Response)
-import           Prelude                    hiding (error, id, undefined)
+import           Network.HTTP.Client            ( Request
+                                                , Response
+                                                )
+import           Prelude                 hiding ( error
+                                                , id
+                                                , undefined
+                                                )
 import qualified Prelude
 
 tshow :: Show a => a -> Text

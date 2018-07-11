@@ -17,16 +17,18 @@ module Network.Nakadi.Internal.Committer.SmartBuffer where
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Control.Concurrent.Async.Timer           (Timer)
-import qualified Control.Concurrent.Async.Timer           as Timer
-import qualified Data.HashMap.Strict                      as HashMap
+import           Control.Concurrent.Async.Timer ( Timer )
+import qualified Control.Concurrent.Async.Timer
+                                               as Timer
+import qualified Data.HashMap.Strict           as HashMap
 
-import           Control.Concurrent.STM                   (retry)
+import           Control.Concurrent.STM         ( retry )
 import           Control.Lens
-import           Data.Function                            ((&))
+import           Data.Function                  ( (&) )
 
 import           Network.Nakadi.Internal.Committer.Shared
-import qualified Network.Nakadi.Internal.Lenses           as L
+import qualified Network.Nakadi.Internal.Lenses
+                                               as L
 import           Network.Nakadi.Internal.Types
 
 import           UnliftIO.Async
@@ -45,50 +47,38 @@ type StagedCursorsWithCounter = StagedCursors Int
 -- respective partition since the last commit.
 committerSmartBuffer
   :: forall b m
-   . ( MonadNakadi b m
-     , MonadUnliftIO m
-     , MonadMask m )
-  => ConsumeParameters
-  -> SubscriptionEventStream
+   . (MonadNakadi b m, MonadUnliftIO m, MonadMask m)
+  => SubscriptionEventStream
   -> TBQueue (Int, SubscriptionCursor)
   -> m ()
-committerSmartBuffer consumeParams eventStream queue = do
+committerSmartBuffer eventStream queue = do
+  nMaxEvents <- cursorBufferSize
   let millisDefault = 1000
-      nMaxEvents    = cursorBufferSize consumeParams
-      timerConf     = Timer.defaultConf
-                      & Timer.setInitDelay (fromIntegral millisDefault)
-                      & Timer.setInterval  (fromIntegral millisDefault)
+      timerConf =
+        Timer.defaultConf & Timer.setInitDelay (fromIntegral millisDefault) & Timer.setInterval
+          (fromIntegral millisDefault)
   if nMaxEvents > 1
-    then do cursorsMap <- liftIO . atomically $
-              newTVar (StagedCursors HashMap.empty)
-            withAsync (cursorConsumer queue cursorsMap) $ \ asyncCursorConsumer -> do
-              link asyncCursorConsumer
-              Timer.withAsyncTimer timerConf $
-                cursorCommitter eventStream cursorsMap nMaxEvents
+    then do
+      cursorsMap <- liftIO . atomically $ newTVar (StagedCursors HashMap.empty)
+      withAsync (cursorConsumer queue cursorsMap) $ \asyncCursorConsumer -> do
+        link asyncCursorConsumer
+        Timer.withAsyncTimer timerConf $ cursorCommitter eventStream cursorsMap nMaxEvents
     else unbufferedCommitLoop eventStream queue
 
 -- | The cursorsConsumer drains the cursors queue and adds
 -- each cursor to the provided cursorsMap.
 cursorConsumer
-  :: (MonadIO m)
-  => TBQueue (Int, SubscriptionCursor)
-  -> TVar StagedCursorsWithCounter
-  -> m ()
+  :: (MonadIO m) => TBQueue (Int, SubscriptionCursor) -> TVar StagedCursorsWithCounter -> m ()
 cursorConsumer queue cursorsMap = forever . liftIO . atomically $ do
   (nEvents, cursor) <- readTBQueue queue
   let key          = cursorKey cursor
       stagedCursor = StagedCursor cursor nEvents
-  modifyTVar cursorsMap $
-    L.cursorsMap %~ (HashMap.insertWith updateCursor key stagedCursor)
+  modifyTVar cursorsMap $ L.cursorsMap %~ (HashMap.insertWith updateCursor key stagedCursor)
 
 -- | Adds the old number of events to the new entry in the
 -- cursors map.
-updateCursor
-  :: StagedCursor Int
-  -> StagedCursor Int
-  -> StagedCursor Int
-updateCursor cursorNew cursorOld =
-  cursorNew & L.enrichment %~ (+ (cursorOld^.L.enrichment))
+updateCursor :: StagedCursor Int -> StagedCursor Int -> StagedCursor Int
+updateCursor cursorNew cursorOld = cursorNew & L.enrichment %~ (+ (cursorOld ^. L.enrichment))
 
 -- | Committer loop.
 cursorCommitter
@@ -98,8 +88,8 @@ cursorCommitter
   -> Int
   -> Timer
   -> m ()
-cursorCommitter eventStream cursorsMap nMaxEvents timer = forever $  do
-  race (Timer.wait timer) (maxEventsReached cursorsMap nMaxEvents) >>= \ case
+cursorCommitter eventStream cursorsMap nMaxEvents timer = forever $ do
+  race (Timer.wait timer) (maxEventsReached cursorsMap nMaxEvents) >>= \case
     Left _ ->
       -- Timer has elapsed, simply commit all currently
       -- buffered cursors.
@@ -118,26 +108,20 @@ cursorCommitter eventStream cursorsMap nMaxEvents timer = forever $  do
 maxEventsReached :: MonadIO m => TVar StagedCursorsWithCounter -> Int -> m ()
 maxEventsReached stagedCursorsTv nMaxEvents = liftIO . atomically $ do
   stagedCursors <- readTVar stagedCursorsTv
-  let cursorsList   = HashMap.elems (stagedCursors^.L.cursorsMap)
+  let cursorsList   = HashMap.elems (stagedCursors ^. L.cursorsMap)
       cursorsCommit = filter (shouldBeCommitted nMaxEvents) cursorsList
-  if null cursorsCommit
-    then retry
-    else pure ()
+  if null cursorsCommit then retry else pure ()
 
 -- | Returns True if the provided staged cursor should be committed.
 -- It is expected that the provided staged cursor carries an integral
 -- enrichment of the same type as @nMaxEvents@.
 shouldBeCommitted :: Int -> StagedCursor Int -> Bool
-shouldBeCommitted nMaxEvents stagedCursor =
-  stagedCursor^.L.enrichment >= nMaxEvents
+shouldBeCommitted nMaxEvents stagedCursor = stagedCursor ^. L.enrichment >= nMaxEvents
 
-cursorBufferSize :: ConsumeParameters -> Int
-cursorBufferSize consumeParams =
-  case consumeParams^.L.maxUncommittedEvents of
+cursorBufferSize :: MonadNakadi b m => m Int
+cursorBufferSize = do
+  conf <- nakadiAsk
+  pure $ case conf ^. L.maxUncommittedEvents of
     Nothing -> 1
-    Just n  -> n
-               & fromIntegral
-               & (* safetyFactor)
-               & round
-
-  where safetyFactor     = 0.5
+    Just n  -> n & fromIntegral & (* safetyFactor) & round
+  where safetyFactor = 0.5

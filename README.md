@@ -25,27 +25,18 @@ Please note that the **API is not considered stable yet**.
 
 - A type-safe API for interacting with Nakadi. For example, the name
   of an event type has type `EventTypeName`, not `Text` or something
-  generic.
+  generic. Correct types for values like `CursorOffset` are provided
+  (which must be treated as opaque strings).
 
 - Integrated and configurable retry mechanism.
 
 - Conduit based interfaces for streaming events.
 
-- Convenient Subscription API interface (`subscriptionSource` &
-  `runSubscription`), which frees the user from any manual bookkeeping
-  of the Subscription Stream ID necessary for commiting cursors.
+- Convenient Subscription API interface (`subscriptionProcess` &
+  `subscriptionProcessConduit`), which frees the user from any manual
+  bookkeeping.
 
 - Mechanism for registering callbacks for logging and token injection.
-
-- Correct types for values like `CursorOffset` (which must be treated
-  as opaque strings).
-
-- Basically each API function is exposed in two versions: One which
-  requires the caller to pass in a Nakadi configuration value
-  containing the information about how to connect to Nakadi and one
-  which is suffixed with `R` (think: Reader monad), which expects to
-  find the Nakadi configuration in the environment provided by a
-  reader monad in your application's monad stack.
 
 ### Example
 

@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Types.Service
 Description : Nakadi Client Service Types (Internal)
-Copyright   : (c) Moritz Schulte 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -16,6 +16,7 @@ Types modelling the Nakadi Service API.
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE RecordWildCards       #-}
 
 module Network.Nakadi.Internal.Types.Service where
 
@@ -25,12 +26,13 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import           Data.Aeson.Types
 import           Data.Hashable
+import qualified Data.HashMap.Strict           as HashMap
 import           Data.String
-import qualified Data.Text                          as Text
+import qualified Data.Text                     as Text
 import           Data.Time
 import           Data.Time.ISO8601
 import           Data.UUID
-import           Data.Vector                        (Vector)
+import           Data.Vector                    ( Vector )
 import           GHC.Generics
 
 import           Network.Nakadi.Internal.Json
@@ -279,39 +281,153 @@ newtype CursorDistanceResult = CursorDistanceResult
 
 deriveJSON nakadiJsonOptions ''CursorDistanceResult
 
--- | Type for subscription positions.
+-- | This type models the "read_from" field contained in subscription objects.
+
+data SubscriptionReadFrom = SubscriptionReadFromBegin
+                          | SubscriptionReadFromEnd
+                          | SubscriptionReadFromCursors
+                          deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance ToJSON SubscriptionReadFrom where
+  toJSON = \case
+    SubscriptionReadFromBegin   -> "begin"
+    SubscriptionReadFromEnd     -> "end"
+    SubscriptionReadFromCursors -> "cursors"
+
+instance FromJSON SubscriptionReadFrom where
+  parseJSON = \case
+    "begin"   -> return SubscriptionReadFromBegin
+    "end"     -> return SubscriptionReadFromEnd
+    "cursors" -> return SubscriptionReadFromCursors
+    invalid   -> typeMismatch "SubscriptionReadFrom" invalid
+
+-- | Type modelling a subscription position.
 
 data SubscriptionPosition = SubscriptionPositionBegin
                           | SubscriptionPositionEnd
-                          | SubscriptionPositionCursors
+                          | SubscriptionPositionCursors [SubscriptionCursorWithoutToken]
                           deriving (Show, Eq, Ord, Generic, Hashable)
 
+-- | Internal helper function for converting a 'SubscriptionPosition' into a
+-- JSON Object (not a JSON Value). Removes the need for partial pattern matching later.
+subscriptionPositionToObject :: SubscriptionPosition -> Object
+subscriptionPositionToObject = \case
+    SubscriptionPositionBegin ->
+      HashMap.fromList [("read_from", toJSON SubscriptionReadFromBegin)]
+    SubscriptionPositionEnd ->
+      HashMap.fromList [("read_from", toJSON SubscriptionReadFromEnd)]
+    SubscriptionPositionCursors cursors ->
+      HashMap.fromList [("read_from", toJSON SubscriptionReadFromCursors)
+                       ,("cursors",   toJSON cursors)]
+
 instance ToJSON SubscriptionPosition where
-  toJSON pos = case pos of
-                 SubscriptionPositionBegin   -> "begin"
-                 SubscriptionPositionEnd     -> "end"
-                 SubscriptionPositionCursors -> "cursors"
+  toJSON = Object . subscriptionPositionToObject
 
 instance FromJSON SubscriptionPosition where
-  parseJSON pos = case pos of
-                    "begin"   -> return SubscriptionPositionBegin
-                    "end"     -> return SubscriptionPositionEnd
-                    "cursors" -> return SubscriptionPositionCursors
-                    invalid   -> typeMismatch "SubscriptionPosition" invalid
+  parseJSON = withObject "SubscriptionPosition" $ \obj -> do
+    readFrom <- obj .: "read_from" >>= parseJSON
+    case readFrom of
+      SubscriptionReadFromBegin ->
+        pure SubscriptionPositionBegin
+      SubscriptionReadFromEnd ->
+        pure SubscriptionPositionEnd
+      SubscriptionReadFromCursors ->
+        SubscriptionPositionCursors <$> obj .: "cursors"
 
--- | Type for a Subscription.
+-- | This type models the value describing the use case of a subscription.
+-- In general this is an additional identifier used to differ subscriptions
+-- having the same owning application and event types.
+data ConsumerGroup = ConsumerGroup { unConsumerGroup :: Text }
+  deriving (Eq, Ord, Show, Generic, Hashable)
 
+instance IsString ConsumerGroup where
+  fromString = ConsumerGroup . Text.pack
+
+instance ToJSON ConsumerGroup where
+  toJSON = String . unConsumerGroup
+
+instance FromJSON ConsumerGroup where
+  parseJSON = parseString "ConsumerGroup" ConsumerGroup
+
+-- | Type for a Subscription which has already been created.
+--
+-- When a subscription object is retrieved from Nakadi the following fields
+-- are regarded as mandatory:
+--
+--   * @id@
+--   * @owning_application@
+--   * @event_types@
+--   * @consumer_group@
+--   * @created_at@
+--   * @read_from@
+--   * depending on @read_from@ also @cursors@.
 data Subscription = Subscription
-  { _id                :: Maybe SubscriptionId
-  , _owningApplication :: ApplicationName
-  , _eventTypes        :: [EventTypeName]
-  , _consumerGroup     :: Maybe Text
-  , _createdAt         :: Maybe Timestamp
-  , _readFrom          :: Maybe SubscriptionPosition
-  , _initialCursors    :: Maybe [SubscriptionCursorWithoutToken]
+  { _id                   :: SubscriptionId
+  , _owningApplication    :: ApplicationName
+  , _eventTypes           :: [EventTypeName]
+  , _consumerGroup        :: ConsumerGroup
+  , _createdAt            :: Timestamp
+  , _subscriptionPosition :: SubscriptionPosition
   } deriving (Show, Eq, Ord, Generic, Hashable)
 
-deriveJSON nakadiJsonOptions ''Subscription
+instance FromJSON Subscription where
+  parseJSON = withObject "Subscription" $ \obj ->
+    Subscription <$> obj .: "id"
+                 <*> obj .: "owning_application"
+                 <*> obj .: "event_types"
+                 <*> obj .: "consumer_group"
+                 <*> obj .: "created_at"
+                 <*> parseJSON (Object obj)
+
+instance ToJSON Subscription where
+  toJSON Subscription {..} =
+      let obj = HashMap.fromList [ ("id",                 toJSON _id)
+                                 , ("owning_application", toJSON _owningApplication)
+                                 , ("event_types",        toJSON _eventTypes)
+                                 , ("consumer_group",     toJSON _consumerGroup)
+                                 , ("created_at",         toJSON _createdAt) ]
+                <> subscriptionPositionToObject _subscriptionPosition
+      in Object obj
+
+-- | Type for a Subscription which is to be created.
+--
+-- When a subscription is to be created the following fields
+-- are regarded as mandatory in the subscription object:
+--
+--   * @owning_application@
+--   * @event_types@
+--
+-- The remaining fields are regarded as optional:
+--
+--   * @consumer_group@
+--   * @read_from@
+--   * depending on @read_from@ the field @cursors@ might
+--     have to be present as well.
+data SubscriptionRequest = SubscriptionRequest
+  { _owningApplication    :: ApplicationName
+  , _eventTypes           :: [EventTypeName]
+  , _consumerGroup        :: Maybe ConsumerGroup
+  , _subscriptionPosition :: Maybe SubscriptionPosition
+  } deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance FromJSON SubscriptionRequest where
+  parseJSON = withObject "SubscriptionRequest" $ \obj ->
+    SubscriptionRequest <$> obj .: "owning_application"
+                        <*> obj .: "event_types"
+                        <*> obj .:? "consumer_group"
+                        <*> parseJSON (Object obj)
+
+instance ToJSON SubscriptionRequest where
+  toJSON SubscriptionRequest {..} =
+    let obj = subscriptionPositionToObject (fromMaybe SubscriptionPositionEnd _subscriptionPosition)
+              <> HashMap.fromList [ ("owning_application", toJSON _owningApplication)
+                                  , ("event_types",        toJSON _eventTypes) ]
+              <> case _consumerGroup of
+                  Just consumerGroup ->
+                    HashMap.fromList [ ("consumer_group", toJSON consumerGroup) ]
+                  Nothing ->
+                    HashMap.empty
+    in Object obj
 
 -- | Type for publishing status.
 data PublishingStatus = PublishingStatusSubmitted
@@ -541,10 +657,11 @@ instance FromJSON PartitionState where
 -- | Type for per-partition statistics.
 
 data PartitionStat = PartitionStat
-  { _partition        :: PartitionName
-  , _state            :: PartitionState
-  , _unconsumedEvents :: Int64
-  , _streamId         :: StreamId
+  { _partition          :: PartitionName
+  , _state              :: PartitionState
+  , _unconsumedEvents   :: Maybe Int64
+  , _streamId           :: Maybe StreamId
+  , _consumerLagSeconds :: Maybe Int64
   } deriving (Show, Eq, Ord, Generic)
 
 deriveJSON nakadiJsonOptions ''PartitionStat
@@ -558,15 +675,16 @@ data SubscriptionEventTypeStats = SubscriptionEventTypeStats
 
 deriveJSON nakadiJsonOptions ''SubscriptionEventTypeStats
 
--- | SubscriptionEventTypeStatsResult
+-- | Type modelling per-subscription statistics. Objects of this type are returned by
+-- requests to /subscriptions/SUBSCRIPTION-ID/stats.
 
-newtype SubscriptionEventTypeStatsResult = SubscriptionEventTypeStatsResult
+newtype SubscriptionStats = SubscriptionStats
   { _items :: [SubscriptionEventTypeStats]
   } deriving (Show, Eq, Ord, Generic)
 
-deriveJSON nakadiJsonOptions ''SubscriptionEventTypeStatsResult
+deriveJSON nakadiJsonOptions ''SubscriptionStats
 
--- | Type for the category of an 'EventType'.
+--  | Type for the category of an 'EventType'.
 
 data EventTypeCategory = EventTypeCategoryUndefined
                        | EventTypeCategoryData
@@ -783,3 +901,56 @@ data DataChangeEventEnriched a = DataChangeEventEnriched
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''DataChangeEventEnriched
+
+-- | Type modelling a "Business Event". Their JSON encodings are special since the payload
+-- object is directly enriched with a @metadata@ field. "Data Change Events" on the other side
+-- are JSON-encoded such that the complete event payload is contained in a seperate object field.
+--
+-- On the Haskell API side we split payload from meta data, which requires us to write custom
+-- 'ToJSON' and 'FromJSON' implementations.
+
+data BusinessEvent a = BusinessEvent
+  { _payload  :: a             -- ^ Event Payload.
+  , _metadata :: EventMetadata -- ^ Event Metadata.
+  } deriving (Eq, Show, Generic)
+
+instance FromJSON a => FromJSON (BusinessEvent a) where
+  parseJSON = withObject "BusinessEvent" $ \obj ->
+    BusinessEvent <$> parseJSON (Object obj) <*> obj .: "metadata"
+
+instance ToJSON a => ToJSON (BusinessEvent a) where
+  toJSON BusinessEvent {..} =
+    case toJSON _payload of
+      Object o ->
+        -- If the JSON encoding of the event payload is an object, extend
+        -- the object with metadata.
+        Object (o <> metadata)
+      _ ->
+        -- Otherwise, produce an object that only contains metadata.
+        Object metadata
+    where metadata = HashMap.fromList [("metadata", toJSON _metadata)]
+
+-- | Type modelling a Nakadi-enriched "Business Event". JSON encoding is basically the same as
+-- for the non-enriched Business Events.
+data BusinessEventEnriched a = BusinessEventEnriched
+  { _payload  :: a -- Cannot be named '_data', as this this would
+                   -- cause the lense 'data' to be created, which is a
+                   -- reserved keyword.
+  , _metadata :: EventMetadataEnriched
+  } deriving (Eq, Show, Generic)
+
+instance FromJSON a => FromJSON (BusinessEventEnriched a) where
+  parseJSON = withObject "BusinessEventEnriched" $ \obj ->
+    BusinessEventEnriched <$> parseJSON (Object obj) <*> obj .: "metadata"
+
+instance ToJSON a => ToJSON (BusinessEventEnriched a) where
+  toJSON BusinessEventEnriched {..} =
+    case toJSON _payload of
+      Object o ->
+        -- If the JSON encoding of the event payload is an object, extend
+        -- the object with metadata.
+        Object (o <> metadata)
+      _ ->
+        -- Otherwise, produce an object that only contains metadata.
+        Object metadata
+    where metadata = HashMap.fromList [("metadata", toJSON _metadata)]
