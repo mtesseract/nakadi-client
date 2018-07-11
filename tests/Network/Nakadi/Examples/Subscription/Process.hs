@@ -12,7 +12,7 @@ import Control.Monad.Catch (MonadMask)
 dumpSubscription :: (MonadLogger m, MonadNakadi IO m, MonadUnliftIO m, MonadMask m)
                  => Nakadi.SubscriptionId -> m ()
 dumpSubscription subscriptionId =
-  Nakadi.subscriptionProcess Nothing subscriptionId processBatch
+  Nakadi.subscriptionProcess subscriptionId processBatch
 
   where processBatch :: MonadLogger m => Nakadi.SubscriptionEventStreamBatch Value -> m ()
         processBatch batch =

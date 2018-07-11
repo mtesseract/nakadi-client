@@ -340,6 +340,9 @@ instance FromJSON SubscriptionPosition where
 data ConsumerGroup = ConsumerGroup { unConsumerGroup :: Text }
   deriving (Eq, Ord, Show, Generic, Hashable)
 
+instance IsString ConsumerGroup where
+  fromString = ConsumerGroup . Text.pack
+
 instance ToJSON ConsumerGroup where
   toJSON = String . unConsumerGroup
 

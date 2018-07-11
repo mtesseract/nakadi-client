@@ -17,33 +17,46 @@ This module implements a high level interface for the
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE RecordWildCards       #-}
 
 module Network.Nakadi.Subscriptions.Events
   ( subscriptionProcessConduit
   , subscriptionProcess
+  , subscriptionSource
+  , subscriptionSourceEvents
   )
 where
 
 import           Network.Nakadi.Internal.Prelude
 
+import           Control.Monad.IO.Unlift
+import           Control.Concurrent.STM.TBMQueue
+                                                ( TBMQueue
+                                                , newTBMQueue
+                                                , writeTBMQueue
+                                                , closeTBMQueue
+                                                , readTBMQueue
+                                                )
+import           UnliftIO.STM                   ( TBQueue
+                                                , TVar
+                                                , newTBQueue
+                                                , writeTBQueue
+                                                , readTBQueue
+                                                , atomically
+                                                , modifyTVar
+                                                , newTVar
+                                                , readTVar
+                                                , swapTVar
+                                                )
+
 import           Conduit                 hiding ( throwM )
 import qualified Control.Concurrent.Async.Timer
                                                as Timer
-import           Control.Concurrent.STM         ( TBQueue
-                                                , TVar
-                                                , atomically
-                                                , modifyTVar
-                                                , newTBQueue
-                                                , newTVar
-                                                , readTBQueue
-                                                , readTVar
-                                                , retry
-                                                , swapTVar
-                                                , writeTBQueue
-                                                )
+import           Control.Concurrent.STM         ( retry )
 import           Control.Lens
 import           Control.Monad.Logger
 import           Data.Aeson
+import           Control.Monad.Trans.Resource   ( allocate )
 import qualified Data.Conduit.List             as Conduit
                                                 ( mapM_ )
 import           Data.HashMap.Strict            ( HashMap )
@@ -58,6 +71,7 @@ import           Network.Nakadi.Internal.Http
 import qualified Network.Nakadi.Internal.Lenses
                                                as L
 import           Network.Nakadi.Subscriptions.Cursors
+
 import           UnliftIO.Async
 
 -- | Consumes the specified subscription using the commit strategy
@@ -66,15 +80,10 @@ import           UnliftIO.Async
 -- action throws an exception, subscription consumption will terminate.
 subscriptionProcess
   :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, FromJSON a)
-  => Maybe ConsumeParameters                  -- ^ 'ConsumeParameters'
-                                              -- to use
-  -> SubscriptionId                           -- ^ Subscription to consume
+  => SubscriptionId                           -- ^ Subscription to consume
   -> (SubscriptionEventStreamBatch a -> m ()) -- ^ Batch processor action
   -> m ()
-subscriptionProcess maybeConsumeParameters subscriptionId processor = subscriptionProcessConduit
-  maybeConsumeParameters
-  subscriptionId
-  conduit
+subscriptionProcess subscriptionId processor = subscriptionProcessConduit subscriptionId conduit
   where conduit = iterMC processor
 
 -- | Conduit based interface for subscription consumption. Consumes
@@ -89,19 +98,17 @@ subscriptionProcessConduit
      , FromJSON a
      , batch ~ SubscriptionEventStreamBatch a
      )
-  => Maybe ConsumeParameters   -- ^ 'ConsumeParameters' to use
-  -> SubscriptionId            -- ^ Subscription to consume
+  => SubscriptionId            -- ^ Subscription to consume
   -> ConduitM batch batch m () -- ^ Conduit processor.
   -> m ()
-subscriptionProcessConduit maybeConsumeParameters subscriptionId processor = do
+subscriptionProcessConduit subscriptionId processor = do
   config <- nakadiAsk
-  let consumeParams = fromMaybe defaultConsumeParameters maybeConsumeParameters
-      queryParams   = buildSubscriptionConsumeQueryParameters consumeParams
+  let queryParams = buildConsumeQueryParameters config
   httpJsonBodyStream
       ok200
       [(status404, errorSubscriptionNotFound)]
       (includeFlowId config . setRequestPath path . setRequestQueryParameters queryParams)
-    $ subscriptionProcessHandler consumeParams subscriptionId processor
+    $ subscriptionProcessHandler subscriptionId processor
   where path = "/subscriptions/" <> subscriptionIdToByteString subscriptionId <> "/events"
 
 -- | Derive a 'SubscriptionEventStream' from the provided
@@ -125,12 +132,11 @@ subscriptionProcessHandler
      , FromJSON a
      , batch ~ (SubscriptionEventStreamBatch a)
      )
-  => ConsumeParameters
-  -> SubscriptionId                         -- ^ Subscription ID required for committing.
+  => SubscriptionId                         -- ^ Subscription ID required for committing.
   -> ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
   -> Response (ConduitM () ByteString m ()) -- ^ Streaming response from Nakadi
   -> m ()
-subscriptionProcessHandler consumeParams subscriptionId processor response = do
+subscriptionProcessHandler subscriptionId processor response = do
   config      <- nakadiAsk
   eventStream <- buildSubscriptionEventStream subscriptionId response
   let producer = responseBody response .| linesUnboundedAsciiC .| conduitDecode config .| processor
@@ -146,13 +152,12 @@ subscriptionProcessHandler consumeParams subscriptionId processor response = do
       -- sink that sends cursor information to the queue. The cursor
       -- committer thread reads from this queue and processes the
       -- cursors.
-      queue <- liftIO . atomically $ newTBQueue 1024
-      withAsync (subscriptionCommitter bufferingStrategy consumeParams eventStream queue)
-        $ \asyncHandle -> do
-            link asyncHandle
-            runConduit $ producer .| Conduit.mapM_ (sendToQueue queue)
+      queue <- atomically $ newTBQueue 1024
+      withAsync (subscriptionCommitter bufferingStrategy eventStream queue) $ \asyncHandle -> do
+        link asyncHandle
+        runConduit $ producer .| Conduit.mapM_ (sendToQueue queue)
  where
-  sendToQueue queue batch = liftIO . atomically $ do
+  sendToQueue queue batch = atomically $ do
     let cursor  = batch ^. L.cursor
         events  = fromMaybe Vector.empty (batch ^. L.events)
         nEvents = length events
@@ -196,7 +201,7 @@ unbufferedCommitLoop
 unbufferedCommitLoop eventStream queue = do
   config <- nakadiAsk
   forever $ do
-    (_nEvents, cursor) <- liftIO . atomically . readTBQueue $ queue
+    (_nEvents, cursor) <- atomically . readTBQueue $ queue
     catchAny (subscriptionCursorCommit eventStream [cursor]) $ \exn -> do
       nakadiLiftBase $ case config ^. L.logFunc of
         Just logFunc ->
@@ -208,8 +213,8 @@ unbufferedCommitLoop eventStream queue = do
             <> tshow exn
         Nothing -> pure ()
 
-cursorBufferSize :: ConsumeParameters -> Int
-cursorBufferSize consumeParams = case consumeParams ^. L.maxUncommittedEvents of
+cursorBufferSize :: Config m -> Int
+cursorBufferSize conf = case _maxUncommittedEvents conf of
   Nothing -> 1
   Just n  -> n & fromIntegral & (* safetyFactor) & round
   where safetyFactor = 0.5
@@ -219,19 +224,17 @@ cursorBufferSize consumeParams = case consumeParams ^. L.maxUncommittedEvents of
 subscriptionCommitter
   :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m)
   => CommitBufferingStrategy
-  -> ConsumeParameters
   -> SubscriptionEventStream
   -> TBQueue (Int, SubscriptionCursor)
   -> m ()
 
 -- | Implementation for the 'CommitNoBuffer' strategy: We simply read
 -- every cursor and commit it in order.
-subscriptionCommitter CommitNoBuffer _consumeParams eventStream queue =
-  unbufferedCommitLoop eventStream queue
+subscriptionCommitter CommitNoBuffer eventStream queue = unbufferedCommitLoop eventStream queue
 
 -- | Implementation of the 'CommitTimeBuffer' strategy: We use an
 -- async timer for committing cursors at specified intervals.
-subscriptionCommitter (CommitTimeBuffer millis) _consumeParams eventStream queue = do
+subscriptionCommitter (CommitTimeBuffer millis) eventStream queue = do
   let timerConf = Timer.defaultConf & Timer.setInitDelay (fromIntegral millis) & Timer.setInterval
         (fromIntegral millis)
   cursorsMap <- liftIO . atomically $ newTVar emptyCursorsMap
@@ -251,10 +254,11 @@ subscriptionCommitter (CommitTimeBuffer millis) _consumeParams eventStream queue
 -- the number of uncommitted events reaches some threshold before the
 -- next scheduled commit, a commit is being done right away and the
 -- timer is resetted.
-subscriptionCommitter CommitSmartBuffer consumeParams eventStream queue = do
+subscriptionCommitter CommitSmartBuffer eventStream queue = do
+  config <- nakadiAsk
   let
     millisDefault = 1000
-    nMaxEvents    = cursorBufferSize consumeParams
+    nMaxEvents    = cursorBufferSize config
     timerConf =
       Timer.defaultConf & Timer.setInitDelay (fromIntegral millisDefault) & Timer.setInterval
         (fromIntegral millisDefault)
@@ -276,18 +280,20 @@ subscriptionCommitter CommitSmartBuffer consumeParams eventStream queue = do
   updateCursor cursorNew (nEventsOld, _) = cursorNew & _1 %~ (+ nEventsOld)
 
   -- | Committer loop.
-  cursorCommitter cursorsMap nMaxEvents timer = forever $ do
-    race (Timer.wait timer) (maxEventsReached cursorsMap nMaxEvents) >>= \case
-      Left _ ->
-        -- Timer has elapsed, simply commit all currently
-        -- buffered cursors.
-        commitAllCursors eventStream cursorsMap
-      Right _ -> do
-        -- Events processed since last cursor commit have
-        -- crosses configured threshold for at least one
-        -- partition. Commit cursors on all such partitions.
-        Timer.reset timer
-        commitAllCursors eventStream cursorsMap
+  cursorCommitter cursorsMap nMaxEvents timer =
+    forever
+      $   race (Timer.wait timer) (maxEventsReached cursorsMap nMaxEvents)
+      >>= \case
+            Left _ ->
+              -- Timer has elapsed, simply commit all currently
+              -- buffered cursors.
+              commitAllCursors eventStream cursorsMap
+            Right _ -> do
+              -- Events processed since last cursor commit have
+              -- crosses configured threshold for at least one
+              -- partition. Commit cursors on all such partitions.
+              Timer.reset timer
+              commitAllCursors eventStream cursorsMap
 
   -- | Returns list of cursors that should be committed
   -- considering the number of events processed on the
@@ -325,3 +331,51 @@ commitOneCursor eventStream cursor = do
             <> ": "
             <> tshow exn
         Nothing -> pure ()
+
+-- | Experimental API.
+--
+-- Creates a Conduit source from a subscription ID. The source will produce subscription
+-- event stream batches. Note the batches will be asynchronously committed irregardless of
+-- any event processing logic. Use this function only if the guarantees provided by Nakadi
+-- for event processing and cursor committing are not required or not desired.
+subscriptionSource
+  :: forall a b m
+   . (MonadNakadi b m, MonadUnliftIO m, MonadMask m, MonadResource m, FromJSON a)
+  => SubscriptionId                                    -- ^ Subscription to consume.
+  -> ConduitM () (SubscriptionEventStreamBatch a) m () -- ^ Conduit source.
+subscriptionSource subscriptionId = do
+  UnliftIO {..}              <- lift askUnliftIO
+  streamLimit                <- lift nakadiAsk <&> (fmap fromIntegral . view L.streamLimit)
+  queue                      <- atomically $ newTBMQueue queueSize
+  (_releaseKey, asyncHandle) <- allocate
+    (unliftIO (async (subscriptionConsumer streamLimit queue)))
+    cancel
+  link asyncHandle
+  drain queue
+ where
+  queueSize = 2048
+  drain queue = atomically (readTBMQueue queue) >>= \case
+    Just a  -> yield a >> drain queue
+    Nothing -> pure ()
+
+  subscriptionConsumer :: Maybe Int -> TBMQueue (SubscriptionEventStreamBatch a) -> m ()
+  subscriptionConsumer maybeStreamLimit queue = go `finally` atomically (closeTBMQueue queue)
+   where
+    go = do
+      subscriptionProcess subscriptionId (void . atomically . writeTBMQueue queue)
+      -- We only reconnect automatically when no stream limit is set.
+      -- This effectively means that we don't try to reach @streamLimit@ events exactly.
+      -- We simply regard @streamLimit@ as an upper bound and in case Nakadi disconnects us
+      -- earlier or the connection breaks, we produce less than @streamLimit@ events.
+      when (isNothing maybeStreamLimit) $ go
+
+-- | Experimental API.
+--
+-- Similar to `subscriptionSource`, but the created Conduit source provides events instead
+-- of event batches.
+subscriptionSourceEvents
+  :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, MonadResource m, FromJSON a)
+  => SubscriptionId     -- ^ Subscription to consume
+  -> ConduitM () a m () -- ^ Conduit processor.
+subscriptionSourceEvents subscriptionId =
+  subscriptionSource subscriptionId .| concatMapC (\batch -> fromMaybe mempty (batch & _events))

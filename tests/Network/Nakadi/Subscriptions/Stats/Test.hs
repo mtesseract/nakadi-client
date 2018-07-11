@@ -35,7 +35,6 @@ produceSubscriptionStats conf =
     -- Note: Apparently we have to consume the subscription first in order to enable
     -- tracking of unconsumed events and time lag.
         void $ timeout (2 * 10 ^ (6 :: Int)) $ subscriptionProcess
-          Nothing
           subscriptionId
           (\(_batch :: SubscriptionEventStreamBatch (DataChangeEvent Value)) ->
             pure ()

@@ -35,32 +35,26 @@ type HttpErrorCallback m = Request -> HttpException -> RetryStatus -> Bool -> m 
 
 type ConfigIO = Config IO
 
-data Config m where
-  Config :: { _requestTemplate                :: Request
-            , _requestModifier                :: Request -> m Request
-            , _manager                        :: Maybe Manager
-            , _consumeParameters              :: Maybe ConsumeParameters
-            , _deserializationFailureCallback :: Maybe (ByteString -> Text -> m ())
-            , _streamConnectCallback          :: Maybe (StreamConnectCallback m)
-            , _logFunc                        :: Maybe (LogFunc m)
-            , _retryPolicy                    :: RetryPolicyM IO
-            , _http                           :: HttpBackend m
-            , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
-            , _flowId                         :: Maybe FlowId
-            , _commitStrategy                 :: CommitStrategy
-            , _subscriptionStats              :: Maybe SubscriptionStatsConf
-            } -> Config m
-
--- | ConsumeParameters
-
-data ConsumeParameters = ConsumeParameters
-  { _maxUncommittedEvents :: Maybe Int32
-  , _batchLimit           :: Maybe Int32
-  , _streamLimit          :: Maybe Int32
-  , _batchFlushTimeout    :: Maybe Int32
-  , _streamTimeout        :: Maybe Int32
-  , _streamKeepAliveLimit :: Maybe Int32
-  } deriving (Show, Eq, Ord)
+data Config m =
+  Config { _requestTemplate                :: Request
+         , _requestModifier                :: Request -> m Request
+         , _manager                        :: Maybe Manager
+         , _deserializationFailureCallback :: Maybe (ByteString -> Text -> m ())
+         , _streamConnectCallback          :: Maybe (StreamConnectCallback m)
+         , _logFunc                        :: Maybe (LogFunc m)
+         , _retryPolicy                    :: RetryPolicyM IO
+         , _http                           :: HttpBackend m
+         , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
+         , _flowId                         :: Maybe FlowId
+         , _commitStrategy                 :: CommitStrategy
+         , _subscriptionStats              :: Maybe SubscriptionStatsConf
+         , _maxUncommittedEvents           :: Maybe Int32
+         , _batchLimit                     :: Maybe Int32
+         , _streamLimit                    :: Maybe Int32
+         , _batchFlushTimeout              :: Maybe Int32
+         , _streamTimeout                  :: Maybe Int32
+         , _streamKeepAliveLimit           :: Maybe Int32
+         }
 
 data HttpBackend b = HttpBackend
   { _httpLbs           :: Config b -> Request -> Maybe Manager -> b (Response LB.ByteString)

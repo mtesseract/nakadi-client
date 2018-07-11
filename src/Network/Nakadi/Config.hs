@@ -30,7 +30,6 @@ module Network.Nakadi.Config
   , setStreamKeepAliveLimit
   , setFlowId
   , setCommitStrategy
-  , defaultConsumeParameters
   , setShowTimeLag
   )
 where
@@ -43,7 +42,6 @@ import           Network.HTTP.Client            ( Manager
                                                 , ManagerSettings
                                                 )
 import           Network.HTTP.Client.TLS        ( newTlsManagerWith )
-import           Network.Nakadi.Internal.Config
 import           Network.Nakadi.Internal.HttpBackendIO
 import qualified Network.Nakadi.Internal.Lenses
                                                as L
@@ -65,8 +63,7 @@ newConfig
   -> Request           -- ^ Request Template
   -> Config b          -- ^ Resulting Configuration
 newConfig httpBackend request = Config
-  { _consumeParameters              = Nothing
-  , _manager                        = Nothing
+  { _manager                        = Nothing
   , _requestTemplate                = request
   , _requestModifier                = pure
   , _deserializationFailureCallback = Nothing
@@ -78,6 +75,12 @@ newConfig httpBackend request = Config
   , _flowId                         = Nothing
   , _commitStrategy                 = defaultCommitStrategy
   , _subscriptionStats              = Nothing
+  , _maxUncommittedEvents           = Nothing
+  , _batchLimit                     = Nothing
+  , _streamLimit                    = Nothing
+  , _batchFlushTimeout              = Nothing
+  , _streamTimeout                  = Nothing
+  , _streamKeepAliveLimit           = Nothing
   }
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
@@ -111,10 +114,8 @@ setRequestModifier = (L.requestModifier .~)
 
 -- | Install a callback in the provided configuration to use in case
 -- of deserialization failures when consuming events.
-setDeserializationFailureCallback
-  :: (ByteString -> Text -> m ()) -> Config m -> Config m
-setDeserializationFailureCallback cb =
-  L.deserializationFailureCallback .~ Just cb
+setDeserializationFailureCallback :: (ByteString -> Text -> m ()) -> Config m -> Config m
+setDeserializationFailureCallback cb = L.deserializationFailureCallback .~ Just cb
 
 -- | Install a callback in the provided configuration which is used
 -- after having successfully established a streaming Nakadi
@@ -146,33 +147,29 @@ setFlowId flowId = L.flowId .~ Just flowId
 setCommitStrategy :: CommitStrategy -> Config m -> Config m
 setCommitStrategy = (L.commitStrategy .~)
 
--- | Set maximum number of uncommitted events in the provided value of
--- consumption parameters.
-setMaxUncommittedEvents :: Int32 -> ConsumeParameters -> ConsumeParameters
-setMaxUncommittedEvents n params = params & L.maxUncommittedEvents .~ Just n
+-- | Set maximum number of uncommitted events.
+setMaxUncommittedEvents :: Int32 -> Config m -> Config m
+setMaxUncommittedEvents = (L.maxUncommittedEvents ?~)
 
--- | Set batch limit in the provided value of consumption parameters.
-setBatchLimit :: Int32 -> ConsumeParameters -> ConsumeParameters
-setBatchLimit n params = params & L.batchLimit .~ Just n
+-- | Set batch limit.
+setBatchLimit :: Int32 -> Config m -> Config m
+setBatchLimit = (L.batchLimit ?~)
 
--- | Set stream limit in the provided value of consumption parameters.
-setStreamLimit :: Int32 -> ConsumeParameters -> ConsumeParameters
-setStreamLimit n params = params & L.streamLimit .~ Just n
+-- | Set stream limit.
+setStreamLimit :: Int32 -> Config m -> Config m
+setStreamLimit = (L.streamLimit ?~)
 
--- | Set batch-flush-timeout limit in the provided value of
--- consumption parameters.
-setBatchFlushTimeout :: Int32 -> ConsumeParameters -> ConsumeParameters
-setBatchFlushTimeout n params = params & L.batchFlushTimeout .~ Just n
+-- | Set batch-flush-timeout limit.
+setBatchFlushTimeout :: Int32 -> Config m -> Config m
+setBatchFlushTimeout = (L.batchFlushTimeout ?~)
 
--- | Set stream timeout in the provided value of consumption parameters.
-setStreamTimeout :: Int32 -> ConsumeParameters -> ConsumeParameters
-setStreamTimeout n params = params & L.streamTimeout .~ Just n
+-- | Set stream timeout.
+setStreamTimeout :: Int32 -> Config m -> Config m
+setStreamTimeout = (L.streamTimeout ?~)
 
--- | Set stream-keep-alive-limit in the provided value of consumption
--- parameters.
-setStreamKeepAliveLimit :: Int32 -> ConsumeParameters -> ConsumeParameters
-setStreamKeepAliveLimit n params = params & L.streamKeepAliveLimit .~ Just n
+-- | Set stream-keep-alive-limit.
+setStreamKeepAliveLimit :: Int32 -> Config m -> Config m
+setStreamKeepAliveLimit = (L.streamKeepAliveLimit ?~)
 
 setShowTimeLag :: Bool -> Config m -> Config m
-setShowTimeLag flag =
-  L.subscriptionStats ?~ SubscriptionStatsConf {_showTimeLag = flag}
+setShowTimeLag flag = L.subscriptionStats ?~ SubscriptionStatsConf {_showTimeLag = flag}

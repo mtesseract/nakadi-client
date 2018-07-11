@@ -18,22 +18,18 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 
 testSubscriptionsProcessing :: Config App -> TestTree
-testSubscriptionsProcessing confTemplate
-  = let mkConf commitStrategy = confTemplate & setCommitStrategy commitStrategy
-    in
-      testGroup
+testSubscriptionsProcessing confTemplate =
+  let mkConf commitStrategy = confTemplate & setCommitStrategy commitStrategy
+  in  testGroup
         "Processing"
         [ testCase "SubscriptionProcessing/async/TimeBuffer"
-          $ testSubscriptionHighLevelProcessing
-              (mkConf (CommitAsync (CommitTimeBuffer 200)))
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)))
         , testCase "SubscriptionProcessing/sync"
           $ testSubscriptionHighLevelProcessing (mkConf CommitSync)
         , testCase "SubscriptionProcessing/async/NoBuffer"
-          $ testSubscriptionHighLevelProcessing
-              (mkConf (CommitAsync CommitNoBuffer))
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer))
         , testCase "SubscriptionProcessing/async/SmartBuffer"
-          $ testSubscriptionHighLevelProcessing
-              (mkConf (CommitAsync CommitSmartBuffer))
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitSmartBuffer))
         ]
 
 data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
@@ -41,18 +37,15 @@ data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
 instance Exception ConsumptionDone
 
 testSubscriptionHighLevelProcessing :: Config App -> Assertion
-testSubscriptionHighLevelProcessing conf = runApp $ do
+testSubscriptionHighLevelProcessing conf' = runApp $ do
   logger <- askLoggerIO
   let logFunc src lev str = liftIO $ logger defaultLoc src lev str
+      conf = conf' & setBatchFlushTimeout 1 & setMaxUncommittedEvents 5000 & setBatchLimit 10
   runNakadiT (conf & setLogFunc logFunc) $ do
     counter <- newIORef 0
     events  <-
-      sequence $ map genMyDataChangeEventIdx [1 .. nEvents] :: NakadiT
-        App
-        App
-        [DataChangeEvent Foo]
-    publishAndConsume events counter
-      `catch` \(_exn :: ConsumptionDone) -> pure ()
+      sequence $ map genMyDataChangeEventIdx [1 .. nEvents] :: NakadiT App App [DataChangeEvent Foo]
+    publishAndConsume events counter `catch` \(_exn :: ConsumptionDone) -> pure ()
     eventsRead <- readIORef counter
     liftIO $ nEvents @=? eventsRead
  where
@@ -76,27 +69,16 @@ testSubscriptionHighLevelProcessing conf = runApp $ do
   nEvents = 10000
 
   publishAndConsume
-    :: (ToJSON a, FromJSON a, Show a)
-    => [DataChangeEvent a]
-    -> IORef Int
-    -> NakadiT App App ()
-  publishAndConsume events counter = bracket before after $ \subscriptionId ->
-    do
-      let n = length events
-      publisherHandle <- async $ delayedPublish Nothing events
-      liftIO $ linkAsync publisherHandle
-      forever $ do
-        subscriptionProcess (Just consumeParameters) subscriptionId
-          $ \(batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) ->
-              do
-                let eventsReceived = fromMaybe mempty (batch ^. L.events)
-                modifyIORef counter (+ (length eventsReceived))
-                eventsRead <- readIORef counter
-                when (n <= eventsRead) $ throwIO ConsumptionDone
-        putStrLn $ "Subscription Processing terminated, will restart."
-
-  consumeParameters =
-    defaultConsumeParameters
-      & setBatchFlushTimeout 1
-      & setMaxUncommittedEvents 5000
-      & setBatchLimit 10
+    :: (ToJSON a, FromJSON a, Show a) => [DataChangeEvent a] -> IORef Int -> NakadiT App App ()
+  publishAndConsume events counter = bracket before after $ \subscriptionId -> do
+    let n = length events
+    publisherHandle <- async $ delayedPublish Nothing events
+    liftIO $ linkAsync publisherHandle
+    forever $ do
+      subscriptionProcess subscriptionId
+        $ \(batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
+            let eventsReceived = fromMaybe mempty (batch ^. L.events)
+            modifyIORef counter (+ (length eventsReceived))
+            eventsRead <- readIORef counter
+            when (n <= eventsRead) $ throwIO ConsumptionDone
+      putStrLn $ "Subscription Processing terminated, will restart."

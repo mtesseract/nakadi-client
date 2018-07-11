@@ -13,9 +13,8 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 import           System.Random
 import           Control.Lens
+import qualified Data.Set                      as Set
 import           Data.Aeson
-import           UnliftIO.Async                 ( async )
-import           Control.Monad.Catch            ( MonadMask )
 
 import           Conduit
 
@@ -110,54 +109,23 @@ publishAndConsume
   => Config App
   -> EventSpec a b c
   -> Assertion
-publishAndConsume conf eventSpec =
+publishAndConsume conf' eventSpec =
   runApp
     . runNakadiT conf
     $ bracket_ (createEventTypeFromSpec eventSpec) (deleteEventTypeFromSpec eventSpec)
-    $ bracket (createSubscription eventSpec) subscriptionDelete
-    $ \subscriptionId -> do
+    $ withTemporarySubscription "test-suite"
+                                "business-event-test"
+                                (Set.fromList [eventSpec & eventType & _name])
+                                SubscriptionPositionBegin
+    $ \subscription -> do
         events :: [a] <- liftIO $ replicateM 10 (eventSpec & eventGenerator)
         eventsPublish (eventSpec & eventType & _name) events
         consumed :: [b] <-
-          runConduit $ subscriptionSourceEvents subscriptionId .| takeC 10 .| sinkList
+          runConduitRes $ subscriptionSourceEvents (subscription ^. L.id) .| sinkList
         liftIO
           $   map (eventPayload eventSpec)         events
           @=? map (eventEnrichedPayload eventSpec) consumed
-
-subscriptionSourceEvents
-  :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, FromJSON a)
-  => SubscriptionId            -- ^ Subscription to consume
-  -> ConduitM () a m () -- ^ Conduit processor.
-subscriptionSourceEvents subscriptionId =
-  subscriptionSource subscriptionId .| concatMapC (\batch -> fromMaybe mempty (batch & _events))
-
-subscriptionSource
-  :: ( MonadNakadi b m
-     , MonadUnliftIO m
-     , MonadMask m
-     , FromJSON a
-     , batch ~ SubscriptionEventStreamBatch a
-     )
-  => SubscriptionId            -- ^ Subscription to consume
-  -> ConduitM () batch m () -- ^ Conduit processor.
-subscriptionSource subscriptionId = do
-  queue <- atomically newTQueue
-  void . lift . async $ subscriptionProcess (Just consumeParams) subscriptionId $ \batch ->
-    void . atomically $ writeTQueue queue batch
-  forever $ do
-    batch <- atomically $ readTQueue queue
-    yield batch
-  where consumeParams = defaultConsumeParameters & setBatchFlushTimeout 1
-
-createSubscription :: MonadNakadi base m => EventSpec a b c -> m SubscriptionId
-createSubscription eventSpec = do
-  subscription <- subscriptionCreate SubscriptionRequest
-    { _owningApplication    = "test-suite"
-    , _eventTypes           = [eventSpec & eventType & _name]
-    , _consumerGroup        = Nothing
-    , _subscriptionPosition = Just SubscriptionPositionBegin
-    }
-  pure (subscription ^. L.id)
+  where conf = conf' & setBatchFlushTimeout 1 & setStreamLimit 10
 
 createAndDeleteEvent :: Config App -> EventSpec a b c -> Assertion
 createAndDeleteEvent conf eventSpec =

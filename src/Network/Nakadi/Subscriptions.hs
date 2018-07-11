@@ -24,6 +24,8 @@ module Network.Nakadi.Subscriptions
   , subscriptionsList'
   , subscriptionsSource
   , subscriptionsList
+  , withSubscription
+  , withTemporarySubscription
   )
 where
 
@@ -41,6 +43,8 @@ import           Network.Nakadi.Subscriptions.Cursors
 import           Network.Nakadi.Subscriptions.Events
 import           Network.Nakadi.Subscriptions.Stats
 import           Network.Nakadi.Subscriptions.Subscription
+import qualified Data.Set                      as Set
+import           Data.Set                       ( Set )
 
 path :: ByteString
 path = "/subscriptions"
@@ -114,9 +118,7 @@ subscriptionsSource maybeOwningApp maybeEventTypeNames = pure $ nextPage initial
     resp <- lift $ subscriptionsGet queryParameters
     yield (resp ^. L.items)
     let maybeNextPath = Text.unpack . (view L.href) <$> (resp ^. L.links . L.next)
-    case maybeNextPath >>= extractQueryParametersFromPath of
-      Just nextQueryParameters -> nextPage nextQueryParameters
-      Nothing                  -> return ()
+    forM_ (maybeNextPath >>= extractQueryParametersFromPath) nextPage
 
   initialQueryParameters = buildQueryParameters maybeOwningApp maybeEventTypeNames Nothing Nothing
 
@@ -127,3 +129,51 @@ subscriptionsList
 subscriptionsList maybeOwningApp maybeEventTypeNames = do
   source <- subscriptionsSource maybeOwningApp maybeEventTypeNames
   runConduit $ source .| concatC .| sinkList
+
+-- | Experimental API.
+--
+-- Creates a new temporary subscription using the specified parameters via `subscriptionCreate`
+-- and pass it to the provided action. Note that `bracket` is used to enforce the deletion of
+-- the subscription via `subscriptionDelete` when the provided action returns.
+--
+-- Do NOT use this function if the specified subscription should not be deleted.
+withTemporarySubscription
+  :: (MonadNakadi b m, MonadMask m)
+  => ApplicationName
+  -> ConsumerGroup
+  -> Set EventTypeName
+  -> SubscriptionPosition
+  -> (Subscription -> m r)
+  -> m r
+withTemporarySubscription owningApp consumerGroup eventTypeNames subscriptionPosition = bracket
+  (subscriptionCreate subscriptionRequest)
+  (subscriptionDelete . view L.id)
+ where
+  subscriptionRequest = SubscriptionRequest
+    { _owningApplication    = owningApp
+    , _eventTypes           = Set.toList eventTypeNames
+    , _consumerGroup        = Just consumerGroup
+    , _subscriptionPosition = Just subscriptionPosition
+    }
+
+-- | Experimental API.
+--
+-- Creates a new subscription using the specified parameters via `subscriptionCreate`
+-- and pass it to the provided action.
+withSubscription
+  :: (MonadNakadi b m, MonadMask m)
+  => ApplicationName
+  -> ConsumerGroup
+  -> Set EventTypeName
+  -> SubscriptionPosition
+  -> (Subscription -> m r)
+  -> m r
+withSubscription owningApp consumerGroup eventTypeNames subscriptionPosition f =
+  subscriptionCreate subscriptionRequest >>= f
+ where
+  subscriptionRequest = SubscriptionRequest
+    { _owningApplication    = owningApp
+    , _eventTypes           = Set.toList eventTypeNames
+    , _consumerGroup        = Just consumerGroup
+    , _subscriptionPosition = Just subscriptionPosition
+    }
