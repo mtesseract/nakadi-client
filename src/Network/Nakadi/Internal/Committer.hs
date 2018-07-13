@@ -34,7 +34,12 @@ import           Network.Nakadi.Internal.Committer.SmartBuffer
 import           Network.Nakadi.Internal.Committer.TimeBuffer
 
 -- | Main function for the cursor committer thread. Logic depends on
--- the provided buffering strategy.
+-- the provided buffering strategy. This function dispatches to the
+-- actual commit strategy implementations:
+--
+-- * 'committerNoBuffer' defined in @Network.Nakadi.Internal.Committer.NoBuffer@,
+-- * 'committerTimeBuffer' defined in @Network.Nakadi.Internal.Committer.TimeBuffer@ and
+-- * 'committerSmartBuffer' defined in @Network.Nakadi.Internal.Committer.SmartBuffer@.
 subscriptionCommitter
   :: forall b m
    . (MonadNakadi b m, MonadUnliftIO m, MonadMask m)
@@ -62,6 +67,8 @@ subscriptionSink eventStream = do
         Just logFunc ->
           logFunc "nakadi-client" LevelWarn
             $  toLogStr
-            $  "Failed to synchronously commit cursor: "
+            $  "Failed to synchronously commit cursor "
+            <> tshow cursor
+            <> ": "
             <> tshow exn
         Nothing -> pure ()

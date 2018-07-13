@@ -63,7 +63,8 @@ spawnWorker eventStream processor = do
   (_, workerAsync) <- Resource.allocate (async workerIO) cancel
   pure Worker {_queue = workerQueue, _async = workerAsync}
 
--- | Spawn multiple workers and return a 'WorkerRegistry'.
+-- | Spawn multiple workers and return a 'WorkerRegistry'. It is guaranteed that the worker
+-- registry contains at least one worker.
 spawnWorkers
   :: ( MonadNakadi b m
      , MonadUnliftIO m
@@ -99,11 +100,21 @@ subscriptionWorker
   -> m ()
 subscriptionWorker processor eventStream queue = do
   config <- nakadiAsk
+  -- This @producer@ is a Conduit producing subscription batches that have been successfully
+  -- processed from the user provided callback @processor@.
+  --
+  -- What remains to be done with the batches produced by the producer is committing the
+  -- corresponding cursors.
   let producer = repeatMC (atomically (readTBQueue queue)) .| processor
+  -- For committing we distinguish between two distinct strategies: synchronous and
+  -- asynchronous comitting.
   case config ^. L.commitStrategy of
     CommitSync ->
       -- Synchronous case: Simply use a Conduit sink that commits
       -- every cursor.
+      --
+      -- Run the Conduit, which reads batches from the queue, processes them
+      -- and commits their cursors.
       runConduit $ producer .| subscriptionSink eventStream
     CommitAsync bufferingStrategy -> do
       -- Asynchronous case: Create a new queue and spawn a cursor
@@ -112,9 +123,15 @@ subscriptionWorker processor eventStream queue = do
       -- sink that sends cursor information to the queue. The cursor
       -- committer thread reads from this queue and processes the
       -- cursors.
-      commitQueue <- liftIO . atomically $ newTBQueue 1024
+      --
+      -- Run the Conduit, which reads batches from the queue, processes them
+      -- and sends their cursors to the cursor committer thread implementing
+      -- the actual cursor committing logic.
+      commitQueue <- liftIO . atomically $ newTBQueue asyncCommitQueueBufferSize
       withAsync (subscriptionCommitter bufferingStrategy eventStream commitQueue) $ \asyncHandle ->
         do
+          -- This makes sure that if the cursor committing thread dies because
+          -- of an exception, this exception will be re-raised in the current thread.
           link asyncHandle
           runConduit $ producer .| mapM_C (sendToQueue commitQueue)
  where
@@ -124,7 +141,12 @@ subscriptionWorker processor eventStream queue = do
         nEvents = length events
     writeTBQueue commitQueue (nEvents, cursor)
 
--- | Retrieve the 'PartitionIndexMap' for the given subscription.
+  asyncCommitQueueBufferSize = 1024
+
+-- | Retrieve the 'PartitionIndexMap' for the given subscription. This map is used for mapping
+-- per-event type partitions to worker indices. Given a pair consisting of an event type and
+-- a partition ID, the worker index references the worker in the worker registry responsible
+-- for processing batches originating from that partition.
 retrievePartitionIndexMap :: MonadNakadi b m => SubscriptionId -> m PartitionIndexMap
 retrievePartitionIndexMap subscriptionId = do
   eventTypes              <- (view L.eventTypes) <$> subscriptionGet subscriptionId
@@ -146,17 +168,32 @@ workerDispatchSink registry = awaitForever $ \batch -> do
   atomically $ writeTBQueue (_queue worker) batch
 
 -- | Given a 'SubscriptionEventStreamBatch', produce the worker that
--- should handle the batch.
+-- should handle the batch. The worker is found using the 'PartitionIndexMap'.
 pickWorker :: WorkerRegistry a -> EventTypeName -> PartitionName -> Worker a
 pickWorker registry eventType partition =
   let workers  = registry ^. L.workers
       nWorkers = NonEmpty.length workers
   in  case HashMap.lookup (partition, eventType) (registry ^. L.partitionIndexMap) of
-        Nothing  -> NonEmpty.head workers
-        Just idx -> workers NonEmpty.!! (idx `mod` nWorkers)
+        Nothing ->
+          -- We failed to find an entry in the PartitionIndexMap for that partition.
+          -- This should rarely happen.
+          -- It could, for example, happen if the number of partitions of an event
+          -- type belonging to the subscription to be consumed was increased after
+          -- subscription consumption has started.
+          --
+          -- In the future, we could improve this fallback mechanism, if there is a
+          -- need to do so. At the moment we simply use the first worker in case of
+          -- lookup failures.
+          NonEmpty.head workers
+        Just idx ->
+          -- Lookup successful. Truncate the resulting index using modulo in order to
+          -- obtain a worker index and return the corresponding worker reference.
+          workers NonEmpty.!! (idx `mod` nWorkers)
 
--- | Block as long no worker finishes.
+-- | Block as long no worker has finished. Workers are supposed to run forever, unless
+-- cancelled. Therefore, using 'waitAnyCancel' essentially means that if some worker
+-- fails due to an uncaught exception, then all other workers are cancelled as well.
 workersWait :: MonadIO m => WorkerRegistry a -> m ()
 workersWait registry = do
   let workerHandles = map _async $ NonEmpty.toList (registry ^. L.workers)
-  void . waitAny $ workerHandles
+  void . waitAnyCancel $ workerHandles

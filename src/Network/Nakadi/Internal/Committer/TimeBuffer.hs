@@ -40,7 +40,7 @@ committerTimeBuffer
 committerTimeBuffer millis eventStream queue = do
   let timerConf = Timer.defaultConf & Timer.setInitDelay (fromIntegral millis) & Timer.setInterval
         (fromIntegral millis)
-  cursorsMap <- liftIO . atomically $ newTVar (HashMap.empty :: StagedCursorsMap SubscriptionCursor)
+  cursorsMap <- liftIO $ newTVarIO (HashMap.empty :: StagedCursorsMap SubscriptionCursor)
   withAsync (cursorConsumer cursorsMap) $ \asyncCursorConsumer -> do
     link asyncCursorConsumer
     Timer.withAsyncTimer timerConf $ \timer -> forever $ do
@@ -50,5 +50,4 @@ committerTimeBuffer millis eventStream queue = do
        -- cursor to the provided cursorsMap.
   cursorConsumer cursorsMap = forever . liftIO . atomically $ do
     (_, cursor) <- readTBQueue queue
-    let key = cursorKey cursor
-    modifyTVar cursorsMap (HashMap.insert key cursor)
+    modifyTVar cursorsMap (HashMap.insert (cursorKey cursor) cursor)
