@@ -1,7 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE LambdaCase            #-}
 
-module Network.Nakadi.Internal.IO where
+module Network.Nakadi.Internal.Unsafe.IO where
 
 import           UnliftIO.STM
 
