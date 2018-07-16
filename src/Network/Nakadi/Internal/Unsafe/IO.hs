@@ -28,6 +28,8 @@ import           Network.Nakadi.Internal.GlobalConfig
 
 -- | Initialize the global configuration used by the 'MonadNakadi' instance
 -- for the 'IO' monad via 'newConfigFromEnv'.
+--
+-- Experimental API.
 initializeGlobalConfigurationFromEnv :: (MonadIO m, MonadThrow m) => m ()
 initializeGlobalConfigurationFromEnv = do
   config <- newConfigFromEnv
@@ -35,6 +37,8 @@ initializeGlobalConfigurationFromEnv = do
 
 -- | Sets the global configuration used by the 'MonadNakadi' instance
 -- for the 'IO' monad to the provided configuration.
+--
+-- Experimental API.
 setGlobalConfiguration :: MonadIO m => ConfigIO -> m ()
 setGlobalConfiguration = atomically . writeTVar globalConfiguration . Just
 
@@ -42,5 +46,7 @@ setGlobalConfiguration = atomically . writeTVar globalConfiguration . Just
 -- for the 'IO' monad using the provided function. If no global configuration has
 -- been set so far (using 'initializeGlobalConfigurationFromEnv' or
 -- 'setGlobalConfiguration'), this will throw a 'ConfigurationMissing' exception.
+--
+-- Experimental API.
 modifyGlobalConfiguration :: MonadIO m => (ConfigIO -> ConfigIO) -> m ()
 modifyGlobalConfiguration f = atomically $ modifyTVar' globalConfiguration (fmap f)

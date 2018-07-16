@@ -7,6 +7,8 @@ Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
 Portability : POSIX
 
+This is an experimental API.
+
 Nakadi-client provides a 'MonadNakadi' instance for the 'IO' monad
 accessing a global mutable configuration.
 
