@@ -15,6 +15,7 @@ module Network.Nakadi.Config
   ( newConfig
   , newConfigIO
   , newConfigWithDedicatedManager
+  , newConfigFromEnv
   , setHttpManager
   , setRequestModifier
   , setDeserializationFailureCallback
@@ -46,42 +47,7 @@ import           Network.Nakadi.Internal.HttpBackendIO
 import qualified Network.Nakadi.Internal.Lenses
                                                as L
 import           Network.Nakadi.Internal.Types
-
--- | Default retry policy.
-defaultRetryPolicy :: MonadIO m => RetryPolicyM m
-defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
-
--- | Default commit strategy.
-defaultCommitStrategy :: CommitStrategy
-defaultCommitStrategy = CommitSync
-
--- | Producs a new configuration, with mandatory HTTP manager, default
--- consumption parameters and HTTP request template.
-newConfig
-  :: Monad b
-  => HttpBackend b
-  -> Request           -- ^ Request Template
-  -> Config b          -- ^ Resulting Configuration
-newConfig httpBackend request = Config
-  { _manager                        = Nothing
-  , _requestTemplate                = request
-  , _requestModifier                = pure
-  , _deserializationFailureCallback = Nothing
-  , _streamConnectCallback          = Nothing
-  , _logFunc                        = Nothing
-  , _retryPolicy                    = defaultRetryPolicy
-  , _http                           = httpBackend
-  , _httpErrorCallback              = Nothing
-  , _flowId                         = Nothing
-  , _commitStrategy                 = defaultCommitStrategy
-  , _subscriptionStats              = Nothing
-  , _maxUncommittedEvents           = Nothing
-  , _batchLimit                     = Nothing
-  , _streamLimit                    = Nothing
-  , _batchFlushTimeout              = Nothing
-  , _streamTimeout                  = Nothing
-  , _streamKeepAliveLimit           = Nothing
-  }
+import           Network.Nakadi.Internal.Config
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.

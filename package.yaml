@@ -101,6 +101,7 @@ library:
   - Network.Nakadi.Internal.Http
   - Network.Nakadi.Internal.Retry
   - Network.Nakadi.HttpBackendIO
+  - Network.Nakadi.Unsafe.IO
 tests:
   nakadi-client-test-suite:
     main: Tests.hs
