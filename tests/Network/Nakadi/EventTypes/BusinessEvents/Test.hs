@@ -97,7 +97,7 @@ createEventTypeFromSpec eventSpec = do
   subscriptionIds <- subscriptionsList Nothing (Just [eventSpec & eventType & _name])
     <&> map (view L.id)
   mapM_ subscriptionDelete subscriptionIds
-  eventTypeDelete (eventSpec & eventType & _name) `catch` (ignoreExnNotFound ())
+  eventTypeDelete (eventSpec & eventType & _name) `catch` ignoreExnNotFound ()
   eventTypeCreate (eventType eventSpec)
 
 deleteEventTypeFromSpec :: MonadNakadi base m => EventSpec a b c -> m ()

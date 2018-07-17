@@ -98,7 +98,7 @@ newtype NakadiT b m a = NakadiT { _runNakadiT :: Config b -> m a }
 
 -- | `Functor` for `NakadiT`.
 instance Functor m => Functor (NakadiT b m) where
-  fmap f (NakadiT n) = NakadiT (\c -> fmap f (n c))
+  fmap f (NakadiT n) = NakadiT (fmap f . n)
 
 -- | `Applicative` for `NakadiT`.
 instance (Applicative m) => Applicative (NakadiT b m) where

@@ -17,7 +17,8 @@ module Network.Nakadi.EventTypes.EventType
   ( eventTypeGet
   , eventTypeUpdate
   , eventTypeDelete
-  ) where
+  )
+where
 
 import           Network.Nakadi.Internal.Prelude
 
@@ -34,25 +35,28 @@ eventTypeGet
   -> m EventType   -- ^ Event Type information
 eventTypeGet eventTypeName = do
   config <- nakadiAsk
-  httpJsonBody ok200 [(status404, errorEventTypeNotFound)] $
-    (setRequestMethod "GET"
-     . includeFlowId config
-     . setRequestPath (path eventTypeName))
+  httpJsonBody
+    ok200
+    [(status404, errorEventTypeNotFound)]
+    (setRequestMethod "GET" . includeFlowId config . setRequestPath (path eventTypeName))
 
 -- | Updates an event type given its 'EventTypeName' and its new
 -- 'EventType' description. @PUT@ to @\/event-types\/EVENT-TYPE@.
-eventTypeUpdate ::
-  MonadNakadi b m
+eventTypeUpdate
+  :: MonadNakadi b m
   => EventTypeName -- ^ Name of Event Type
   -> EventType     -- ^ Event Type Settings
   -> m ()
 eventTypeUpdate eventTypeName eventType = do
   config <- nakadiAsk
-  httpJsonNoBody ok200 [] $
-    (setRequestMethod "PUT"
-     . includeFlowId config
-     . setRequestPath (path eventTypeName)
-     . setRequestBodyJSON eventType)
+  httpJsonNoBody
+    ok200
+    []
+    ( setRequestMethod "PUT"
+    . includeFlowId config
+    . setRequestPath (path eventTypeName)
+    . setRequestBodyJSON eventType
+    )
 
 -- | Deletes an event type given its 'EventTypeName'. @DELETE@ to
 -- @\/event-types\/EVENT-TYPE@.
@@ -62,7 +66,7 @@ eventTypeDelete
   -> m ()
 eventTypeDelete eventTypeName = do
   config <- nakadiAsk
-  httpJsonNoBody ok200 [(status404, errorEventTypeNotFound)] $
-    (setRequestMethod "DELETE"
-     . includeFlowId config
-     . setRequestPath (path eventTypeName))
+  httpJsonNoBody
+    ok200
+    [(status404, errorEventTypeNotFound)]
+    (setRequestMethod "DELETE" . includeFlowId config . setRequestPath (path eventTypeName))

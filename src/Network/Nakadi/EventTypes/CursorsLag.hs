@@ -44,7 +44,7 @@ cursorsLag' ::
                    -- information about unconsumed events.
 cursorsLag' eventTypeName cursors = do
   config <- nakadiAsk
-  httpJsonBody ok200 [] $
+  httpJsonBody ok200 []
     (setRequestMethod "POST"
      . includeFlowId config
      . setRequestPath (path eventTypeName)

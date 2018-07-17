@@ -17,7 +17,8 @@ API.
 module Network.Nakadi.EventTypes.Partitions
   ( eventTypePartitions
   , eventTypePartition
-  ) where
+  )
+where
 
 import           Network.Nakadi.Internal.Http
 import           Network.Nakadi.Internal.Prelude
@@ -25,11 +26,12 @@ import           Network.Nakadi.Internal.Prelude
 path :: EventTypeName -> Maybe PartitionName -> ByteString
 path eventTypeName maybePartitionName =
   "/event-types/"
-  <> encodeUtf8 (unEventTypeName eventTypeName)
-  <> "/partitions"
-  <> (case maybePartitionName of
-        Just partitionName -> "/" <> encodeUtf8 (unPartitionName partitionName)
-        Nothing            -> "")
+    <> encodeUtf8 (unEventTypeName eventTypeName)
+    <> "/partitions"
+    <> (case maybePartitionName of
+         Just partitionName -> "/" <> encodeUtf8 (unPartitionName partitionName)
+         Nothing            -> ""
+       )
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions@. Retrieves
 -- information about all partitions.
@@ -39,9 +41,9 @@ eventTypePartitions
   -> m [Partition] -- ^ Partition Information
 eventTypePartitions eventTypeName = do
   config <- nakadiAsk
-  httpJsonBody ok200 [(status404, errorEventTypeNotFound)] $
-    (includeFlowId config
-     . setRequestPath (path eventTypeName Nothing))
+  httpJsonBody ok200
+               [(status404, errorEventTypeNotFound)]
+               (includeFlowId config . setRequestPath (path eventTypeName Nothing))
 
 -- | @GET@ to @\/event-types\/EVENT-TYPE\/partitions\/PARTITION@.
 -- Retrieves information about a single partition.
@@ -52,6 +54,6 @@ eventTypePartition
   -> m Partition   -- ^ Partition Information
 eventTypePartition eventTypeName partitionName = do
   config <- nakadiAsk
-  httpJsonBody ok200 [] $
-    (includeFlowId config
-     . setRequestPath (path eventTypeName (Just partitionName)))
+  httpJsonBody ok200
+               []
+               (includeFlowId config . setRequestPath (path eventTypeName (Just partitionName)))

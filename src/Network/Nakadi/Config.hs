@@ -70,7 +70,7 @@ newConfigWithDedicatedManager mngrSettings request = do
 -- | Install an HTTP Manager in the provided configuration. If not
 -- set, HTTP requests will use a global default manager.
 setHttpManager :: Manager -> Config m -> Config m
-setHttpManager mngr = L.manager .~ Just mngr
+setHttpManager = (L.manager ?~)
 
 -- | Install a request modifier in the provided configuration. This
 -- can be used for e.g. including access tokens in HTTP requests to
@@ -81,13 +81,13 @@ setRequestModifier = (L.requestModifier .~)
 -- | Install a callback in the provided configuration to use in case
 -- of deserialization failures when consuming events.
 setDeserializationFailureCallback :: (ByteString -> Text -> m ()) -> Config m -> Config m
-setDeserializationFailureCallback cb = L.deserializationFailureCallback .~ Just cb
+setDeserializationFailureCallback = (L.deserializationFailureCallback ?~)
 
 -- | Install a callback in the provided configuration which is used
 -- after having successfully established a streaming Nakadi
 -- connection.
 setStreamConnectCallback :: StreamConnectCallback m -> Config m -> Config m
-setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
+setStreamConnectCallback = (L.streamConnectCallback ?~)
 
 -- | Install a callback in the provided configuration which is called
 -- on HTTP 5xx errors. This allows the user to act on such error
@@ -95,11 +95,11 @@ setStreamConnectCallback cb = L.streamConnectCallback .~ Just cb
 -- this callback is called synchronously, thus blocking in this
 -- callback delays potential retry attempts.
 setHttpErrorCallback :: HttpErrorCallback m -> Config m -> Config m
-setHttpErrorCallback cb = L.httpErrorCallback .~ Just cb
+setHttpErrorCallback = (L.httpErrorCallback ?~)
 
 -- | Install a logger callback in the provided configuration.
 setLogFunc :: LogFunc m -> Config m -> Config m
-setLogFunc logFunc = L.logFunc .~ Just logFunc
+setLogFunc = (L.logFunc ?~)
 
 -- | Set a custom retry policy in the provided configuration.
 setRetryPolicy :: RetryPolicyM IO -> Config m -> Config m
@@ -107,7 +107,7 @@ setRetryPolicy = (L.retryPolicy .~)
 
 -- | Set flow ID in the provided configuration.
 setFlowId :: FlowId -> Config m -> Config m
-setFlowId flowId = L.flowId .~ Just flowId
+setFlowId = (L.flowId ?~)
 
 -- | Set flow ID in the provided configuration.
 setCommitStrategy :: CommitStrategy -> Config m -> Config m

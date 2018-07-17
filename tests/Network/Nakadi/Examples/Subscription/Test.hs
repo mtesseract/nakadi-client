@@ -35,7 +35,7 @@ genEvent = do
   pure event
 
 genEvents :: MonadIO m => m [Nakadi.DataChangeEvent Foo]
-genEvents = sequence (replicate 10 genEvent)
+genEvents = replicateM 10 genEvent
 
 testConsumption :: Nakadi.Config IO -> Assertion
 testConsumption config = Nakadi.runNakadiT config $ do
@@ -44,10 +44,9 @@ testConsumption config = Nakadi.runNakadiT config $ do
     _ <- flip runLoggingT (logger nakadiLogRef) $ do
       events <- genEvents
       void . async $ delayedPublish Nothing events
-      withAsync (dumpSubscription subscriptionId)
-        $ \_dumpHandle -> threadDelay (2 * 10 ^ 6) -- Give Nakadi some time to transmit the published events
+      withAsync (dumpSubscription subscriptionId) $ \_dumpHandle -> threadDelay (2 * 10 ^ 6) -- Give Nakadi some time to transmit the published events
     nakadiLog <- liftIO $ readIORef nakadiLogRef
-    when (length nakadiLog == 0) $ liftIO $ assertFailure
+    when (null nakadiLog) $ liftIO $ assertFailure
       "Subscription Consumption has logged no received batches"
  where
   before = do
@@ -62,7 +61,7 @@ testConsumption config = Nakadi.runNakadiT config $ do
 
   after subscriptionId = do
     Nakadi.subscriptionDelete subscriptionId
-    Nakadi.eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+    Nakadi.eventTypeDelete myEventTypeName `catch` ignoreExnNotFound ()
 
   -- nEvents = 100
 

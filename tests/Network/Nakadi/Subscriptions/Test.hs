@@ -20,10 +20,9 @@ testSubscriptions conf = testGroup
   "Subscriptions"
   [ testSubscriptionsStats conf
   , testSubscriptionsProcessing conf
-  , testCase "SubscriptionsList"         (testSubscriptionsList conf)
-  , testCase "SubscriptionsCreateDelete" (testSubscriptionsCreateDelete conf)
-  , testCase "SubscriptionDoubleDeleteFailure"
-             (testSubscriptionsDoubleDeleteFailure conf)
+  , testCase "SubscriptionsList"               (testSubscriptionsList conf)
+  , testCase "SubscriptionsCreateDelete"       (testSubscriptionsCreateDelete conf)
+  , testCase "SubscriptionDoubleDeleteFailure" (testSubscriptionsDoubleDeleteFailure conf)
   ]
 
 testSubscriptionsList :: Config App -> Assertion
@@ -40,8 +39,7 @@ testSubscriptionsList conf = run $ do
   -- Retrieve list of all Subscriptions
   subscriptions' <- subscriptionsList Nothing Nothing
   -- Filter for the subscriptions we have created above
-  let subscriptionsFiltered =
-        filter (subscriptionAppHasPrefix prefix) subscriptions'
+  let subscriptionsFiltered   = filter (subscriptionAppHasPrefix prefix) subscriptions'
       subscriptionIdsFiltered = map (view L.id) $ subscriptionsFiltered
   liftIO $ n @=? length subscriptionIdsFiltered
   liftIO $ sort subscriptionIds @=? sort subscriptionIdsFiltered
@@ -53,9 +51,8 @@ testSubscriptionsList conf = run $ do
 deleteSubscriptionsByAppPrefix :: MonadNakadi b m => Text -> m ()
 deleteSubscriptionsByAppPrefix prefix = do
   subscriptions <- subscriptionsList Nothing Nothing
-  let subscriptionsFiltered =
-        filter (subscriptionAppHasPrefix prefix) subscriptions
-      subscriptionIdsFiltered = map (view L.id) $ subscriptionsFiltered
+  let subscriptionsFiltered   = filter (subscriptionAppHasPrefix prefix) subscriptions
+      subscriptionIdsFiltered = map (view L.id) subscriptionsFiltered
   forM_ subscriptionIdsFiltered subscriptionDelete
 
 subscriptionAppHasPrefix :: Text -> Subscription -> Bool

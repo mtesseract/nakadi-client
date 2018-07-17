@@ -202,7 +202,7 @@ unbufferedCommitLoop eventStream queue = do
   config <- nakadiAsk
   forever $ do
     (_nEvents, cursor) <- atomically . readTBQueue $ queue
-    catchAny (subscriptionCursorCommit eventStream [cursor]) $ \exn -> do
+    catchAny (subscriptionCursorCommit eventStream [cursor]) $ \exn ->
       nakadiLiftBase $ case config ^. L.logFunc of
         Just logFunc ->
           logFunc "nakadi-client" LevelWarn
@@ -367,7 +367,7 @@ subscriptionSource subscriptionId = do
       -- This effectively means that we don't try to reach @streamLimit@ events exactly.
       -- We simply regard @streamLimit@ as an upper bound and in case Nakadi disconnects us
       -- earlier or the connection breaks, we produce less than @streamLimit@ events.
-      when (isNothing maybeStreamLimit) $ go
+      when (isNothing maybeStreamLimit) go
 
 -- | Experimental API.
 --

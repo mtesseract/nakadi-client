@@ -20,10 +20,8 @@ import           Control.Concurrent
 testSubscriptionsStats :: Config App -> TestTree
 testSubscriptionsStats conf = testGroup
   "Stats"
-  [ testCase "SubscriptionStats/WithTimeLag"
-    $ testSubscriptionStatsWithTimeLag conf
-  , testCase "SubscriptionStats/WithoutTimeLag"
-    $ testSubscriptionStatsWithoutTimeLag conf
+  [ testCase "SubscriptionStats/WithTimeLag" $ testSubscriptionStatsWithTimeLag conf
+  , testCase "SubscriptionStats/WithoutTimeLag" $ testSubscriptionStatsWithoutTimeLag conf
   ]
 
 produceSubscriptionStats :: Config App -> IO (Map EventTypeName [PartitionStat])
@@ -36,9 +34,7 @@ produceSubscriptionStats conf =
     -- tracking of unconsumed events and time lag.
         void $ timeout (2 * 10 ^ (6 :: Int)) $ subscriptionProcess
           subscriptionId
-          (\(_batch :: SubscriptionEventStreamBatch (DataChangeEvent Value)) ->
-            pure ()
-          )
+          (\(_batch :: SubscriptionEventStreamBatch (DataChangeEvent Value)) -> pure ())
         events <- replicateM 10 (genMyDataChangeEventIdx 1)
         eventsPublish myEventTypeName events
         liftIO $ threadDelay (1 * 10 ^ (6 :: Int))
@@ -48,16 +44,14 @@ testSubscriptionStatsWithoutTimeLag :: Config App -> Assertion
 testSubscriptionStatsWithoutTimeLag conf = do
   stats <- produceSubscriptionStats (setShowTimeLag False conf)
   let (Just partitionStats) = lookup myEventTypeName stats
-      noConsumerLagSeconds =
-        partitionStats & map (^. L.consumerLagSeconds) & filter isNothing
+      noConsumerLagSeconds  = partitionStats & map (^. L.consumerLagSeconds) & filter isNothing
   liftIO $ length partitionStats @=? length noConsumerLagSeconds
 
 testSubscriptionStatsWithTimeLag :: Config App -> Assertion
 testSubscriptionStatsWithTimeLag conf = do
   stats <- produceSubscriptionStats (setShowTimeLag True conf)
   let (Just partitionStats) = lookup myEventTypeName stats
-      consumerLagSeconds =
-        partitionStats & map (^. L.consumerLagSeconds) & filter isJust
+      consumerLagSeconds    = partitionStats & map (^. L.consumerLagSeconds) & filter isJust
   liftIO $ length partitionStats @=? length consumerLagSeconds
 
 before :: (MonadUnliftIO m, MonadNakadi App m) => m SubscriptionId
@@ -74,4 +68,4 @@ before = do
 after :: (MonadUnliftIO m, MonadNakadi App m) => SubscriptionId -> m ()
 after subscriptionId = do
   subscriptionDelete subscriptionId
-  eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeDelete myEventTypeName `catch` ignoreExnNotFound ()

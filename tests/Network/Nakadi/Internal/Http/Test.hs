@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -75,7 +74,7 @@ testFlowIdInclusionHttp :: Assertion
 testFlowIdInclusionHttp = do
   tv <- atomically $ newTVar Nothing
   let flowId      = FlowId "shalom"
-      httpBackend = httpBackendIO & L.httpLbs .~ (mockHttpLbs tv)
+      httpBackend = httpBackendIO & L.httpLbs .~ mockHttpLbs tv
       config      = newConfig httpBackend defaultRequest & setFlowId flowId
   Left (StringException _ _) <- try $ runNakadiT config eventTypesList
   Just requestExecuted <- liftIO . atomically $ readTVar tv
@@ -84,7 +83,7 @@ testFlowIdInclusionHttp = do
 testFlowIdMissingHttp :: Assertion
 testFlowIdMissingHttp = do
   tv <- atomically $ newTVar Nothing
-  let httpBackend = httpBackendIO & L.httpLbs .~ (mockHttpLbs tv)
+  let httpBackend = httpBackendIO & L.httpLbs .~ mockHttpLbs tv
       config      = newConfig httpBackend defaultRequest
   Left (StringException _ _) <- try $ runNakadiT config eventTypesList
   Just requestExecuted <- liftIO . atomically $ readTVar tv

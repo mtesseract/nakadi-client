@@ -39,7 +39,7 @@ cursorsShift' ::
   -> m [Cursor]      -- ^ Resulting Cursors
 cursorsShift' eventTypeName cursors = do
   config <- nakadiAsk
-  httpJsonBody ok200 [] $
+  httpJsonBody ok200 []
     (setRequestMethod "POST"
      . includeFlowId config
      . setRequestPath (path eventTypeName)
@@ -53,7 +53,7 @@ cursorsShift ::
   -> [Cursor]      -- ^ Cursors to shift
   -> Int64         -- ^ Shift Distance
   -> m [Cursor]    -- ^ Resulting Cursors
-cursorsShift eventTypeName cursors n = do
+cursorsShift eventTypeName cursors n =
   cursorsShift' eventTypeName (map makeShiftCursor cursors)
 
   where makeShiftCursor Cursor { .. } =

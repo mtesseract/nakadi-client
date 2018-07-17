@@ -44,7 +44,7 @@ testEventTypes conf = testGroup
 testEventTypesPrepare :: Config App -> Assertion
 testEventTypesPrepare conf = runApp . runNakadiT conf $ do
   subscriptions <- subscriptionsList Nothing Nothing
-  let subscriptionIds = map (view L.id) $ subscriptions
+  let subscriptionIds = map (view L.id) subscriptions
   forM_ subscriptionIds subscriptionDelete
 
 testEventTypesGet :: Config App -> Assertion
@@ -52,24 +52,24 @@ testEventTypesGet conf = runApp . runNakadiT conf $ void eventTypesList
 
 testEventTypesDeleteCreateGet :: Config App -> Assertion
 testEventTypesDeleteCreateGet conf = runApp . runNakadiT conf $ do
-  eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeDelete myEventTypeName `catch` ignoreExnNotFound ()
   eventTypeCreate myEventType
   myEventTypes <- filterMyEvent <$> eventTypesList
   liftIO $ length myEventTypes @=? 1
   eventTypeDelete myEventTypeName
   myEventTypes' <- filterMyEvent <$> eventTypesList
   liftIO $ length myEventTypes' @=? 0
-  where filterMyEvent = filter ((myEventTypeName ==) . (view L.name))
+  where filterMyEvent = filter ((myEventTypeName ==) . view L.name)
 
 testEventTypePartitionsGet :: Config App -> Assertion
 testEventTypePartitionsGet conf = runApp . runNakadiT conf $ do
-  eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeDelete myEventTypeName `catch` ignoreExnNotFound ()
   eventTypeCreate myEventType
   void $ eventTypePartitions myEventTypeName
 
 testEventTypeCursorDistances0 :: Config App -> Assertion
 testEventTypeCursorDistances0 conf = runApp . runNakadiT conf $ do
-  eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeDelete myEventTypeName `catch` ignoreExnNotFound ()
   eventTypeCreate myEventType
   partitions <- eventTypePartitions myEventTypeName
   let cursors = map extractCursor partitions
@@ -79,7 +79,7 @@ testEventTypeCursorDistances0 conf = runApp . runNakadiT conf $ do
 
 testEventTypeCursorDistances10 :: Config App -> Assertion
 testEventTypeCursorDistances10 conf = runApp . runNakadiT conf $ do
-  eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeDelete myEventTypeName `catch` ignoreExnNotFound ()
   eventTypeCreate myEventType
   partitions <- eventTypePartitions myEventTypeName
   let cursors = map extractCursor partitions
@@ -94,7 +94,7 @@ testEventTypeCursorDistances10 conf = runApp . runNakadiT conf $ do
     let cursor' = extractCursor part
     return (cursor, cursor')
 
-  distances <- forM cursorPairs $ \(c, c') -> cursorDistance myEventTypeName c c'
+  distances <- forM cursorPairs $ uncurry (cursorDistance myEventTypeName)
 
   let totalDistances = sum distances
   liftIO $ totalDistances @=? 10
@@ -135,7 +135,7 @@ testEventTypePublishData conf' = runApp . runNakadiT conf $ do
   res            <- try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
     subscriptionProcess subscriptionId (storeBatch batchTv)
-  liftIO $ (Left TerminateConsumption) @=? res
+  liftIO $ Left TerminateConsumption @=? res
   Just batch <- atomically $ readTVar batchTv
   let Just events = batch ^. L.events :: Maybe (Vector (DataChangeEvent Foo))
   liftIO $ True @=? (Vector.length events > 0)
@@ -172,7 +172,7 @@ testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
   res            <- try $ withAsync (delayedPublish expectedFlowId [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
     subscriptionProcess subscriptionId (storeBatch batchTv)
-  liftIO $ (Left TerminateConsumption) @=? res
+  liftIO $ Left TerminateConsumption @=? res
   Just batch <- atomically $ readTVar batchTv
   let Just (e : _) = toList <$> (batch ^. L.events) :: Maybe [DataChangeEventEnriched Foo]
   liftIO $ expectedFlowId @=? e ^. L.metadata . L.flowId

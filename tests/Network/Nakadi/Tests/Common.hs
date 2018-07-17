@@ -127,7 +127,7 @@ recreateEvent eventType = do
   let eventTypeName = eventType ^. L.name
   subscriptionIds <- subscriptionsList Nothing (Just [eventTypeName]) <&> map (view L.id)
   mapM_ subscriptionDelete subscriptionIds
-  eventTypeDelete eventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeDelete eventTypeName `catch` ignoreExnNotFound ()
   eventTypeCreate eventType
 
 delayedPublish :: (MonadNakadi b m, MonadIO m, ToJSON a) => Maybe FlowId -> [a] -> m ()

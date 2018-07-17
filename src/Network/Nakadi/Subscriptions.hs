@@ -117,7 +117,7 @@ subscriptionsSource maybeOwningApp maybeEventTypeNames = pure $ nextPage initial
   nextPage queryParameters = do
     resp <- lift $ subscriptionsGet queryParameters
     yield (resp ^. L.items)
-    let maybeNextPath = Text.unpack . (view L.href) <$> (resp ^. L.links . L.next)
+    let maybeNextPath = Text.unpack . view L.href <$> (resp ^. L.links . L.next)
     forM_ (maybeNextPath >>= extractQueryParametersFromPath) nextPage
 
   initialQueryParameters = buildQueryParameters maybeOwningApp maybeEventTypeNames Nothing Nothing
