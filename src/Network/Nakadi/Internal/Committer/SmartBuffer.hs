@@ -36,9 +36,10 @@ import           UnliftIO.STM
 
 -- | Implementation of the 'CommitSmartBuffer' strategy: We use an
 -- async timer for committing cursors at specified intervals, but if
--- the number of uncommitted events reaches some threshold before the
--- next scheduled commit, a commit is being done right away and the
--- timer is resetted.
+-- the number of uncommitted events reaches the threshold currently
+-- specified by @maxUncommittedEvents@ divided by 2 (safety factor)
+-- before the next scheduled commit, a commit is being done right away
+-- and the timer is resetted.
 --
 -- The 'StagedCursor's in the 'CommitSmartBuffer' case carry an 'Int',
 -- which is used for counting the number of events processed on the
