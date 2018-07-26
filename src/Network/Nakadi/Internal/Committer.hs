@@ -21,7 +21,6 @@ import           Network.Nakadi.Internal.Prelude
 
 import           Conduit
 import           Control.Lens
-import           Control.Monad.Logger
 import           UnliftIO.STM
 
 import qualified Network.Nakadi.Internal.Lenses
@@ -58,17 +57,5 @@ subscriptionSink
   :: (MonadIO m, MonadNakadi b m)
   => SubscriptionEventStream
   -> ConduitM (SubscriptionEventStreamBatch a) void m ()
-subscriptionSink eventStream = do
-  config <- lift nakadiAsk
-  awaitForever $ \batch -> lift $ do
-    let cursor = batch ^. L.cursor
-    catchAny (commitOneCursor eventStream cursor) $ \exn ->
-      nakadiLiftBase $ case config ^. L.logFunc of
-        Just logFunc ->
-          logFunc "nakadi-client" LevelWarn
-            $  toLogStr
-            $  "Failed to synchronously commit cursor "
-            <> tshow cursor
-            <> ": "
-            <> tshow exn
-        Nothing -> pure ()
+subscriptionSink eventStream =
+  awaitForever $ \batch -> lift $ commitOneCursor eventStream (batch ^. L.cursor)
