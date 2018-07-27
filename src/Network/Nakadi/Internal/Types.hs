@@ -12,16 +12,14 @@ Exports all types for internal usage.
 
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Network.Nakadi.Internal.Types
@@ -40,21 +38,23 @@ module Network.Nakadi.Internal.Types
   , MonadNakadiIO
   , NakadiT(..)
   , runNakadiT
-  ) where
+  )
+where
 
+import           UnliftIO.STM                   ( readTVarIO )
 import           Control.Monad.Base
 import           Control.Monad.Catch
 import           Control.Monad.IO.Unlift
 import           Control.Monad.Logger
 import           Control.Monad.State.Class
-import qualified Control.Monad.State.Lazy                    as State.Lazy
-import qualified Control.Monad.State.Strict                  as State.Strict
+import qualified Control.Monad.State.Lazy      as State.Lazy
+import qualified Control.Monad.State.Strict    as State.Strict
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
-import           Control.Monad.Trans.Reader                  (ReaderT (..))
+import           Control.Monad.Trans.Reader     ( ReaderT(..) )
 import           Control.Monad.Trans.Resource
-import qualified Control.Monad.Writer.Lazy                   as Writer.Lazy
-import qualified Control.Monad.Writer.Strict                 as Writer.Strict
+import qualified Control.Monad.Writer.Lazy     as Writer.Lazy
+import qualified Control.Monad.Writer.Strict   as Writer.Strict
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Types.Base
 import           Network.Nakadi.Internal.Types.Committer
@@ -63,6 +63,7 @@ import           Network.Nakadi.Internal.Types.Exceptions
 import           Network.Nakadi.Internal.Types.Logger
 import           Network.Nakadi.Internal.Types.Problem
 import           Network.Nakadi.Internal.Types.Service
+import           Network.Nakadi.Internal.GlobalConfig
 import           Network.Nakadi.Internal.Types.Subscriptions
 import           Network.Nakadi.Internal.Types.Util
 import           Network.Nakadi.Internal.Types.Worker
@@ -202,6 +203,14 @@ instance MonadBaseControl b' m => MonadBaseControl b' (NakadiT b m) where
 -- | 'MonadNakadiBase'
 instance {-# OVERLAPPABLE #-} MonadNakadiBase b m => MonadNakadiBase b (NakadiT b m)
 
+-- ** Implementation of 'MonadNakadi' for IO. Useful for testing purposes or scripting.
+
+instance MonadNakadi IO IO where
+  nakadiAsk =
+    liftIO (readTVarIO globalConfiguration) >>= \case
+      Nothing     -> throwIO ConfigurationMissing
+      Just config -> pure config
+
 -- ** Implementations 'MonadNakadi' typeclass for transformers.
 
 -- | 'ReaderT'
@@ -246,4 +255,4 @@ runNakadiT :: Config b -> NakadiT b m a -> m a
 runNakadiT = flip _runNakadiT
 
 mapNakadiT :: (m a -> m a) -> NakadiT b m a -> NakadiT b m a
-mapNakadiT f n = NakadiT $ \ c -> f (_runNakadiT n c)
+mapNakadiT f n = NakadiT $ \c -> f (_runNakadiT n c)
