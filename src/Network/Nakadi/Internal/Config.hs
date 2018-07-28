@@ -48,6 +48,10 @@ defaultRetryPolicy = fullJitterBackoff 2 <> limitRetries 5
 defaultCommitStrategy :: CommitStrategy
 defaultCommitStrategy = CommitSync
 
+-- | Default worker configuration. This specifies single-threaded consumption of subscriptions.
+defaultWorkerConfig :: WorkerConfig
+defaultWorkerConfig = WorkerConfig {_nThreads = 1}
+
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
 newConfig
@@ -74,4 +78,5 @@ newConfig httpBackend request = Config
   , _batchFlushTimeout              = Nothing
   , _streamTimeout                  = Nothing
   , _streamKeepAliveLimit           = Nothing
+  , _worker                         = defaultWorkerConfig
   }

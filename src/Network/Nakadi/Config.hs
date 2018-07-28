@@ -23,6 +23,7 @@ module Network.Nakadi.Config
   , setHttpErrorCallback
   , setLogFunc
   , setRetryPolicy
+  , setWorkerThreads
   , setMaxUncommittedEvents
   , setBatchLimit
   , setStreamLimit
@@ -112,6 +113,13 @@ setFlowId flowId = L.flowId .~ Just flowId
 -- | Set flow ID in the provided configuration.
 setCommitStrategy :: CommitStrategy -> Config m -> Config m
 setCommitStrategy = (L.commitStrategy .~)
+
+-- | Set number of worker threads that should be spawned on
+-- subscription consumption. The (per event-type) partitions of the
+-- subscription to be consumed will then be mapped onto this finite
+-- set of workers.
+setWorkerThreads :: Int -> Config m -> Config m
+setWorkerThreads n = (L.worker . L.nThreads .~ n)
 
 -- | Set maximum number of uncommitted events.
 setMaxUncommittedEvents :: Int32 -> Config m -> Config m
