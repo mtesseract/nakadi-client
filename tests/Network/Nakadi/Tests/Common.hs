@@ -62,7 +62,12 @@ myEventType = EventType
   , _compatibilityMode    = Just CompatibilityModeForward
   , _partitionKeyFields   = Just ["fortune"]
   , _schema               = myEventTypeSchema
-  , _defaultStatistic     = Nothing
+  , _defaultStatistic     = Just EventTypeStatistics
+    { _messagesPerMinute = 1000
+    , _messageSize       = 200
+    , _readParallelism   = 8
+    , _writeParallelism  = 8
+    }
   , _options              = Nothing
   }
 

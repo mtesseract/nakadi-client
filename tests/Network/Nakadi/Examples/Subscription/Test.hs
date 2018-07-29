@@ -42,9 +42,12 @@ testConsumption config = Nakadi.runNakadiT config $ do
   nakadiLogRef <- liftIO $ newIORef []
   bracket before after $ \subscriptionId -> do
     _ <- flip runLoggingT (logger nakadiLogRef) $ do
-      events <- genEvents
-      void . async $ delayedPublish Nothing events
-      withAsync (dumpSubscription subscriptionId) $ \_dumpHandle -> threadDelay (2 * 10 ^ 6) -- Give Nakadi some time to transmit the published events
+      events          <- genEvents
+      publisherHandle <- async $ delayedPublish Nothing events
+      link publisherHandle
+      withAsync (dumpSubscription subscriptionId) $ \dumpHandle -> do
+        link dumpHandle
+        threadDelay (5 * 10 ^ 6) -- Give Nakadi some time to transmit the published events
     nakadiLog <- liftIO $ readIORef nakadiLogRef
     when (null nakadiLog) $ liftIO $ assertFailure
       "Subscription Consumption has logged no received batches"

@@ -21,6 +21,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 import           System.IO.Unsafe
 import           UnliftIO.Async
+import           Control.Monad.Trans.Resource
 
 testEventTypes :: Config App -> TestTree
 testEventTypes conf = testGroup
@@ -134,8 +135,8 @@ testEventTypePublishData conf' = runApp . runNakadiT conf $ do
   batchTv        <- newTVarIO Nothing
   res            <- try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    subscriptionProcess subscriptionId (storeBatch batchTv)
-  liftIO $ Left TerminateConsumption @=? res
+    runResourceT $ subscriptionProcess subscriptionId (storeBatch batchTv)
+  liftIO $ (Left TerminateConsumption) @=? res
   Just batch <- atomically $ readTVar batchTv
   let Just events = batch ^. L.events :: Maybe (Vector (DataChangeEvent Foo))
   liftIO $ True @=? (Vector.length events > 0)
@@ -171,8 +172,8 @@ testEventTypeParseFlowId conf = runApp . runNakadiT conf $ do
   batchTv        <- newTVarIO Nothing
   res            <- try $ withAsync (delayedPublish expectedFlowId [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    subscriptionProcess subscriptionId (storeBatch batchTv)
-  liftIO $ Left TerminateConsumption @=? res
+    runResourceT $ subscriptionProcess subscriptionId (storeBatch batchTv)
+  liftIO $ (Left TerminateConsumption) @=? res
   Just batch <- atomically $ readTVar batchTv
   let Just (e : _) = toList <$> (batch ^. L.events) :: Maybe [DataChangeEventEnriched Foo]
   liftIO $ expectedFlowId @=? e ^. L.metadata . L.flowId
@@ -197,7 +198,9 @@ testEventTypeDeserializationFailureException conf' = runApp . runNakadiT conf $ 
   res :: Either NakadiException () <-
     try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
       liftIO $ link asyncHandle
-      subscriptionProcess subscriptionId $ \(_batch :: SubscriptionEventStreamBatch ()) -> pure ()
+      runResourceT
+        $ subscriptionProcess subscriptionId
+        $ \(_batch :: SubscriptionEventStreamBatch ()) -> pure ()
   case res of
     Left (DeserializationFailure _ _) -> pure ()
     Left exn -> liftIO $ assertFailure $ "Unexpected exception: " <> show exn
@@ -223,7 +226,8 @@ testEventTypeDeserializationFailure conf' = runApp . runNakadiT conf $ do
   subscriptionId <- createMySubscription
   res            <- try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
-    subscriptionProcess subscriptionId
+    runResourceT
+      $ subscriptionProcess subscriptionId
       $ \(_batch :: SubscriptionEventStreamBatch WrongFoo) -> throwIO TerminateConsumption
   liftIO $ Left TerminateConsumption @=? res
   counter <- atomically $ readTVar deserializationFailureCounter

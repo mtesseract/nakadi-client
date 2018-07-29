@@ -76,17 +76,18 @@ import           Network.Nakadi.Internal.Util
 conduitDecode
   :: forall a b m
    . (FromJSON a, MonadNakadi b m)
-  => Config b -- ^ Configuration, containing the
-              -- deserialization-failure-callback.
-  -> ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
+  => ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
                                 -- into custom values
-conduitDecode config = awaitForever $ \a -> case eitherDecodeStrict' a of
-  Right v   -> yield v
-  Left  err -> lift . nakadiLiftBase $ callback a (Text.pack err)
- where
-  callback bs err = case config ^. L.deserializationFailureCallback of
-    Nothing -> throwM $ DeserializationFailure bs err
-    Just cb -> cb bs err
+conduitDecode = do
+  config <- lift nakadiAsk
+  awaitForever $ \ a -> case eitherDecodeStrict' a of
+    Right v   -> yield v
+    Left  err -> lift . nakadiLiftBase $ callback config a (Text.pack err)
+
+ where callback config bs err =
+         case config^.L.deserializationFailureCallback of
+           Nothing -> throwM $ DeserializationFailure bs err
+           Just cb -> cb bs err
 
 -- | Throw 'HttpException' exception on server errors (5xx).
 checkNakadiResponse :: Request -> Response BodyReader -> IO ()
@@ -121,7 +122,8 @@ httpExecRequest requestDef = do
   nakadiLiftBase $ nakadiHttpLbs config req (config ^. L.manager)
 
 nakadiHttpLbs :: Config b -> Request -> Maybe Manager -> b (Response LB.ByteString)
-nakadiHttpLbs config = (config ^. L.http . L.httpLbs) r
+nakadiHttpLbs config = (config ^. L.http . L.httpLbs) config
+
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier. Returns the HTTP response and separately the
 -- response status.
@@ -258,5 +260,4 @@ errorBatchPartiallySubmitted :: MonadThrow m => ByteString.Lazy.ByteString -> m 
 errorBatchPartiallySubmitted s = BatchPartiallySubmitted <$> decodeThrow s
 
 errorBatchNotSubmitted :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
-errorBatchNotSubmitted s = BatchNotSubmitted <$> decodeThrow s
 errorBatchNotSubmitted s = BatchNotSubmitted <$> decodeThrow s

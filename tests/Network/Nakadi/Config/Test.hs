@@ -9,7 +9,6 @@ module Network.Nakadi.Config.Test where
 
 import           ClassyPrelude
 
-import           Control.Lens
 import           Control.Monad.Catch            ( MonadThrow(..) )
 import qualified Data.ByteString.Lazy          as LB
 import           Data.Conduit                   ( ConduitM
@@ -40,7 +39,8 @@ mockHttpBackendResponseOpen
   :: Config b -> Request -> Maybe Manager -> App (Response (ConduitM i ByteString App ()))
 mockHttpBackendResponseOpen _config req _maybeMngr = do
   mngr <- liftIO getGlobalManager
-  liftIO $ responseOpen req mngr <&> fmap (transPipe liftIO . bodyReaderSource)
+  response <- liftIO $ responseOpen req mngr
+  pure $ fmap (transPipe liftIO . bodyReaderSource) response
 
 mockHttpBackendResponseClose :: Response a -> App ()
 mockHttpBackendResponseClose = liftIO . responseClose

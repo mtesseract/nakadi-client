@@ -29,8 +29,10 @@ import           Data.Time.Clock
 import           Data.UUID                      ( UUID )
 import           Network.Nakadi.Internal.TH
 
+import           Network.Nakadi.Internal.Types.Committer
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Service
+import           Network.Nakadi.Internal.Types.Worker
 
 makeNakadiLenses ''Config
 makeNakadiLenses ''SubscriptionStatsConf
@@ -60,7 +62,11 @@ makeNakadiLenses ''SubscriptionCursor
 makeNakadiLenses ''CursorCommit
 makeNakadiLenses ''SubscriptionsListResponse
 makeNakadiLenses ''Subscription
+makeNakadiLenses ''WorkerConfig
+makeNakadiLenses ''Worker
+makeNakadiLenses ''WorkerRegistry
 makeNakadiLenses ''SubscriptionRequest
+makeNakadiLenses ''SubscriptionCursorWithCounter
 
 instance HasNakadiId StreamId Text where
   id f (StreamId a) = StreamId <$> f a

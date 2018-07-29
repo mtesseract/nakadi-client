@@ -10,6 +10,7 @@ import           ClassyPrelude
 
 import           Control.Lens
 import           Control.Monad.Logger
+import           Control.Monad.Trans.Resource
 import           Data.Aeson
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses         as L
@@ -19,17 +20,26 @@ import           Test.Tasty.HUnit
 
 testSubscriptionsProcessing :: Config App -> TestTree
 testSubscriptionsProcessing confTemplate =
-  let mkConf commitStrategy = confTemplate & setCommitStrategy commitStrategy
+  let mkConf commitStrategy nWorkers =
+        confTemplate & setCommitStrategy commitStrategy & setWorkerThreads nWorkers
   in  testGroup
         "Processing"
-        [ testCase "SubscriptionProcessing/async/TimeBuffer"
-          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)))
-        , testCase "SubscriptionProcessing/sync"
-          $ testSubscriptionHighLevelProcessing (mkConf CommitSync)
-        , testCase "SubscriptionProcessing/async/NoBuffer"
-          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer))
-        , testCase "SubscriptionProcessing/async/SmartBuffer"
-          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitSmartBuffer))
+        [ testCase "SubscriptionProcessing/async/TimeBuffer/singleWorker"
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)) 1)
+        , testCase "SubscriptionProcessing/sync/singleWorker"
+          $ testSubscriptionHighLevelProcessing (mkConf CommitSync 1)
+        , testCase "SubscriptionProcessing/async/NoBuffer/singleWorker"
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer) 1)
+        , testCase "SubscriptionProcessing/async/SmartBuffer/singleWorker"
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitSmartBuffer) 1)
+        , testCase "SubscriptionProcessing/async/TimeBuffer/concurrentWorkers"
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync (CommitTimeBuffer 200)) 8)
+        , testCase "SubscriptionProcessing/sync/concurrentWorkers"
+          $ testSubscriptionHighLevelProcessing (mkConf CommitSync 8)
+        , testCase "SubscriptionProcessing/async/NoBuffer/concurrentWorkers"
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitNoBuffer) 8)
+        , testCase "SubscriptionProcessing/async/SmartBuffer/concurrentWorkers"
+          $ testSubscriptionHighLevelProcessing (mkConf (CommitAsync CommitSmartBuffer) 8)
         ]
 
 data ConsumptionDone = ConsumptionDone deriving (Show, Typeable)
@@ -73,7 +83,7 @@ testSubscriptionHighLevelProcessing conf' = runApp $ do
     let n = length events
     publisherHandle <- async $ delayedPublish Nothing events
     liftIO $ linkAsync publisherHandle
-    forever $ do
+    forever . runResourceT $ do
       subscriptionProcess subscriptionId
         $ \(batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
             let eventsReceived = fromMaybe mempty (batch ^. L.events)

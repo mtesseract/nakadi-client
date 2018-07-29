@@ -54,12 +54,17 @@ data Config m =
          , _batchFlushTimeout              :: Maybe Int32
          , _streamTimeout                  :: Maybe Int32
          , _streamKeepAliveLimit           :: Maybe Int32
+         , _worker                         :: WorkerConfig
          }
 
 data HttpBackend b = HttpBackend
   { _httpLbs           :: Config b -> Request -> Maybe Manager -> b (Response LB.ByteString)
   , _httpResponseOpen  :: Config b -> Request -> Maybe Manager -> b (Response (ConduitM () ByteString b ()))
   , _httpResponseClose :: Response () -> b ()
+  }
+
+data WorkerConfig = WorkerConfig
+  { _nThreads      :: Int
   }
 
 data SubscriptionStatsConf = SubscriptionStatsConf

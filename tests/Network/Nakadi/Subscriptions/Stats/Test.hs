@@ -16,6 +16,7 @@ import           Network.Nakadi.Tests.Common
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Control.Concurrent
+import           Control.Monad.Trans.Resource
 
 testSubscriptionsStats :: Config App -> TestTree
 testSubscriptionsStats conf = testGroup
@@ -29,7 +30,7 @@ produceSubscriptionStats conf =
   runApp
     $ runNakadiT conf
     $ bracket before after
-    $ \subscriptionId -> do
+    $ \subscriptionId -> runResourceT $ do
     -- Note: Apparently we have to consume the subscription first in order to enable
     -- tracking of unconsumed events and time lag.
         void $ timeout (2 * 10 ^ (6 :: Int)) $ subscriptionProcess

@@ -69,6 +69,8 @@ dependencies:
 - stm
 - unliftio >= 0.2.4.0 && < 0.3
 - async-timer >= 0.2.0.0 && < 0.3
+- async >= 2.2.1 && < 2.3.0
+- resourcet >= 1.2.0 && < 1.3
 - stm-chans
 library:
   source-dirs: src
@@ -109,7 +111,7 @@ tests:
     ghc-options:
     - -Wall -fno-warn-type-defaults
     dependencies:
-    - base
+    - base >=4.7 && <5
     - classy-prelude >= 1.4.0 && < 1.5.0
     - nakadi-client
     - tasty
@@ -130,7 +132,6 @@ tests:
     - warp
     - wai
     - tasty
-    - lifted-async
     - unliftio
     - monad-logger
     - fast-logger

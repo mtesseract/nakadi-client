@@ -21,9 +21,11 @@ Exports all types for internal usage.
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE CPP                        #-}
 
 module Network.Nakadi.Internal.Types
   ( module Network.Nakadi.Internal.Types.Config
+  , module Network.Nakadi.Internal.Types.Committer
   , module Network.Nakadi.Internal.Types.Exceptions
   , module Network.Nakadi.Internal.Types.Logger
   , module Network.Nakadi.Internal.Types.Problem
@@ -31,6 +33,7 @@ module Network.Nakadi.Internal.Types
   , module Network.Nakadi.Internal.Types.Util
   , module Network.Nakadi.Internal.Types.Base
   , module Network.Nakadi.Internal.Types.Subscriptions
+  , module Network.Nakadi.Internal.Types.Worker
   , HasNakadiConfig(..)
   , MonadNakadi(..)
   , MonadNakadiIO
@@ -50,11 +53,12 @@ import qualified Control.Monad.State.Strict    as State.Strict
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Reader     ( ReaderT(..) )
-import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.Resource hiding (release)
 import qualified Control.Monad.Writer.Lazy     as Writer.Lazy
 import qualified Control.Monad.Writer.Strict   as Writer.Strict
 import           Network.Nakadi.Internal.Prelude
 import           Network.Nakadi.Internal.Types.Base
+import           Network.Nakadi.Internal.Types.Committer
 import           Network.Nakadi.Internal.Types.Config
 import           Network.Nakadi.Internal.Types.Exceptions
 import           Network.Nakadi.Internal.Types.Logger
@@ -63,6 +67,7 @@ import           Network.Nakadi.Internal.Types.Service
 import           Network.Nakadi.Internal.GlobalConfig
 import           Network.Nakadi.Internal.Types.Subscriptions
 import           Network.Nakadi.Internal.Types.Util
+import           Network.Nakadi.Internal.Types.Worker
 
 -- * Define Typeclasses
 
@@ -146,6 +151,13 @@ instance (Monad b, MonadMask m) => MonadMask (NakadiT b m) where
     NakadiT $ \e -> uninterruptibleMask $ \u -> _runNakadiT (a $ q u) e
       where q :: (m a -> m a) -> NakadiT e m a -> NakadiT e m a
             q u (NakadiT b) = NakadiT (u . b)
+#if MIN_VERSION_exceptions(0, 10, 0)
+  generalBracket acquire release use = NakadiT $ \ conf ->
+    generalBracket
+      (_runNakadiT acquire conf)
+      (\resource exitCase -> _runNakadiT (release resource exitCase) conf)
+      (\resource -> _runNakadiT (use resource) conf)
+#endif
 
 -- | 'MonadIO'
 instance (Monad b, MonadIO m) => MonadIO (NakadiT b m) where
@@ -170,6 +182,9 @@ instance (Monad b, MonadLoggerIO m) => MonadLoggerIO (NakadiT b m)
 instance (Monad b, MonadState s m) => MonadState s (NakadiT b m) where
   get = lift get
   put = lift . put
+
+instance (Monad b, MonadResource m) => MonadResource (NakadiT b m) where
+  liftResourceT = lift . liftResourceT
 
 -- | 'MonadUnliftIO'
 instance (Monad b, MonadUnliftIO m) => MonadUnliftIO (NakadiT b m) where

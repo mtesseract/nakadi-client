@@ -94,8 +94,9 @@ testIOFromEnv conf = flip finally (unsetEnv envNakadiUrl) $ do
   Nakadi.initializeGlobalConfigurationFromEnv
   _eventsTypes <- Nakadi.eventTypesList
   pure ()
-  where url = show (getUri (conf ^. L.requestTemplate))
-        envNakadiUrl = "NAKADI_URL"
+ where
+  url          = show (getUri (conf ^. L.requestTemplate))
+  envNakadiUrl = "NAKADI_URL"
 
 -- | Test the 'MonadNakadi' instance for 'IO' using explicitely
 -- set global configuration.
