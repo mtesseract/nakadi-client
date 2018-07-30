@@ -796,6 +796,7 @@ deriveJSON nakadiJsonOptions ''EventTypeStatistics
 
 -- | Type for event type options.
 
+{-# ANN EventTypeOptions ("HLint: ignore Use newtype instead of data" :: String) #-}
 data EventTypeOptions = EventTypeOptions
   { _retentionTime :: Int64
   } deriving (Show, Generic, Eq, Ord, Hashable)

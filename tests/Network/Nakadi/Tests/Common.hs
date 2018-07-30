@@ -31,11 +31,13 @@ type App = LoggingT (ReaderT () IO)
 runApp :: App a -> IO a
 runApp = flip runReaderT () . runStdoutLoggingT
 
+{-# ANN Foo ("HLint: ignore Use newtype instead of data" :: String) #-}
 data Foo = Foo { fortune :: Text } deriving (Show, Eq, Generic)
 
 deriving instance FromJSON Foo
 deriving instance ToJSON Foo
 
+{-# ANN WrongFoo ("HLint: ignore Use newtype instead of data" :: String) #-}
 data WrongFoo = WrongFoo { fortune :: Int } deriving (Show, Eq, Generic)
 
 deriving instance FromJSON WrongFoo

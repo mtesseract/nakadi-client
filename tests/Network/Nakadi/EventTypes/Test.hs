@@ -136,8 +136,8 @@ testEventTypePublishData conf' = runApp . runNakadiT conf $ do
   res            <- try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
     liftIO $ link asyncHandle
     runResourceT $ subscriptionProcess subscriptionId (storeBatch batchTv)
-  liftIO $ (Left TerminateConsumption) @=? res
-  Just batch <- atomically $ readTVar batchTv
+  liftIO $ Left TerminateConsumption @=? res
+  Just batch <- readTVarIO batchTv
   let Just events = batch ^. L.events :: Maybe (Vector (DataChangeEvent Foo))
   liftIO $ True @=? (Vector.length events > 0)
   where conf = conf' & setBatchLimit 1 & setBatchFlushTimeout 1

@@ -149,7 +149,7 @@ subscriptionWorker processor eventStream queue = do
 -- for processing batches originating from that partition.
 retrievePartitionIndexMap :: MonadNakadi b m => SubscriptionId -> m PartitionIndexMap
 retrievePartitionIndexMap subscriptionId = do
-  eventTypes              <- (view L.eventTypes) <$> subscriptionGet subscriptionId
+  eventTypes              <- view L.eventTypes <$> subscriptionGet subscriptionId
   eventTypesWithPartition <- concat <$> forM eventTypes extractPartitionsForEventType
   pure . HashMap.fromList $ zip eventTypesWithPartition [0 ..]
  where

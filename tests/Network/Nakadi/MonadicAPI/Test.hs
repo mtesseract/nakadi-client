@@ -74,6 +74,7 @@ testNonTrivNakadiBaseT conf =
     pure ()
 
 
+{-# ANN Env ("HLint: ignore Use newtype instead of data" :: String) #-}
 data Env = Env { nakadiConfiguration :: Nakadi.Config App }
 
 instance Nakadi.HasNakadiConfig App Env where

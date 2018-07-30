@@ -63,10 +63,12 @@ data HttpBackend b = HttpBackend
   , _httpResponseClose :: Response () -> b ()
   }
 
+{-# ANN WorkerConfig ("HLint: ignore Use newtype instead of data" :: String) #-}
 data WorkerConfig = WorkerConfig
   { _nThreads      :: Int
   }
 
+{-# ANN SubscriptionStatsConf ("HLint: ignore Use newtype instead of data" :: String) #-}
 data SubscriptionStatsConf = SubscriptionStatsConf
   { _showTimeLag :: Bool
   }
