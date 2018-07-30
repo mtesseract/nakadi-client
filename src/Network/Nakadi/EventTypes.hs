@@ -23,7 +23,8 @@ module Network.Nakadi.EventTypes
   , module Network.Nakadi.EventTypes.Schemas
   , eventTypesList
   , eventTypeCreate
-  ) where
+  )
+where
 
 import           Network.Nakadi.Internal.Prelude
 
@@ -41,23 +42,17 @@ path = "/event-types"
 
 -- | @GET@ to @\/event-types@. Retrieves a list of all registered
 -- event types.
-eventTypesList ::
-  MonadNakadi b m
-  => m [EventType] -- ^ Registered Event Types
+eventTypesList :: MonadNakadi b m => m [EventType] -- ^ Registered Event Types
 eventTypesList = do
   config <- nakadiAsk
-  httpJsonBody status200 [] $
-    (setRequestMethod "GET"
-     . includeFlowId config
-     . setRequestPath path)
+  httpJsonBody status200 [] (setRequestMethod "GET" . includeFlowId config . setRequestPath path)
 
 -- | @POST@ to @\/event-types@. Creates a new event type.
-eventTypeCreate ::
-  MonadNakadi b m
+eventTypeCreate
+  :: MonadNakadi b m
   => EventType -- ^ Event Type to create
   -> m ()
-eventTypeCreate eventType =
-  httpJsonNoBody status201 []
-  (setRequestMethod "POST"
-   . setRequestPath path
-   . setRequestBodyJSON eventType)
+eventTypeCreate eventType = httpJsonNoBody
+  status201
+  []
+  (setRequestMethod "POST" . setRequestPath path . setRequestBodyJSON eventType)

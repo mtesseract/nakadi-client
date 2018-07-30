@@ -1,10 +1,6 @@
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE StandaloneDeriving    #-}
 
 module Network.Nakadi.EventTypes.ShiftedCursors.Test where
 
@@ -39,7 +35,7 @@ testShiftedCursorsN conf n = runApp . runNakadiT conf $ do
   partitions <- eventTypePartitions myEventTypeName
   let cursors = map extractCursor partitions
   liftIO $ length cursors > 0 @=? True
-  forM_ [1..n] $ \_ -> do
+  forM_ [1..n] $ \_ ->
     eventsPublish myEventTypeName [myDataChangeEvent eid now]
   cursors' <- cursorsShift myEventTypeName cursors n
   liftIO $ length cursors' @=? length cursors

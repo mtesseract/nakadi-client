@@ -10,11 +10,6 @@ Portability : POSIX
 This module provides the Nakadi Problem Type.
 -}
 
-{-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections   #-}
-
 module Network.Nakadi.Types.Problem
   ( Problem(..)
   ) where

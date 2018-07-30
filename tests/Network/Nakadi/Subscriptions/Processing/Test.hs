@@ -53,8 +53,7 @@ testSubscriptionHighLevelProcessing conf' = runApp $ do
       conf = conf' & setBatchFlushTimeout 1 & setMaxUncommittedEvents 5000 & setBatchLimit 10
   runNakadiT (conf & setLogFunc logFunc) $ do
     counter <- newIORef 0
-    events  <-
-      sequence $ map genMyDataChangeEventIdx [1 .. nEvents] :: NakadiT App App [DataChangeEvent Foo]
+    events  <- mapM genMyDataChangeEventIdx [1 .. nEvents] :: NakadiT App App [DataChangeEvent Foo]
     publishAndConsume events counter `catch` \(_exn :: ConsumptionDone) -> pure ()
     eventsRead <- readIORef counter
     liftIO $ nEvents @=? eventsRead
@@ -73,7 +72,7 @@ testSubscriptionHighLevelProcessing conf' = runApp $ do
   after :: (MonadUnliftIO m, MonadNakadi App m) => SubscriptionId -> m ()
   after subscriptionId = do
     subscriptionDelete subscriptionId
-    eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+    eventTypeDelete myEventTypeName `catch` ignoreExnNotFound ()
 
   nEvents :: Int
   nEvents = 10000
@@ -88,7 +87,7 @@ testSubscriptionHighLevelProcessing conf' = runApp $ do
       subscriptionProcess subscriptionId
         $ \(batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
             let eventsReceived = fromMaybe mempty (batch ^. L.events)
-            modifyIORef counter (+ (length eventsReceived))
+            modifyIORef counter (+ length eventsReceived)
             eventsRead <- readIORef counter
             when (n <= eventsRead) $ throwIO ConsumptionDone
-      putStrLn $ "Subscription Processing terminated, will restart."
+      putStrLn "Subscription Processing terminated, will restart."

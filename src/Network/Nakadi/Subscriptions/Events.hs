@@ -183,7 +183,7 @@ subscriptionSource subscriptionId = do
       -- This effectively means that we don't try to reach @streamLimit@ events exactly.
       -- We simply regard @streamLimit@ as an upper bound and in case Nakadi disconnects us
       -- earlier or the connection breaks, we produce less than @streamLimit@ events.
-      when (isNothing maybeStreamLimit) $ go
+      when (isNothing maybeStreamLimit) go
 
 -- | Experimental API.
 --

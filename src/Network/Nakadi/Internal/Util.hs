@@ -49,7 +49,7 @@ extractQueryParametersFromPath :: String -> Maybe [(ByteString, ByteString)]
 extractQueryParametersFromPath path =
   case parseRequest ("http://localhost" <> path) of
     Just req ->
-      Just . catMaybes . map sequenceSnd . getRequestQueryString $ req
+      Just . mapMaybe sequenceSnd . getRequestQueryString $ req
     Nothing -> Nothing
 
 encodeStrict :: ToJSON a => a -> ByteString

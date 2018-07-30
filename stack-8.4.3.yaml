@@ -1,8 +1,7 @@
-resolver: lts-11.15
+resolver: lts-12.2
 packages:
 - '.'
 extra-deps: [ async-2.2.1
-            , async-timer-0.2.0.0
             , unliftio-0.2.4.0
             , safe-exceptions-0.1.7.0
             , resourcet-1.2.0

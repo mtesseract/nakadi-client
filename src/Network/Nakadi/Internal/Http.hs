@@ -14,7 +14,6 @@ Internal module containing HTTP client relevant code.
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -41,27 +40,32 @@ module Network.Nakadi.Internal.Http
   , errorBatchPartiallySubmitted
   , errorBatchNotSubmitted
   , setRequestQueryParameters
-  ) where
+  )
+where
 
 import           Network.Nakadi.Internal.Prelude
 
-import           Conduit                         hiding (throwM)
+import           Conduit                 hiding ( throwM )
 import           Control.Arrow
 import           Control.Lens
-import           Control.Monad                   (void)
+import           Control.Monad                  ( void )
 import           Data.Aeson
-import qualified Data.ByteString.Lazy            as ByteString.Lazy
-import qualified Data.ByteString.Lazy            as LB
-import qualified Data.Text                       as Text
-import           Network.HTTP.Client             (BodyReader,
-                                                  HttpException (..),
-                                                  HttpExceptionContent (..),
-                                                  Manager, checkResponse,
-                                                  responseBody, responseStatus)
-import           Network.HTTP.Simple             hiding (Proxy)
+import qualified Data.ByteString.Lazy          as ByteString.Lazy
+import qualified Data.ByteString.Lazy          as LB
+import qualified Data.Text                     as Text
+import           Network.HTTP.Client            ( BodyReader
+                                                , HttpException(..)
+                                                , HttpExceptionContent(..)
+                                                , Manager
+                                                , checkResponse
+                                                , responseBody
+                                                , responseStatus
+                                                )
+import           Network.HTTP.Simple     hiding ( Proxy )
 import           Network.HTTP.Types
 import           Network.HTTP.Types.Status
-import qualified Network.Nakadi.Internal.Lenses  as L
+import qualified Network.Nakadi.Internal.Lenses
+                                               as L
 import           Network.Nakadi.Internal.Types
 import           Network.Nakadi.Internal.Util
 
@@ -88,9 +92,9 @@ conduitDecode = do
 -- | Throw 'HttpException' exception on server errors (5xx).
 checkNakadiResponse :: Request -> Response BodyReader -> IO ()
 checkNakadiResponse request response =
-  when (statusCode (responseStatus response) `div` 100 == 5)
-    $ throwIO
-    $ HttpExceptionRequest request (StatusCodeException (void response) mempty)
+  when (statusCode (responseStatus response) `div` 100 == 5) $ throwIO $ HttpExceptionRequest
+    request
+    (StatusCodeException (void response) mempty)
 
 httpBuildRequest
   :: MonadNakadi b m
@@ -103,8 +107,7 @@ httpBuildRequest requestDef = do
   modifyRequest (config ^. L.requestModifier) request
 
 -- | Modify the Request based on a user function in the configuration.
-modifyRequest
-  :: MonadNakadi b m => (Request -> b Request) -> Request -> m Request
+modifyRequest :: MonadNakadi b m => (Request -> b Request) -> Request -> m Request
 modifyRequest rm request = tryAny (nakadiLiftBase (rm request)) >>= \case
   Right modifiedRequest -> return modifiedRequest
   Left  exn             -> throwIO $ RequestModificationException exn
@@ -112,20 +115,14 @@ modifyRequest rm request = tryAny (nakadiLiftBase (rm request)) >>= \case
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier.
 httpExecRequest
-  :: MonadNakadi b m
-  => (Request -> Request)
-  -> m (Response ByteString.Lazy.ByteString)
+  :: MonadNakadi b m => (Request -> Request) -> m (Response ByteString.Lazy.ByteString)
 httpExecRequest requestDef = do
   config <- nakadiAsk
   req    <- httpBuildRequest requestDef
-  nakadiLiftBase $ nakadiHttpLbs config req (config^.L.manager)
+  nakadiLiftBase $ nakadiHttpLbs config req (config ^. L.manager)
 
-nakadiHttpLbs :: Config b
-              -> Request
-              -> Maybe Manager
-              -> b (Response LB.ByteString)
-nakadiHttpLbs config req maybeMngr =
-  (config^.L.http.L.httpLbs) config req maybeMngr
+nakadiHttpLbs :: Config b -> Request -> Maybe Manager -> b (Response LB.ByteString)
+nakadiHttpLbs config = (config ^. L.http . L.httpLbs) config
 
 -- | Executes an HTTP request using the provided configuration and a
 -- pure request modifier. Returns the HTTP response and separately the
@@ -165,16 +162,12 @@ httpJsonNoBody successStatus exceptionMap requestDef = do
     Nothing    -> throwIO (UnexpectedResponse (void response))
   where exceptionMap' = exceptionMap ++ defaultExceptionMap
 
-nakadiHttpResponseOpen :: Config b
-                       -> Request
-                       -> Maybe Manager
-                       -> b (Response (ConduitM () ByteString b ()))
-nakadiHttpResponseOpen config req maybeMngr =
-  (config^.L.http.L.httpResponseOpen) config req maybeMngr
+nakadiHttpResponseOpen
+  :: Config b -> Request -> Maybe Manager -> b (Response (ConduitM () ByteString b ()))
+nakadiHttpResponseOpen config = (config ^. L.http . L.httpResponseOpen) config
 
 nakadiHttpResponseClose :: Config b -> Response () -> b ()
-nakadiHttpResponseClose config rsp =
-  (config^.L.http.L.httpResponseClose) rsp
+nakadiHttpResponseClose = view (L.http . L.httpResponseClose)
 
 httpJsonBodyStream
   :: forall b m r
@@ -187,47 +180,41 @@ httpJsonBodyStream
 httpJsonBodyStream successStatus exceptionMap requestDef handler = do
   config  <- nakadiAsk
   request <- httpBuildRequest requestDef
-  bracket (nakadiLiftBase $ nakadiHttpResponseOpen config request (config^.L.manager))
+  bracket (nakadiLiftBase $ nakadiHttpResponseOpen config request (config ^. L.manager))
           (nakadiLiftBase . nakadiHttpResponseClose config . void)
-   $ \response -> wrappedHandler config response
+    $ \response -> wrappedHandler config response
+ where
+  wrappedHandler :: Config b -> Response (ConduitM () ByteString b ()) -> m r
+  wrappedHandler config response = do
+    let response_      = void response
+        status         = responseStatus response_
+        bodySource     = responseBody responseLifted
+        responseLifted = fmap (transPipe nakadiLiftBase) response
+    if status == successStatus
+      then do
+        connectCallback config response_
+        handler responseLifted
+      else case lookup status exceptionMap' of
+        Just mkExn -> conduitDrainToLazyByteString bodySource >>= mkExn >>= throwM
+        Nothing    -> throwM (UnexpectedResponse response_)
 
-  where wrappedHandler :: Config b -> Response (ConduitM () ByteString b ()) -> m r
-        wrappedHandler config response = do
-          let response_      = void response
-              status         = responseStatus response_
-              bodySource     = responseBody responseLifted
-              responseLifted = fmap (transPipe nakadiLiftBase) response
-          if status == successStatus
-            then do connectCallback config response_
-                    handler responseLifted
-            else case lookup status exceptionMap' of
-                   Just mkExn ->
-                     conduitDrainToLazyByteString bodySource >>= mkExn >>= throwM
-                   Nothing -> throwM (UnexpectedResponse response_)
+  exceptionMap' = exceptionMap ++ defaultExceptionMap
 
-        exceptionMap' = exceptionMap ++ defaultExceptionMap
-
-        -- connectCallback :: s -> t -> m ()
-        connectCallback config response =
-          nakadiLiftBase $ case config^.L.streamConnectCallback of
-                         Just cb -> cb response
-                         Nothing -> pure ()
+  -- connectCallback :: s -> t -> m ()
+  connectCallback config response = nakadiLiftBase $ case config ^. L.streamConnectCallback of
+    Just cb -> cb response
+    Nothing -> pure ()
 
 setRequestQueryParameters :: [(ByteString, ByteString)] -> Request -> Request
 setRequestQueryParameters parameters = setRequestQueryString parameters'
   where parameters' = map (fmap Just) parameters
 
-includeFlowId
-  :: Config b
-  -> Request
-  -> Request
-includeFlowId config =
-  case config^.L.flowId of
-    Just flowId -> setRequestHeader "X-Flow-Id" [encodeUtf8 (unFlowId flowId)]
-    Nothing     -> identity
+includeFlowId :: Config b -> Request -> Request
+includeFlowId config = case config ^. L.flowId of
+  Just flowId -> setRequestHeader "X-Flow-Id" [encodeUtf8 (unFlowId flowId)]
+  Nothing     -> identity
 
-defaultExceptionMap
-  :: MonadThrow m => [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
+defaultExceptionMap :: MonadThrow m => [(Status, ByteString.Lazy.ByteString -> m NakadiException)]
 defaultExceptionMap =
   [ (status401, errorClientNotAuthenticated)
   , (status403, errorAccessForbidden)
@@ -236,53 +223,41 @@ defaultExceptionMap =
   , (status409, errorConflict)
   ]
 
-errorClientNotAuthenticated
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorClientNotAuthenticated :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorClientNotAuthenticated s = ClientNotAuthenticated <$> decodeThrow s
 
 errorConflict :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorConflict s = Conflict <$> decodeThrow s
 
-errorUnprocessableEntity
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorUnprocessableEntity :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorUnprocessableEntity s = UnprocessableEntity <$> decodeThrow s
 
-errorAccessForbidden
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorAccessForbidden :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorAccessForbidden s = AccessForbidden <$> decodeThrow s
 
-errorTooManyRequests
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorTooManyRequests :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorTooManyRequests s = TooManyRequests <$> decodeThrow s
 
-errorBadRequest
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorBadRequest :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorBadRequest s = BadRequest <$> decodeThrow s
 
-errorSubscriptionNotFound
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorSubscriptionNotFound :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorSubscriptionNotFound s = SubscriptionNotFound <$> decodeThrow s
 
-errorCursorAlreadyCommitted
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorCursorAlreadyCommitted :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorCursorAlreadyCommitted s = CursorAlreadyCommitted <$> decodeThrow s
 
-errorCursorResetInProgress
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorCursorResetInProgress :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorCursorResetInProgress s = CursorResetInProgress <$> decodeThrow s
 
-errorEventTypeNotFound
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorEventTypeNotFound :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorEventTypeNotFound s = EventTypeNotFound <$> decodeThrow s
 
-errorSubscriptionExistsAlready
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorSubscriptionExistsAlready :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorSubscriptionExistsAlready s = SubscriptionExistsAlready <$> decodeThrow s
 
-errorBatchPartiallySubmitted
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorBatchPartiallySubmitted :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorBatchPartiallySubmitted s = BatchPartiallySubmitted <$> decodeThrow s
 
-errorBatchNotSubmitted
-  :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
+errorBatchNotSubmitted :: MonadThrow m => ByteString.Lazy.ByteString -> m NakadiException
 errorBatchNotSubmitted s = BatchNotSubmitted <$> decodeThrow s

@@ -69,4 +69,4 @@ before = do
 after :: (MonadUnliftIO m, MonadNakadi App m) => SubscriptionId -> m ()
 after subscriptionId = do
   subscriptionDelete subscriptionId
-  eventTypeDelete myEventTypeName `catch` (ignoreExnNotFound ())
+  eventTypeDelete myEventTypeName `catch` ignoreExnNotFound ()

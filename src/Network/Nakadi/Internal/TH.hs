@@ -10,8 +10,6 @@ Portability : POSIX
 Internal TemplateHaskell specific code.
 -}
 
-{-# LANGUAGE TemplateHaskell #-}
-
 module Network.Nakadi.Internal.TH where
 
 import           Control.Lens
@@ -35,13 +33,12 @@ nakadiLensNamer _ _ field = maybeToList $ do
 
 -- | Rules for creating nakadi-client lenses.
 nakadiLensRules :: LensRules
-nakadiLensRules =
-  defaultFieldRules & lensField .~ nakadiLensNamer
+nakadiLensRules = defaultFieldRules & lensField .~ nakadiLensNamer
 
 -- | Convenience function, copied from the lens package.
 --
 -- License: BSD2
 -- Copyright (C) 2012-2016 Edward A. Kmett
 overHead :: (a -> a) -> [a] -> [a]
-overHead _ []     = []
-overHead f (x:xs) = f x : xs
+overHead _ []       = []
+overHead f (x : xs) = f x : xs

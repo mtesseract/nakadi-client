@@ -21,6 +21,7 @@ Exports all types for internal usage.
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE CPP                        #-}
 
 module Network.Nakadi.Internal.Types
   ( module Network.Nakadi.Internal.Types.Config
@@ -52,7 +53,7 @@ import qualified Control.Monad.State.Strict    as State.Strict
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Reader     ( ReaderT(..) )
-import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.Resource hiding (release)
 import qualified Control.Monad.Writer.Lazy     as Writer.Lazy
 import qualified Control.Monad.Writer.Strict   as Writer.Strict
 import           Network.Nakadi.Internal.Prelude
@@ -102,7 +103,7 @@ newtype NakadiT b m a = NakadiT { _runNakadiT :: Config b -> m a }
 
 -- | `Functor` for `NakadiT`.
 instance Functor m => Functor (NakadiT b m) where
-  fmap f (NakadiT n) = NakadiT (\c -> fmap f (n c))
+  fmap f (NakadiT n) = NakadiT (fmap f . n)
 
 -- | `Applicative` for `NakadiT`.
 instance (Applicative m) => Applicative (NakadiT b m) where
@@ -150,6 +151,13 @@ instance (Monad b, MonadMask m) => MonadMask (NakadiT b m) where
     NakadiT $ \e -> uninterruptibleMask $ \u -> _runNakadiT (a $ q u) e
       where q :: (m a -> m a) -> NakadiT e m a -> NakadiT e m a
             q u (NakadiT b) = NakadiT (u . b)
+#if MIN_VERSION_exceptions(0, 10, 0)
+  generalBracket acquire release use = NakadiT $ \ conf ->
+    generalBracket
+      (_runNakadiT acquire conf)
+      (\resource exitCase -> _runNakadiT (release resource exitCase) conf)
+      (\resource -> _runNakadiT (use resource) conf)
+#endif
 
 -- | 'MonadIO'
 instance (Monad b, MonadIO m) => MonadIO (NakadiT b m) where

@@ -337,7 +337,7 @@ instance FromJSON SubscriptionPosition where
 -- | This type models the value describing the use case of a subscription.
 -- In general this is an additional identifier used to differ subscriptions
 -- having the same owning application and event types.
-data ConsumerGroup = ConsumerGroup { unConsumerGroup :: Text }
+newtype ConsumerGroup = ConsumerGroup { unConsumerGroup :: Text }
   deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance IsString ConsumerGroup where

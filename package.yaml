@@ -111,7 +111,7 @@ tests:
     ghc-options:
     - -Wall -fno-warn-type-defaults
     dependencies:
-    - base
+    - base >=4.7 && <5
     - classy-prelude >= 1.4.0 && < 1.5.0
     - nakadi-client
     - tasty
@@ -132,7 +132,6 @@ tests:
     - warp
     - wai
     - tasty
-    - lifted-async
     - unliftio
     - monad-logger
     - fast-logger
