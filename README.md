@@ -13,15 +13,7 @@ Please note that the **API is not considered stable yet**.
 `nakadi-client` provides:
 
 - Docker based test suite testing against the official Nakadi [docker
-  image](https://github.com/zalando/nakadi#running-a-server) (in
-  progress).
-
-- A rather direct translation of Nakadi's REST API to Haskell. Thus,
-  if you are familiar with Nakadi's REST API, the API exposed by
-  `nakadi-client` will feel very familiar.
-
-- Where suitable, `nakadi-client` provides *additional* higher-level
-  interfaces.
+  image](https://github.com/zalando/nakadi#running-a-server).
 
 - A type-safe API for interacting with Nakadi. For example, the name
   of an event type has type `EventTypeName`, not `Text` or something
@@ -31,6 +23,8 @@ Please note that the **API is not considered stable yet**.
 - Integrated and configurable retry mechanism.
 
 - Conduit based interfaces for streaming events.
+
+- Support for temporary subscriptions.
 
 - Convenient Subscription API interface (`subscriptionProcess` &
   `subscriptionProcessConduit`), which frees the user from any manual
