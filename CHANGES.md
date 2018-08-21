@@ -4,6 +4,8 @@
 
 * Nakadi *business events* are supported.
 
+* Support for concurrent workers consuming a subscription. This feature is activated using the function `setWorkerThreads`.
+
 * The modelling of the subscription API has been simplified by by differentiating between `SubscriptionRequest` (before creation) and `Subscription` (after creation).
 
 * An experimental API for creating a Conduit event source for a given subscription is included, allowing simulating the old low-level API using the Subscription API.
