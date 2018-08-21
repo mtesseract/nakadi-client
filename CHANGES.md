@@ -16,4 +16,4 @@
 
 * An experimental `MonadNakadi` instance for the `IO` monad using a global Nakadi configuration has been added. The new module `Network.Nakadi.Unsafe.IO` exposes functionality for accessing this global Nakadi configuration. The new instance for `IO` allows e.g. the evaluation of Nakadi calls interactively in GHCi without the need to run any monad transformers.
 
-* A new convenience function `configFromEnv` is exposed, which allows creating a Nakadi configuration with the Nakadi service URL being derived automatically from the environment variable `NAKADI_URL`.
+* A new convenience function `newConfigFromEnv` is exposed, which allows creating a Nakadi configuration with the Nakadi service URL being derived automatically from the environment variable `NAKADI_URL`.
