@@ -13,6 +13,7 @@ homepage: http://nakadi-client.haskell.silverratio.net
 extra-source-files:
 - README.md
 - AUTHORS.md
+- CHANGES.md
 - .gitignore
 default-extensions:
 - NoImplicitPrelude
