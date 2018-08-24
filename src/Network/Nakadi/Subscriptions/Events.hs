@@ -144,8 +144,8 @@ subscriptionProcessHandler subscriptionId processor response = do
     $  runConduit
     $  responseBody response
     .| linesUnboundedAsciiC
-    .| conduitDecode
-    .| mapC (identity :: batch -> batch)
+    .| conduitDecodeByteString
+    .| mapC (identity :: SubscriptionEventStreamBatch Value -> SubscriptionEventStreamBatch Value)
     .| workerDispatchSink workerRegistry
 
 -- | Experimental API.

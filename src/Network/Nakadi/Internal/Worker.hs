@@ -40,10 +40,15 @@ import           Network.Nakadi.Internal.Committer
 import qualified Network.Nakadi.Internal.Lenses
                                                as L
 import           Network.Nakadi.Internal.Types
+import           Network.Nakadi.Internal.Http   ( conduitDecodeBatchValue )
 import           UnliftIO.Async
 import           UnliftIO.STM
 
--- | Spawn a single worker.
+-- | Spawn a single asynchronous worker and return a 'Worker'. This worker value
+-- contains a queue to which batches can be sent and they will be consumed and processed
+-- by the asynchonous worker.
+--
+-- The worker resource allocation is protected by 'MonadResource'.
 spawnWorker
   :: ( MonadNakadi b m
      , MonadResource m
@@ -53,8 +58,8 @@ spawnWorker
      , FromJSON a
      , batch ~ (SubscriptionEventStreamBatch a)
      )
-  => SubscriptionEventStream
-  -> ConduitM batch batch m ()
+  => SubscriptionEventStream   -- ^ Subscription to consume, required for committing
+  -> ConduitM batch batch m () -- ^ Batch processor to run in the worker.
   -> m (Worker a)
 spawnWorker eventStream processor = do
   u           <- askUnliftIO
@@ -87,16 +92,10 @@ spawnWorkers subscriptionId eventStream nWorkers processor = do
 -- | This function processes a subscription, taking care of applying
 -- the configured committing strategy.
 subscriptionWorker
-  :: ( MonadNakadi b m
-     , MonadUnliftIO m
-     , MonadResource m
-     , MonadMask m
-     , FromJSON a
-     , batch ~ (SubscriptionEventStreamBatch a)
-     )
-  => ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
+  :: (MonadNakadi b m, MonadUnliftIO m, MonadResource m, MonadMask m, FromJSON a)
+  => ConduitM (SubscriptionEventStreamBatch a) (SubscriptionEventStreamBatch a) m ()                   -- ^ User provided Conduit for stream.
   -> SubscriptionEventStream
-  -> TBQueue batch                          -- ^ Streaming response from Nakadi
+  -> TBQueue (SubscriptionEventStreamBatch Value) -- ^ Streaming response from Nakadi
   -> m ()
 subscriptionWorker processor eventStream queue = do
   config <- nakadiAsk
@@ -105,7 +104,7 @@ subscriptionWorker processor eventStream queue = do
   --
   -- What remains to be done with the batches produced by the producer is committing the
   -- corresponding cursors.
-  let producer = repeatMC (atomically (readTBQueue queue)) .| processor
+  let producer = repeatMC (atomically (readTBQueue queue)) .| conduitDecodeBatchValue .| processor
   -- For committing we distinguish between two distinct strategies: synchronous and
   -- asynchronous comitting.
   case config ^. L.commitStrategy of
@@ -160,7 +159,7 @@ retrievePartitionIndexMap subscriptionId = do
 -- | Conduit sink which dispatches a batch to a worker contained in
 -- the registry.
 workerDispatchSink
-  :: (MonadIO m) => WorkerRegistry a -> ConduitM (SubscriptionEventStreamBatch a) Void m ()
+  :: (MonadIO m) => WorkerRegistry a -> ConduitM (SubscriptionEventStreamBatch Value) Void m ()
 workerDispatchSink registry = awaitForever $ \batch -> do
   let partition = batch ^. L.cursor . L.partition
       eventType = batch ^. L.cursor . L.eventType

@@ -25,7 +25,8 @@ module Network.Nakadi.Internal.Http
   , httpJsonNoBody
   , httpJsonBodyStream
   , httpBuildRequest
-  , conduitDecode
+  , conduitDecodeByteString
+  , conduitDecodeBatchValue
   , includeFlowId
   , errorClientNotAuthenticated
   , errorUnprocessableEntity
@@ -53,6 +54,7 @@ import           Data.Aeson
 import qualified Data.ByteString.Lazy          as ByteString.Lazy
 import qualified Data.ByteString.Lazy          as LB
 import qualified Data.Text                     as Text
+import           Data.Vector                    ( Vector )
 import           Network.HTTP.Client            ( BodyReader
                                                 , HttpException(..)
                                                 , HttpExceptionContent(..)
@@ -73,21 +75,53 @@ import           Network.Nakadi.Internal.Util
 -- configuration (which is the default), a
 -- DeserializationFailureCallback exception will be thrown. Otherwise,
 -- simply run the callback.
-conduitDecode
-  :: forall a b m
-   . (FromJSON a, MonadNakadi b m)
-  => ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
+conduitDecodeByteString
+  :: forall a b m . (FromJSON a, MonadNakadi b m) => ConduitM ByteString a m () -- ^ Conduit deserializing bytestrings
                                 -- into custom values
-conduitDecode = do
+conduitDecodeByteString = do
   config <- lift nakadiAsk
-  awaitForever $ \ a -> case eitherDecodeStrict' a of
+  awaitForever $ \a -> case eitherDecodeStrict' a of
     Right v   -> yield v
     Left  err -> lift . nakadiLiftBase $ callback config a (Text.pack err)
+ where
+  callback config bs err = case config ^. L.deserializationFailureCallback of
+    Nothing -> throwM $ DeserializationFailure bs err
+    Just cb -> cb bs err
 
- where callback config bs err =
-         case config^.L.deserializationFailureCallback of
-           Nothing -> throwM $ DeserializationFailure bs err
-           Just cb -> cb bs err
+deserializeEventVector :: (FromJSON a, MonadNakadi b m) => Vector Value -> m (Vector a)
+deserializeEventVector events = do
+  config <- nakadiAsk
+  mapM (deserializeEvent config) events
+  where deserializeEvent config event = _
+          case fromJSON event of
+            Success event' -> pure (Just event')
+            Error errMsg -> callback config event errMsg
+  
+        callback config bs err = case config ^. L.deserializationFailureCallback of
+          Nothing -> throwM $ DeserializationFailure bs err
+          Just cb -> cb bs err
+  
+-- | If no deserializationFailureCallback is set in the provided
+-- configuration (which is the default), a
+-- DeserializationFailureCallback exception will be thrown. Otherwise,
+-- simply run the callback.
+conduitDecodeBatchValue
+  :: forall a b m
+   . (FromJSON a, MonadNakadi b m)
+  => ConduitM (SubscriptionEventStreamBatch Value) (SubscriptionEventStreamBatch a) m () -- ^ Conduit deserializing bytestrings
+                                -- into custom values
+conduitDecodeBatchValue = awaitForever $ \batch -> do
+  deserializedEvents <- lift $ case (batch ^. L.events) of
+    Just events -> Just <$> deserializeEventVector events
+    Nothing     -> pure Nothing
+  let deserializedBatch =
+        SubscriptionEventStreamBatch {_cursor = batch ^. L.cursor, _events = deserializedEvents}
+  yield deserializedBatch
+ where
+  callback config bs err = case config ^. L.deserializationFailureCallback of
+    Nothing -> throwM $ DeserializationFailure bs err
+    Just cb -> cb bs err
+
 
 -- | Throw 'HttpException' exception on server errors (5xx).
 checkNakadiResponse :: Request -> Response BodyReader -> IO ()
