@@ -24,10 +24,11 @@ genEvent = do
   let event = Nakadi.DataChangeEvent
         { Nakadi._payload  = Foo "Hello!"
         , Nakadi._metadata = Nakadi.EventMetadata
-          { Nakadi._eid        = eid
-          , Nakadi._occurredAt = Nakadi.Timestamp now
-          , Nakadi._parentEids = Nothing
-          , Nakadi._partition  = Nothing
+          { Nakadi._eid                    = eid
+          , Nakadi._occurredAt             = Nakadi.Timestamp now
+          , Nakadi._parentEids             = Nothing
+          , Nakadi._partition              = Nothing
+          , Nakadi._partitionCompactionKey = Nothing
           }
         , Nakadi._dataType = "test.FOO"
         , Nakadi._dataOp   = Nakadi.DataOpUpdate

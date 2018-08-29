@@ -82,10 +82,11 @@ myDataChangeEvent :: EventId -> UTCTime -> DataChangeEvent Foo
 myDataChangeEvent eid now = DataChangeEvent
   { _payload  = Foo "Hello!"
   , _metadata = EventMetadata
-    { _eid        = eid
-    , _occurredAt = Timestamp now
-    , _parentEids = Nothing
-    , _partition  = Nothing
+    { _eid                    = eid
+    , _occurredAt             = Timestamp now
+    , _parentEids             = Nothing
+    , _partition              = Nothing
+    , _partitionCompactionKey = Nothing
     }
   , _dataType = "test.FOO"
   , _dataOp   = DataOpUpdate
@@ -99,10 +100,11 @@ genMyDataChangeEvent = do
   pure DataChangeEvent
     { _payload  = Foo "Hello!"
     , _metadata = EventMetadata
-      { _eid        = EventId eid
-      , _occurredAt = Timestamp now
-      , _parentEids = Nothing
-      , _partition  = Nothing
+      { _eid                    = EventId eid
+      , _occurredAt             = Timestamp now
+      , _parentEids             = Nothing
+      , _partition              = Nothing
+      , _partitionCompactionKey = Nothing
       }
     , _dataType = "test.FOO"
     , _dataOp   = DataOpUpdate
@@ -115,10 +117,11 @@ genMyDataChangeEventIdx idx = do
   pure DataChangeEvent
     { _payload  = Foo ("Hello " ++ Text.pack (show idx))
     , _metadata = EventMetadata
-      { _eid        = EventId eid
-      , _occurredAt = Timestamp now
-      , _parentEids = Nothing
-      , _partition  = Nothing
+      { _eid                    = EventId eid
+      , _occurredAt             = Timestamp now
+      , _parentEids             = Nothing
+      , _partition              = Nothing
+      , _partitionCompactionKey = Nothing
       }
     , _dataType = "test.FOO"
     , _dataOp   = DataOpUpdate
