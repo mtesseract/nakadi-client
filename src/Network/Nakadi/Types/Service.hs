@@ -14,6 +14,7 @@ module Network.Nakadi.Types.Service
   ( CursorOffset(..)
   , EventTypeName(..)
   , PartitionName(..)
+  , PartitionCompactionKey(..)
   , CursorToken(..)
   , Cursor(..)
   , ApplicationName(..)
