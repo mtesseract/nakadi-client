@@ -41,6 +41,7 @@ eventTypeA = EventType
   , _enrichmentStrategies = Just [EnrichmentStrategyMetadata]
   , _partitionStrategy    = Nothing
   , _compatibilityMode    = Nothing
+  , _cleanupPolicy        = Nothing
   , _schema               = EventTypeSchema
     { _version    = Nothing
     , _createdAt  = Nothing

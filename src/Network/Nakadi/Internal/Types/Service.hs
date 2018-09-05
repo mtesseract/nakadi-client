@@ -783,6 +783,24 @@ instance FromJSON CompatibilityMode where
     "none"       -> return CompatibilityModeNone
     invalid      -> typeMismatch "CompatibilityMode" invalid
 
+
+-- | Type for cleanup policy.
+
+data CleanupPolicy = CleanupPolicyDelete
+                   | CleanupPolicyCompact
+                   deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance ToJSON CleanupPolicy where
+  toJSON policy = String $ case policy of
+    CleanupPolicyDelete  -> "delete"
+    CleanupPolicyCompact -> "compact"
+
+instance FromJSON CleanupPolicy where
+  parseJSON strategy = case strategy of
+    "delete"  -> return CleanupPolicyDelete
+    "compact" -> return CleanupPolicyCompact
+    invalid   -> typeMismatch "CleanupPolicy" invalid
+
 -- | Type for a partitioning key field.
 
 newtype PartitionKeyField = PartitionKeyField { unPartitionKeyField :: Text }
@@ -828,6 +846,7 @@ data EventType = EventType
   , _compatibilityMode    :: Maybe CompatibilityMode
   , _schema               :: EventTypeSchema
   , _partitionKeyFields   :: Maybe [PartitionKeyField]
+  , _cleanupPolicy        :: Maybe CleanupPolicy
   , _defaultStatistic     :: Maybe EventTypeStatistics
   , _options              :: Maybe EventTypeOptions
   } deriving (Show, Generic, Eq, Ord, Hashable)

@@ -61,6 +61,7 @@ myEventType = EventType
   , _partitionStrategy    = Just "hash"
   , _compatibilityMode    = Just CompatibilityModeForward
   , _partitionKeyFields   = Just ["fortune"]
+  , _cleanupPolicy        = Just CleanupPolicyDelete
   , _schema               = myEventTypeSchema
   , _defaultStatistic     = Just EventTypeStatistics
     { _messagesPerMinute = 1000

@@ -62,6 +62,7 @@ module Network.Nakadi.Types.Service
   , PartitionStrategy(..)
   , EnrichmentStrategy(..)
   , CompatibilityMode(..)
+  , CleanupPolicy(..)
   , PartitionKeyField(..)
   , EventType(..)
   , DataChangeEvent(..)
