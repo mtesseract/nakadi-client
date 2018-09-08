@@ -41,6 +41,7 @@ eventTypeA = EventType
   , _enrichmentStrategies = Just [EnrichmentStrategyMetadata]
   , _partitionStrategy    = Nothing
   , _compatibilityMode    = Nothing
+  , _cleanupPolicy        = Nothing
   , _schema               = EventTypeSchema
     { _version    = Nothing
     , _createdAt  = Nothing
@@ -70,10 +71,11 @@ genBusinessEventA = do
   pure BusinessEvent
     { _payload  = payload
     , _metadata = EventMetadata
-      { _eid        = eid
-      , _occurredAt = timestamp
-      , _parentEids = Nothing
-      , _partition  = Nothing
+      { _eid                    = eid
+      , _occurredAt             = timestamp
+      , _parentEids             = Nothing
+      , _partition              = Nothing
+      , _partitionCompactionKey = Nothing
       }
     }
 

@@ -85,6 +85,21 @@ instance FromJSON PartitionName where
   parseJSON (String name) = return $ PartitionName name
   parseJSON invalid       = typeMismatch "PartitionName" invalid
 
+-- | Type for partition compaction keys.
+newtype PartitionCompactionKey = PartitionCompactionKey
+  { unPartitionCompactionKey :: Text -- ^ Wrapped Partition Compaction Key
+  } deriving (Eq, Show, Generic, Ord, Hashable)
+
+instance IsString PartitionCompactionKey where
+  fromString = PartitionCompactionKey . Text.pack
+
+instance ToJSON PartitionCompactionKey where
+  toJSON = String . unPartitionCompactionKey 
+
+instance FromJSON PartitionCompactionKey where
+  parseJSON (String name) = return $ PartitionCompactionKey name
+  parseJSON invalid       = typeMismatch "PartitionCompactionKey" invalid
+
 -- | Type for cursor tokens.
 
 newtype CursorToken = CursorToken Text deriving (Eq, Show, Ord)
@@ -768,6 +783,24 @@ instance FromJSON CompatibilityMode where
     "none"       -> return CompatibilityModeNone
     invalid      -> typeMismatch "CompatibilityMode" invalid
 
+
+-- | Type for cleanup policy.
+
+data CleanupPolicy = CleanupPolicyDelete
+                   | CleanupPolicyCompact
+                   deriving (Show, Eq, Ord, Generic, Hashable)
+
+instance ToJSON CleanupPolicy where
+  toJSON policy = String $ case policy of
+    CleanupPolicyDelete  -> "delete"
+    CleanupPolicyCompact -> "compact"
+
+instance FromJSON CleanupPolicy where
+  parseJSON strategy = case strategy of
+    "delete"  -> return CleanupPolicyDelete
+    "compact" -> return CleanupPolicyCompact
+    invalid   -> typeMismatch "CleanupPolicy" invalid
+
 -- | Type for a partitioning key field.
 
 newtype PartitionKeyField = PartitionKeyField { unPartitionKeyField :: Text }
@@ -813,6 +846,7 @@ data EventType = EventType
   , _compatibilityMode    :: Maybe CompatibilityMode
   , _schema               :: EventTypeSchema
   , _partitionKeyFields   :: Maybe [PartitionKeyField]
+  , _cleanupPolicy        :: Maybe CleanupPolicy
   , _defaultStatistic     :: Maybe EventTypeStatistics
   , _options              :: Maybe EventTypeOptions
   } deriving (Show, Generic, Eq, Ord, Hashable)
@@ -822,10 +856,11 @@ deriveJSON nakadiJsonOptions ''EventType
 -- | Type of published event metadata values.
 
 data EventMetadata = EventMetadata
-  { _eid        :: EventId
-  , _occurredAt :: Timestamp
-  , _parentEids :: Maybe [EventId]
-  , _partition  :: Maybe PartitionName
+  { _eid                    :: EventId
+  , _occurredAt             :: Timestamp
+  , _parentEids             :: Maybe [EventId]
+  , _partition              :: Maybe PartitionName
+  , _partitionCompactionKey :: Maybe PartitionCompactionKey
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''EventMetadata
@@ -833,14 +868,15 @@ deriveJSON nakadiJsonOptions ''EventMetadata
 -- | Type of event metadata enriched by Nakadi
 
 data EventMetadataEnriched = EventMetadataEnriched
-  { _eid        :: EventId
-  , _eventType  :: EventTypeName
-  , _occurredAt :: Timestamp
-  , _receivedAt :: Timestamp
-  , _version    :: SchemaVersion
-  , _parentEids :: Maybe [EventId]
-  , _flowId     :: Maybe FlowId
-  , _partition  :: Maybe PartitionName
+  { _eid                    :: EventId
+  , _eventType              :: EventTypeName
+  , _occurredAt             :: Timestamp
+  , _receivedAt             :: Timestamp
+  , _version                :: SchemaVersion
+  , _parentEids             :: Maybe [EventId]
+  , _flowId                 :: Maybe FlowId
+  , _partition              :: Maybe PartitionName
+  , _partitionCompactionKey :: Maybe PartitionCompactionKey
   } deriving (Eq, Show, Generic)
 
 deriveJSON nakadiJsonOptions ''EventMetadataEnriched
