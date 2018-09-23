@@ -38,7 +38,7 @@ before_install:
 
 install:
 # Build dependencies
-- stack --no-terminal --install-ghc test --only-dependencies
+- stack --no-terminal --install-ghc build --test --haddock --only-dependencies
 
 before_script:
 - (cd $HOME/nakadi; TERM=dumb ./gradlew startNakadi)
