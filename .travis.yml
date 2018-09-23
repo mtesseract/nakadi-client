@@ -47,5 +47,4 @@ after_script:
 - (cd $HOME/nakadi; TERM=dumb ./gradlew stopNakadi)
 
 script:
-- TEST_NAKADI_ENDPOINT=http://localhost:8080/ stack --no-terminal test --flag nakadi-client:devel
-- stack --no-terminal haddock
+- TEST_NAKADI_ENDPOINT=http://localhost:8080/ stack --no-terminal build --test --haddock --flag nakadi-client:devel
