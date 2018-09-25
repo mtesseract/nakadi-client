@@ -48,6 +48,6 @@ committerTimeBuffer millis eventStream queue = do
       commitAllCursors identity eventStream cursorsMap
  where -- The cursorsConsumer drains the cursors queue and adds each
        -- cursor to the provided cursorsMap.
-  cursorConsumer cursorsMap = forever . liftIO . atomically $ do
-    (_, cursor) <- readTBQueue queue
-    modifyTVar cursorsMap (HashMap.insert (cursorKey cursor) cursor)
+   cursorConsumer cursorsMap = forever . liftIO . atomically $ do
+     (_, cursor) <- readTBQueue queue
+     modifyTVar cursorsMap (HashMap.insert (cursorKey cursor) cursor)
