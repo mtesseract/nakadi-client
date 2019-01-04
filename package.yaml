@@ -1,12 +1,12 @@
 name: nakadi-client
-version: '0.6.1.0'
+version: '0.6.2.0'
 synopsis: Client library for the Nakadi Event Broker
 description: This package implements a client library for interacting
              with the Nakadi event broker system developed by Zalando.
 category: Network
 author: Moritz Clasmeier
 maintainer: mtesseract@silverratio.net
-copyright: (c) 2017, 2018 Moritz Clasmeier
+copyright: (c) 2017, 2018, 2019 Moritz Clasmeier
 license: BSD3
 github: mtesseract/nakadi-haskell
 homepage: http://nakadi-client.haskell.silverratio.net

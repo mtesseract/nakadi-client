@@ -47,6 +47,7 @@ data Config m =
          , _httpErrorCallback              :: Maybe (HttpErrorCallback m)
          , _flowId                         :: Maybe FlowId
          , _commitStrategy                 :: CommitStrategy
+         , _commitTimeout                  :: Maybe CommitTimeout
          , _subscriptionStats              :: Maybe SubscriptionStatsConf
          , _maxUncommittedEvents           :: Maybe Int32
          , _batchLimit                     :: Maybe Int32
