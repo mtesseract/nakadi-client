@@ -14,6 +14,9 @@ sudo: true
 # Do not choose a language; we provide our own build tools.
 language: generic
 
+env:
+  - DOCKER_COMPOSE_VERSION=1.23.2
+
 # Caching so the next build will be fast too.
 cache:
   directories:
@@ -28,6 +31,11 @@ addons:
       - libgmp-dev
 
 before_install:
+# Install more recent docker-compose
+- sudo rm /usr/local/bin/docker-compose
+- curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
+- chmod +x docker-compose
+- sudo mv docker-compose /usr/local/bin
 - if test -e $HOME/nakadi/.git; then (cd $HOME/nakadi && git pull); else git clone https://github.com/zalando/nakadi.git $HOME/nakadi; fi
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
