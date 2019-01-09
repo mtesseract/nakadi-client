@@ -11,9 +11,10 @@ import           Data.Aeson
 import           Network.Nakadi.Types.Service
 import           Data.Aeson.QQ
 import Data.Maybe (fromJust)
+import Network.Nakadi.Internal.Types.Problem.Test
 
 testTypes :: TestTree
-testTypes = testGroup "Types" [testService]
+testTypes = testGroup "Types" [testService, testProblem]
 
 testService :: TestTree
 testService = testGroup
