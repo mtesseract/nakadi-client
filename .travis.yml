@@ -46,7 +46,7 @@ before_install:
 
 install:
 # Build dependencies
-- stack --no-terminal --install-ghc build --test --haddock --only-dependencies
+- stack --no-terminal --install-ghc build --test --only-dependencies
 
 before_script:
 - (cd $HOME/nakadi; TERM=dumb ./gradlew startNakadi)
@@ -55,4 +55,4 @@ after_script:
 - (cd $HOME/nakadi; TERM=dumb ./gradlew stopNakadi)
 
 script:
-- TEST_NAKADI_ENDPOINT=http://localhost:8080/ stack --no-terminal build --test --haddock --flag nakadi-client:devel
+- TEST_NAKADI_ENDPOINT=http://localhost:8080/ stack --no-terminal build --test --haddock --no-haddock-deps --flag nakadi-client:devel

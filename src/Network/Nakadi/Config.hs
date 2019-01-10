@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Config
 Description : Nakadi Client Configuration
-Copyright   : (c) Moritz Clasmeier 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018, 2019
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -32,6 +32,7 @@ module Network.Nakadi.Config
   , setStreamKeepAliveLimit
   , setFlowId
   , setCommitStrategy
+  , setCommitTimeout
   , setShowTimeLag
   )
 where
@@ -114,6 +115,9 @@ setFlowId = (L.flowId ?~)
 setCommitStrategy :: CommitStrategy -> Config m -> Config m
 setCommitStrategy = (L.commitStrategy .~)
 
+setCommitTimeout :: CommitTimeout -> Config m -> Config m
+setCommitTimeout = (L.commitTimeout ?~)
+
 -- | Set number of worker threads that should be spawned on
 -- subscription consumption. The (per event-type) partitions of the
 -- subscription to be consumed will then be mapped onto this finite
@@ -146,4 +150,4 @@ setStreamKeepAliveLimit :: Int32 -> Config m -> Config m
 setStreamKeepAliveLimit = (L.streamKeepAliveLimit ?~)
 
 setShowTimeLag :: Bool -> Config m -> Config m
-setShowTimeLag flag = L.subscriptionStats ?~ SubscriptionStatsConf {_showTimeLag = flag}
+setShowTimeLag flag = L.subscriptionStats ?~ SubscriptionStatsConf { _showTimeLag = flag }

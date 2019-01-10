@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Types.Subscriptions
 Description : Nakadi Service Types
-Copyright   : (c) Moritz Clasmeier 2018
+Copyright   : (c) Moritz Clasmeier 2018, 2019
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -14,7 +14,9 @@ subscriptions, which are not modelled after the Nakadi API.
 module Network.Nakadi.Internal.Types.Subscriptions where
 
 import           Data.Int
-
+import           Data.Eq                        ( Eq )
+import           Data.Ord                       ( Ord )
+import           Prelude                        ( Show )
 
 -- | This type encodes the supported strategies for subscription
 -- cursor committing.
@@ -38,3 +40,7 @@ data CommitBufferingStrategy
                            -- number of events processed since the
                            -- last commit crosses a threshold derived
                            -- from @maxUncommittedEvents@.
+
+-- | This type is used for specifying subscription commit timeouts in seconds.
+newtype CommitTimeout = CommitTimeout { unCommitTimeout :: Int32 }
+  deriving (Eq, Ord, Show)

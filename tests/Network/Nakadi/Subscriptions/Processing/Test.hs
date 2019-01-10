@@ -21,7 +21,9 @@ import           Test.Tasty.HUnit
 testSubscriptionsProcessing :: Config App -> TestTree
 testSubscriptionsProcessing confTemplate =
   let mkConf commitStrategy nWorkers =
-        confTemplate & setCommitStrategy commitStrategy & setWorkerThreads nWorkers
+        confTemplate
+        & setCommitStrategy commitStrategy & setWorkerThreads nWorkers
+        & setCommitTimeout (CommitTimeout 10)
   in  testGroup
         "Processing"
         [ testCase "SubscriptionProcessing/async/TimeBuffer/singleWorker"

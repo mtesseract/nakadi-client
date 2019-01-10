@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Types.Subscriptions
 Description : Nakadi Service Subscription Types
-Copyright   : (c) Moritz Clasmeier 2018
+Copyright   : (c) Moritz Clasmeier 2018, 2019
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -14,6 +14,8 @@ subscriptions, which are not modelled after the Nakadi API.
 module Network.Nakadi.Types.Subscriptions
   ( CommitStrategy(..)
   , CommitBufferingStrategy(..)
-  ) where
+  , CommitTimeout(..)
+  )
+where
 
 import           Network.Nakadi.Internal.Types.Subscriptions

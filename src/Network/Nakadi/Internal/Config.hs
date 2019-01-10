@@ -1,7 +1,7 @@
 {-|
 Module      : Network.Nakadi.Internal.Config
 Description : Nakadi Client Configuration (Internal)
-Copyright   : (c) Moritz Clasmeier 2017, 2018
+Copyright   : (c) Moritz Clasmeier 2017, 2018, 2019
 License     : BSD3
 Maintainer  : mtesseract@silverratio.net
 Stability   : experimental
@@ -33,6 +33,7 @@ buildConsumeQueryParameters Config {..} = catMaybes
   , ("stream_timeout", ) . encodeUtf8 . tshow <$> _streamTimeout
   , ("max_uncommitted_events", ) . encodeUtf8 . tshow <$> _maxUncommittedEvents
   , ("stream_keep_alive_limit", ) . encodeUtf8 . tshow <$> _streamKeepAliveLimit
+  , ("commit_timeout", ) . encodeUtf8 . tshow . unCommitTimeout <$> _commitTimeout
   ]
 
 newConfigFromEnv :: (MonadIO m, MonadThrow m, MonadMask b, MonadIO b) => m (Config b)
@@ -50,7 +51,7 @@ defaultCommitStrategy = CommitSync
 
 -- | Default worker configuration. This specifies single-threaded consumption of subscriptions.
 defaultWorkerConfig :: WorkerConfig
-defaultWorkerConfig = WorkerConfig {_nThreads = 1}
+defaultWorkerConfig = WorkerConfig { _nThreads = 1 }
 
 -- | Producs a new configuration, with mandatory HTTP manager, default
 -- consumption parameters and HTTP request template.
@@ -59,24 +60,24 @@ newConfig
   => HttpBackend b
   -> Request           -- ^ Request Template
   -> Config b          -- ^ Resulting Configuration
-newConfig httpBackend request = Config
-  { _manager                        = Nothing
-  , _requestTemplate                = request
-  , _requestModifier                = pure
-  , _deserializationFailureCallback = Nothing
-  , _streamConnectCallback          = Nothing
-  , _logFunc                        = Nothing
-  , _retryPolicy                    = defaultRetryPolicy
-  , _http                           = httpBackend
-  , _httpErrorCallback              = Nothing
-  , _flowId                         = Nothing
-  , _commitStrategy                 = defaultCommitStrategy
-  , _subscriptionStats              = Nothing
-  , _maxUncommittedEvents           = Nothing
-  , _batchLimit                     = Nothing
-  , _streamLimit                    = Nothing
-  , _batchFlushTimeout              = Nothing
-  , _streamTimeout                  = Nothing
-  , _streamKeepAliveLimit           = Nothing
-  , _worker                         = defaultWorkerConfig
-  }
+newConfig httpBackend request = Config { _manager                        = Nothing
+                                       , _requestTemplate                = request
+                                       , _requestModifier                = pure
+                                       , _deserializationFailureCallback = Nothing
+                                       , _streamConnectCallback          = Nothing
+                                       , _logFunc                        = Nothing
+                                       , _retryPolicy                    = defaultRetryPolicy
+                                       , _http                           = httpBackend
+                                       , _httpErrorCallback              = Nothing
+                                       , _flowId                         = Nothing
+                                       , _commitStrategy                 = defaultCommitStrategy
+                                       , _commitTimeout                  = Nothing
+                                       , _subscriptionStats              = Nothing
+                                       , _maxUncommittedEvents           = Nothing
+                                       , _batchLimit                     = Nothing
+                                       , _streamLimit                    = Nothing
+                                       , _batchFlushTimeout              = Nothing
+                                       , _streamTimeout                  = Nothing
+                                       , _streamKeepAliveLimit           = Nothing
+                                       , _worker                         = defaultWorkerConfig
+                                       }
