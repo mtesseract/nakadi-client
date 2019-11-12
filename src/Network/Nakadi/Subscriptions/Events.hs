@@ -77,7 +77,7 @@ subscriptionProcess
   :: (MonadNakadi b m, MonadUnliftIO m, MonadMask m, MonadResource m, FromJSON a)
   => SubscriptionId                           -- ^ Subscription to consume
   -> (SubscriptionEventStreamBatch a -> m ()) -- ^ Batch processor action
-  -> m ()
+  -> m Void
 subscriptionProcess subscriptionId processor = subscriptionProcessConduit subscriptionId conduit
   where conduit = iterMC processor
 
@@ -96,7 +96,7 @@ subscriptionProcessConduit
      )
   => SubscriptionId            -- ^ Subscription to consume
   -> ConduitM batch batch m () -- ^ Conduit processor.
-  -> m ()
+  -> m Void
 subscriptionProcessConduit subscriptionId processor = do
   config <- nakadiAsk
   let queryParams = buildConsumeQueryParameters config
@@ -134,7 +134,7 @@ subscriptionProcessHandler
   => SubscriptionId                         -- ^ Subscription ID required for committing.
   -> ConduitM batch batch m ()              -- ^ User provided Conduit for stream.
   -> Response (ConduitM () ByteString m ()) -- ^ Streaming response from Nakadi
-  -> m ()
+  -> m Void
 subscriptionProcessHandler subscriptionId processor response = do
   config <- nakadiAsk
   let nWorkers = config ^. L.worker . L.nThreads
@@ -147,6 +147,7 @@ subscriptionProcessHandler subscriptionId processor response = do
     .| conduitDecode
     .| mapC (identity :: batch -> batch)
     .| workerDispatchSink workerRegistry
+  throwM ConsumptionStoppedException
 
 -- | Experimental API.
 --
