@@ -1,5 +1,11 @@
 # Nakadi-Client Change Log
 
+## v0.8.0.0
+
+* Connections closed by Nakadi will throw a `ConsumptionInterrupted`.
+
+* Subscription related functions (e.g. `subscriptionProcess`) have `Void` return types to signal that they are not expected to terminate.
+
 ## v0.6.0.0
 
 * Nakadi *business events* are supported.
