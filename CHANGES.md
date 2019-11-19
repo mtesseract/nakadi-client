@@ -6,6 +6,8 @@
 
 * Subscription related functions (e.g. `subscriptionProcess`) have `Void` return types to signal that they are not expected to terminate.
 
+* `streamLimit` config option is no longer supported as it no longer makes sense with the above changes.
+
 ## v0.6.0.0
 
 * Nakadi *business events* are supported.

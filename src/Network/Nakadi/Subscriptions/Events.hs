@@ -162,10 +162,9 @@ subscriptionSource
   -> ConduitM () (SubscriptionEventStreamBatch a) m () -- ^ Conduit source.
 subscriptionSource subscriptionId = do
   UnliftIO {..}              <- lift askUnliftIO
-  streamLimit                <- lift nakadiAsk <&> (fmap fromIntegral . view L.streamLimit)
   queue                      <- atomically $ newTBMQueue queueSize
   (_releaseKey, asyncHandle) <- allocate
-    (unliftIO (async (subscriptionConsumer streamLimit queue)))
+    (unliftIO (async (subscriptionConsumer queue)))
     cancel
   link asyncHandle
   drain queue
@@ -175,16 +174,10 @@ subscriptionSource subscriptionId = do
     Just a  -> yield a >> drain queue
     Nothing -> pure ()
 
-  subscriptionConsumer :: Maybe Int -> TBMQueue (SubscriptionEventStreamBatch a) -> m ()
-  subscriptionConsumer maybeStreamLimit queue = go `finally` atomically (closeTBMQueue queue)
+  subscriptionConsumer :: TBMQueue (SubscriptionEventStreamBatch a) -> m Void
+  subscriptionConsumer queue = go `finally` atomically (closeTBMQueue queue)
    where
-    go = do
-      subscriptionProcess subscriptionId (void . atomically . writeTBMQueue queue)
-      -- We only reconnect automatically when no stream limit is set.
-      -- This effectively means that we don't try to reach @streamLimit@ events exactly.
-      -- We simply regard @streamLimit@ as an upper bound and in case Nakadi disconnects us
-      -- earlier or the connection breaks, we produce less than @streamLimit@ events.
-      when (isNothing maybeStreamLimit) go
+    go = subscriptionProcess subscriptionId (void . atomically . writeTBMQueue queue)
 
 -- | Experimental API.
 --

@@ -26,7 +26,6 @@ module Network.Nakadi.Config
   , setWorkerThreads
   , setMaxUncommittedEvents
   , setBatchLimit
-  , setStreamLimit
   , setBatchFlushTimeout
   , setStreamTimeout
   , setStreamKeepAliveLimit
@@ -132,10 +131,6 @@ setMaxUncommittedEvents = (L.maxUncommittedEvents ?~)
 -- | Set batch limit.
 setBatchLimit :: Int32 -> Config m -> Config m
 setBatchLimit = (L.batchLimit ?~)
-
--- | Set stream limit.
-setStreamLimit :: Int32 -> Config m -> Config m
-setStreamLimit = (L.streamLimit ?~)
 
 -- | Set batch-flush-timeout limit.
 setBatchFlushTimeout :: Int32 -> Config m -> Config m

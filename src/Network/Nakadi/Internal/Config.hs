@@ -28,7 +28,6 @@ import           Network.Nakadi.Internal.Types
 buildConsumeQueryParameters :: Config m -> [(ByteString, ByteString)]
 buildConsumeQueryParameters Config {..} = catMaybes
   [ ("batch_limit", ) . encodeUtf8 . tshow <$> _batchLimit
-  , ("stream_limit", ) . encodeUtf8 . tshow <$> _streamLimit
   , ("batch_flush_timeout", ) . encodeUtf8 . tshow <$> _batchFlushTimeout
   , ("stream_timeout", ) . encodeUtf8 . tshow <$> _streamTimeout
   , ("max_uncommitted_events", ) . encodeUtf8 . tshow <$> _maxUncommittedEvents
@@ -75,7 +74,6 @@ newConfig httpBackend request = Config { _manager                        = Nothi
                                        , _subscriptionStats              = Nothing
                                        , _maxUncommittedEvents           = Nothing
                                        , _batchLimit                     = Nothing
-                                       , _streamLimit                    = Nothing
                                        , _batchFlushTimeout              = Nothing
                                        , _streamTimeout                  = Nothing
                                        , _streamKeepAliveLimit           = Nothing

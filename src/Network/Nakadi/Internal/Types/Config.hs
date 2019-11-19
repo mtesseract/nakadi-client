@@ -51,7 +51,6 @@ data Config m =
          , _subscriptionStats              :: Maybe SubscriptionStatsConf
          , _maxUncommittedEvents           :: Maybe Int32
          , _batchLimit                     :: Maybe Int32
-         , _streamLimit                    :: Maybe Int32
          , _batchFlushTimeout              :: Maybe Int32
          , _streamTimeout                  :: Maybe Int32
          , _streamKeepAliveLimit           :: Maybe Int32
