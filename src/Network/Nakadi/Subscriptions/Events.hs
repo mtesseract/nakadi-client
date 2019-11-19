@@ -147,7 +147,7 @@ subscriptionProcessHandler subscriptionId processor response = do
     .| conduitDecode
     .| mapC (identity :: batch -> batch)
     .| workerDispatchSink workerRegistry
-  throwM ConsumptionStoppedException
+  throwM ConsumptionInterrupted
 
 -- | Experimental API.
 --

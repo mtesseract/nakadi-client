@@ -41,7 +41,7 @@ data NakadiException = BatchPartiallySubmitted [BatchItemResponse]
                      | StreamIdMissing
                      | NakadiUrlMissing
                      | ConfigurationMissing
-                     | ConsumptionStoppedException -- ^ is thrown when Nakadi closes the connection. Once you start consuming an event/subscription it should not terminate, but Nakadi will occasionally close the connection.
+                     | ConsumptionInterrupted -- ^ Thrown when Nakadi closes the connection. Once you start consuming an event/subscription it should not terminate, but Nakadi will occasionally close the connection.
                      deriving (Show, Typeable)
 
 instance Exception NakadiException
