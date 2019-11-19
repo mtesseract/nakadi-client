@@ -7,6 +7,7 @@ where
 
 import           ClassyPrelude
 import           Data.Aeson
+import           Data.Void
 import qualified Network.Nakadi                as Nakadi
 import           Network.Nakadi                 ( MonadNakadi )
 import           Control.Monad.Logger
@@ -16,7 +17,7 @@ import           Control.Monad.Trans.Resource
 dumpSubscription
   :: (MonadLogger m, MonadNakadi IO m, MonadUnliftIO m, MonadMask m)
   => Nakadi.SubscriptionId
-  -> m ()
+  -> m Void
 dumpSubscription subscriptionId = runResourceT
   $ Nakadi.subscriptionProcess subscriptionId processBatch
  where

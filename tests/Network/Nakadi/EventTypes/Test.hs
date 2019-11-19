@@ -10,6 +10,7 @@ import           ClassyPrelude           hiding ( withAsync )
 
 import           Control.Lens
 import           Data.Function                  ( (&) )
+import           Data.Void
 import           Network.Nakadi
 import           Network.Nakadi.EventTypes.CursorsLag.Test
 import           Network.Nakadi.EventTypes.ShiftedCursors.Test
@@ -198,7 +199,7 @@ testEventTypeDeserializationFailureException conf' = runApp . runNakadiT conf $ 
         , _dataOp   = DataOpUpdate
         }
   subscriptionId                   <- createMySubscription
-  res :: Either NakadiException () <-
+  res :: Either NakadiException Void <-
     try $ withAsync (delayedPublish Nothing [event]) $ \asyncHandle -> do
       liftIO $ link asyncHandle
       runResourceT

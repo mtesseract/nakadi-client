@@ -12,6 +12,7 @@ import           Control.Lens
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Resource
 import           Data.Aeson
+import           Data.Void
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses         as L
 import           Network.Nakadi.Tests.Common
@@ -56,7 +57,7 @@ testSubscriptionHighLevelProcessing conf' = runApp $ do
   runNakadiT (conf & setLogFunc logFunc) $ do
     counter <- newIORef 0
     events  <- mapM genMyDataChangeEventIdx [1 .. nEvents] :: NakadiT App App [DataChangeEvent Foo]
-    publishAndConsume events counter `catch` \(_exn :: ConsumptionDone) -> pure ()
+    vacuous (publishAndConsume events counter) `catch` \(_exn :: ConsumptionDone) -> pure ()
     eventsRead <- readIORef counter
     liftIO $ nEvents @=? eventsRead
  where
@@ -80,16 +81,15 @@ testSubscriptionHighLevelProcessing conf' = runApp $ do
   nEvents = 10000
 
   publishAndConsume
-    :: (ToJSON a, FromJSON a, Show a) => [DataChangeEvent a] -> IORef Int -> NakadiT App App ()
+    :: (ToJSON a, FromJSON a, Show a) => [DataChangeEvent a] -> IORef Int -> NakadiT App App Void
   publishAndConsume events counter = bracket before after $ \subscriptionId -> do
     let n = length events
     publisherHandle <- async $ delayedPublish Nothing events
     liftIO $ linkAsync publisherHandle
-    forever . runResourceT $ do
+    runResourceT $ do
       subscriptionProcess subscriptionId
         $ \(batch :: SubscriptionEventStreamBatch (DataChangeEvent Foo)) -> do
             let eventsReceived = fromMaybe mempty (batch ^. L.events)
             modifyIORef counter (+ length eventsReceived)
             eventsRead <- readIORef counter
             when (n <= eventsRead) $ throwIO ConsumptionDone
-      putStrLn "Subscription Processing terminated, will restart."

@@ -127,7 +127,7 @@ publishAndConsume conf' eventSpec =
         liftIO
           $   map (eventPayload eventSpec)         events
           @=? map (eventEnrichedPayload eventSpec) consumed
-  where conf = conf' & setBatchFlushTimeout 1 & setStreamLimit 10
+  where conf = conf' & setBatchFlushTimeout 1
 
 createAndDeleteEvent :: Config App -> EventSpec a b c -> Assertion
 createAndDeleteEvent conf eventSpec =
