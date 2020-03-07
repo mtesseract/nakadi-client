@@ -9,7 +9,6 @@ module Network.Nakadi.EventTypes.Test where
 import           ClassyPrelude           hiding ( withAsync )
 
 import           Control.Lens
-import           Data.Function                  ( (&) )
 import           Network.Nakadi
 import           Network.Nakadi.EventTypes.CursorsLag.Test
 import           Network.Nakadi.EventTypes.ShiftedCursors.Test

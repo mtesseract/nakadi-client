@@ -24,7 +24,6 @@ module Network.Nakadi.Internal.Lenses where
 import           Network.Nakadi.Internal.Prelude
 
 import           Control.Lens
-import           Data.Text                      ( Text )
 import           Data.Time.Clock
 import           Data.UUID                      ( UUID )
 import           Network.Nakadi.Internal.TH

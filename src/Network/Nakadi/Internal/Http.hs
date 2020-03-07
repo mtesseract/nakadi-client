@@ -48,13 +48,11 @@ import           Network.Nakadi.Internal.Prelude
 import           Conduit                 hiding ( throwM )
 import           Control.Arrow
 import           Control.Lens
-import           Control.Monad                  ( void )
 import           Data.Aeson
 import qualified Data.ByteString.Lazy          as ByteString.Lazy
 import qualified Data.ByteString.Lazy          as LB
 import qualified Data.Text                     as Text
 import           Network.HTTP.Client            ( BodyReader
-                                                , HttpException(..)
                                                 , HttpExceptionContent(..)
                                                 , Manager
                                                 , checkResponse

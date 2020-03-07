@@ -15,7 +15,7 @@ import           Data.Aeson
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses         as L
 import           Network.Nakadi.Tests.Common
-import           Test.Tasty
+import           Test.Tasty hiding (after)
 import           Test.Tasty.HUnit
 
 testSubscriptionsProcessing :: Config App -> TestTree

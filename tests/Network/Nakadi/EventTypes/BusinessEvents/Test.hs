@@ -5,7 +5,6 @@
 module Network.Nakadi.EventTypes.BusinessEvents.Test where
 
 import           ClassyPrelude
-import           Data.Function                  ( (&) )
 import           Network.Nakadi
 import qualified Network.Nakadi.Lenses         as L
 import           Network.Nakadi.Tests.Common

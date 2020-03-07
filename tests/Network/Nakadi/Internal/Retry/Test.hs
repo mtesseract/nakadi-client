@@ -10,7 +10,7 @@ import           Control.Retry
 import qualified Data.ByteString.Lazy          as LB
 import           Data.Function                 ((&))
 import           Network.HTTP.Client
-import           Network.HTTP.Client.Internal  (CookieJar (..), Request (..),
+import           Network.HTTP.Client.Internal  (CookieJar (..),
                                                 Response (..),
                                                 ResponseClose (..))
 import           Network.HTTP.Types

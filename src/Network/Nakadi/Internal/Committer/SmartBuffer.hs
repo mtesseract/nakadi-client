@@ -24,7 +24,6 @@ import qualified Data.HashMap.Strict           as HashMap
 
 import           Control.Concurrent.STM         ( retry )
 import           Control.Lens
-import           Data.Function                  ( (&) )
 
 import           Network.Nakadi.Internal.Committer.Shared
 import qualified Network.Nakadi.Internal.Lenses
