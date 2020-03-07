@@ -125,6 +125,8 @@ instance (Monad m) => Monad (NakadiT b m) where
   {-# INLINE (>>=) #-}
   (>>) = (*>)
   {-# INLINE (>>) #-}
+
+instance MonadFail m => MonadFail (NakadiT b m) where
   fail msg = lift (fail msg)
   {-# INLINE fail #-}
 

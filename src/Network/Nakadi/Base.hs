@@ -1,7 +1,6 @@
 module Network.Nakadi.Base
   ( NakadiBaseT(..)
   , MonadNakadiBase(..)
-  , runNakadiBaseT
   , runNakadiWithBase
   ) where
 

@@ -1,5 +1,9 @@
 # Nakadi-Client Change Log
 
+## v0.8.0.0
+
+* Support GHC 8.8 (MonadFail instance for NakadiT).
+
 ## v0.6.0.0
 
 * Nakadi *business events* are supported.

@@ -17,8 +17,7 @@ module Network.Nakadi.Internal.HttpBackendIO where
 import           Control.Lens                         ((<&>))
 import qualified Data.ByteString.Lazy                 as LB
 import           Data.Conduit                         (ConduitM, transPipe)
-import           Network.HTTP.Client                  (Manager, Request,
-                                                       Response)
+import           Network.HTTP.Client                  (Manager)
 import qualified Network.HTTP.Client                  as HTTP (httpLbs,
                                                                responseClose,
                                                                responseOpen)

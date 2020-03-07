@@ -20,7 +20,6 @@ import qualified Network.Nakadi.Lenses         as L
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import qualified Data.Map                      as Map
-import           Control.Monad.Trans.Resource   ( runResourceT )
 import           Prelude                        ( read )
 import qualified Data.Text                     as Text
 import qualified Data.UUID as UUID
