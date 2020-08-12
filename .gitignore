@@ -18,7 +18,6 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 TAGS
-nakadi-client.cabal
 .idea
 out
 *.iml
